@@ -4709,6 +4709,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Remember credentials and auto-fill on login';
 
   @override
+  String get preferences_clipboardTopicLinkDetection =>
+      'Detect clipboard topic links';
+
+  @override
+  String get preferences_clipboardTopicLinkDetectionDesc =>
+      'Check for Linux.do topic links in the clipboard when returning to the app and ask before opening';
+
+  @override
+  String get clipboardTopicLink_detected => 'Topic link found in clipboard';
+
+  @override
+  String get clipboardTopicLink_open => 'Open';
+
+  @override
   String get preferences_autoPanguSpacing => 'Auto CJK spacing';
 
   @override

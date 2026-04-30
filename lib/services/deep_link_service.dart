@@ -62,6 +62,11 @@ class DeepLinkService {
     }
   }
 
+  /// 处理已验证的外部或应用内链接，供剪贴板等入口复用
+  void handleUri(Uri uri) {
+    _handleLink(uri);
+  }
+
   /// 处理链接
   void _handleLink(Uri uri) {
     if (_navigatorContext == null) {
@@ -118,7 +123,8 @@ class DeepLinkService {
     }
 
     // 邮箱链接登录：/session/email-login/{token}
-    if (uri.host == 'linux.do' && uri.path.startsWith('/session/email-login/')) {
+    if (uri.host == 'linux.do' &&
+        uri.path.startsWith('/session/email-login/')) {
       _handleEmailLogin(context, url);
       return;
     }
@@ -192,9 +198,7 @@ class DeepLinkService {
   Future<void> _handleEmailLogin(BuildContext context, String url) async {
     debugPrint('DeepLinkService: 处理邮箱链接登录: $url');
     final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => WebViewLoginPage(initialUrl: url),
-      ),
+      MaterialPageRoute(builder: (_) => WebViewLoginPage(initialUrl: url)),
     );
     if (result == true) {
       onEmailLoginSuccess?.call();
@@ -211,10 +215,8 @@ class DeepLinkService {
       if (context.mounted) {
         Navigator.of(context).push(
           MaterialPageRoute(
-            builder: (_) => TopicDetailPage(
-              topicId: detail.id,
-              initialTitle: detail.title,
-            ),
+            builder: (_) =>
+                TopicDetailPage(topicId: detail.id, initialTitle: detail.title),
           ),
         );
       }

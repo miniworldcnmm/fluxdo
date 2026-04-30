@@ -4588,6 +4588,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get preferences_autoFillLoginDesc => '记住账号密码，登录时自动填充';
 
   @override
+  String get preferences_clipboardTopicLinkDetection => '自动识别剪贴板话题链接';
+
+  @override
+  String get preferences_clipboardTopicLinkDetectionDesc =>
+      '回到应用时检测剪贴板中的 Linux.do 话题链接，并在底部询问是否打开';
+
+  @override
+  String get clipboardTopicLink_detected => '检测到剪贴板中的话题链接';
+
+  @override
+  String get clipboardTopicLink_open => '打开';
+
+  @override
   String get preferences_autoPanguSpacing => '自动混排优化';
 
   @override
@@ -10498,6 +10511,19 @@ class AppLocalizationsZhHk extends AppLocalizationsZh {
   String get preferences_autoFillLoginDesc => '記住賬號密碼，登錄時自動填充';
 
   @override
+  String get preferences_clipboardTopicLinkDetection => '自動識別剪貼板話題鏈接';
+
+  @override
+  String get preferences_clipboardTopicLinkDetectionDesc =>
+      '回到應用時檢測剪貼板中的 Linux.do 話題鏈接，並在底部詢問是否打開';
+
+  @override
+  String get clipboardTopicLink_detected => '檢測到剪貼板中的話題鏈接';
+
+  @override
+  String get clipboardTopicLink_open => '打開';
+
+  @override
   String get preferences_autoPanguSpacing => '自動混排優化';
 
   @override
@@ -16282,6 +16308,19 @@ class AppLocalizationsZhTw extends AppLocalizationsZh {
 
   @override
   String get preferences_autoFillLoginDesc => '記住賬號密碼，登入時自動填充';
+
+  @override
+  String get preferences_clipboardTopicLinkDetection => '自動偵測剪貼簿話題連結';
+
+  @override
+  String get preferences_clipboardTopicLinkDetectionDesc =>
+      '回到應用時偵測剪貼簿中的 Linux.do 話題連結，並在底部詢問是否開啟';
+
+  @override
+  String get clipboardTopicLink_detected => '偵測到剪貼簿中的話題連結';
+
+  @override
+  String get clipboardTopicLink_open => '開啟';
 
   @override
   String get preferences_autoPanguSpacing => '自動混排最佳化';

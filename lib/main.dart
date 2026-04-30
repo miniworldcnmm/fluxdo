@@ -45,6 +45,7 @@ import 'services/cf_clearance_refresh_service.dart';
 import 'services/fingerprint_service.dart';
 import 'services/update_service.dart';
 import 'services/update_checker_helper.dart';
+import 'services/clipboard_topic_link_service.dart';
 import 'services/deep_link_service.dart';
 import 'services/background/background_notification_service.dart';
 import 'services/message_bus_service.dart';
@@ -135,8 +136,8 @@ Future<void> main() async {
       effect: Platform.isMacOS
           ? acrylic.WindowEffect.sidebar
           : Platform.isWindows
-              ? acrylic.WindowEffect.mica
-              : acrylic.WindowEffect.disabled,
+          ? acrylic.WindowEffect.mica
+          : acrylic.WindowEffect.disabled,
     );
     final isVisible = await windowManager.isVisible();
     await windowManager.setPreventClose(true);
@@ -178,11 +179,12 @@ Future<void> main() async {
   // WebView 适配器设置
   await WebViewAdapterSettingsService.instance.initialize(prefs);
   unawaited(
-    WebViewHttpAdapter()
-        .runStartupSessionCookieSelfCheckOnce()
-        .catchError((Object e, StackTrace _) {
-          debugPrint('[Main] WebView session cookie 自检失败: $e');
-        }),
+    WebViewHttpAdapter().runStartupSessionCookieSelfCheckOnce().catchError((
+      Object e,
+      StackTrace _,
+    ) {
+      debugPrint('[Main] WebView session cookie 自检失败: $e');
+    }),
   );
   try {
     final rhttp = await Future.any([
@@ -203,7 +205,8 @@ Future<void> main() async {
   HCaptchaAccessibilityService().initialize(prefs);
   CfClearanceRefreshService().initialize(prefs);
   try {
-    final initialConnectivity = await ConnectivityService.safeCheckConnectivity();
+    final initialConnectivity =
+        await ConnectivityService.safeCheckConnectivity();
     await VpnAutoToggleService.instance.syncInitialState(initialConnectivity);
   } catch (e) {
     debugPrint('[Main] 初始 VPN 状态同步失败: $e');
@@ -236,11 +239,14 @@ Future<void> main() async {
   // 提前触发预加载数据请求，与 runApp 并行执行
   // PreheatGate 中的 ensureLoaded() 会复用这个已在进行的请求
   unawaited(
-    PreloadedDataService().ensureLoaded().then((_) {
-      if (PreloadedDataService().currentUserSync != null) {
-        unawaited(FingerprintService.instance.collectAndReport());
-      }
-    }).catchError((Object _) {}),
+    PreloadedDataService()
+        .ensureLoaded()
+        .then((_) {
+          if (PreloadedDataService().currentUserSync != null) {
+            unawaited(FingerprintService.instance.collectAndReport());
+          }
+        })
+        .catchError((Object _) {}),
   );
 
   // 记录应用启动日志
@@ -424,8 +430,8 @@ class MainApp extends ConsumerWidget {
                 effect: Platform.isMacOS
                     ? acrylic.WindowEffect.sidebar
                     : Platform.isWindows
-                        ? acrylic.WindowEffect.mica
-                        : acrylic.WindowEffect.disabled,
+                    ? acrylic.WindowEffect.mica
+                    : acrylic.WindowEffect.disabled,
                 dark: isDark,
               );
               if (Platform.isMacOS) {
@@ -483,10 +489,7 @@ class MainPage extends ConsumerStatefulWidget {
   ConsumerState<MainPage> createState() => _MainPageState();
 }
 
-enum _AuthErrorDialogAction {
-  confirm,
-  clearData,
-}
+enum _AuthErrorDialogAction { confirm, clearData }
 
 class _MainPageState extends ConsumerState<MainPage>
     with WidgetsBindingObserver {
@@ -525,6 +528,7 @@ class _MainPageState extends ConsumerState<MainPage>
 
       // 初始化 Deep Link 服务
       DeepLinkService.instance.initialize(context);
+      _checkClipboardTopicLink();
 
       // 自动检查更新
       _autoCheckUpdate();
@@ -676,7 +680,8 @@ class _MainPageState extends ConsumerState<MainPage>
 
     final id = entry.id;
 
-    final isDoubleTap = hasDouble &&
+    final isDoubleTap =
+        hasDouble &&
         _lastTappedIndex == index &&
         _lastTapTime != null &&
         now.difference(_lastTapTime!).inMilliseconds < 300;
@@ -778,8 +783,39 @@ class _MainPageState extends ConsumerState<MainPage>
         ConnectivityService().check();
         // 恢复 cf_clearance 自动续期监控
         CfClearanceRefreshService().resume();
+        _checkClipboardTopicLink();
       });
     }
+  }
+
+  Future<void> _checkClipboardTopicLink() async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final clipboardTopicLinkService = ClipboardTopicLinkService.instance;
+    final candidate = await clipboardTopicLinkService.checkClipboard(
+      enabled: ref.read(preferencesProvider).clipboardTopicLinkDetection,
+      lastPromptedHash: prefs.getInt(
+        ClipboardTopicLinkService.lastPromptedHashPrefsKey,
+      ),
+    );
+    if (!mounted || candidate == null) return;
+
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(context.l10n.clipboardTopicLink_detected),
+        duration: const Duration(seconds: 8),
+        action: SnackBarAction(
+          label: context.l10n.clipboardTopicLink_open,
+          onPressed: () {
+            DeepLinkService.instance.handleUri(candidate.uri);
+          },
+        ),
+      ),
+    );
+    await clipboardTopicLinkService.markPrompted(candidate, prefs: prefs);
   }
 
   /// App 进入后台：先启动前台服务保活，再切换到只轮询通知频道
@@ -804,8 +840,8 @@ class _MainPageState extends ConsumerState<MainPage>
   Future<void> _handleAuthError(String message) async {
     if (!mounted) return;
 
-    final advice =
-        AuthIssueNoticeService.instance.consumeLatestPassiveLogoutAdvice();
+    final advice = AuthIssueNoticeService.instance
+        .consumeLatestPassiveLogoutAdvice();
     final content = _buildAuthErrorDialogMessage(message, advice);
 
     final action = await showAppDialog<_AuthErrorDialogAction>(
@@ -817,17 +853,13 @@ class _MainPageState extends ConsumerState<MainPage>
         actions: [
           if (advice.suggestClearData)
             TextButton(
-              onPressed: () => Navigator.pop(
-                context,
-                _AuthErrorDialogAction.clearData,
-              ),
+              onPressed: () =>
+                  Navigator.pop(context, _AuthErrorDialogAction.clearData),
               child: Text(S.current.auth_clearDataAction),
             ),
           FilledButton(
-            onPressed: () => Navigator.pop(
-              context,
-              _AuthErrorDialogAction.confirm,
-            ),
+            onPressed: () =>
+                Navigator.pop(context, _AuthErrorDialogAction.confirm),
             child: Text(S.current.common_confirm),
           ),
         ],
@@ -843,9 +875,9 @@ class _MainPageState extends ConsumerState<MainPage>
       navigatorKey.currentState?.popUntil((route) => route.isFirst);
     }
     if (mounted && action == _AuthErrorDialogAction.clearData) {
-      await Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const DataManagementPage()),
-      );
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const DataManagementPage()));
     }
   }
 
@@ -880,8 +912,9 @@ class _MainPageState extends ConsumerState<MainPage>
     _lastResolvedEntries = entries;
 
     // page kind 的子集用于 IndexedStack
-    final pageEntries =
-        entries.where((e) => e.kind == NavEntryKind.page).toList();
+    final pageEntries = entries
+        .where((e) => e.kind == NavEntryKind.page)
+        .toList();
 
     // _currentIndex 维度是 pageEntries；越界时 clamp
     final safePageIndex = pageEntries.isEmpty
@@ -895,9 +928,7 @@ class _MainPageState extends ConsumerState<MainPage>
 
     // 监听外部 tab 切换信号（快捷键触发），index 维度是 pageEntries
     ref.listen(switchTabProvider, (_, index) {
-      if (index >= 0 &&
-          index < pageEntries.length &&
-          index != _currentIndex) {
+      if (index >= 0 && index < pageEntries.length && index != _currentIndex) {
         ref.read(barVisibilityProvider.notifier).state = 1.0;
         setState(() => _currentIndex = index);
       }

@@ -8590,6 +8590,30 @@ abstract class AppLocalizations {
   /// **'记住账号密码，登录时自动填充'**
   String get preferences_autoFillLoginDesc;
 
+  /// No description provided for @preferences_clipboardTopicLinkDetection.
+  ///
+  /// In zh, this message translates to:
+  /// **'自动识别剪贴板话题链接'**
+  String get preferences_clipboardTopicLinkDetection;
+
+  /// No description provided for @preferences_clipboardTopicLinkDetectionDesc.
+  ///
+  /// In zh, this message translates to:
+  /// **'回到应用时检测剪贴板中的 Linux.do 话题链接，并在底部询问是否打开'**
+  String get preferences_clipboardTopicLinkDetectionDesc;
+
+  /// No description provided for @clipboardTopicLink_detected.
+  ///
+  /// In zh, this message translates to:
+  /// **'检测到剪贴板中的话题链接'**
+  String get clipboardTopicLink_detected;
+
+  /// No description provided for @clipboardTopicLink_open.
+  ///
+  /// In zh, this message translates to:
+  /// **'打开'**
+  String get clipboardTopicLink_open;
+
   /// No description provided for @preferences_autoPanguSpacing.
   ///
   /// In zh, this message translates to:
