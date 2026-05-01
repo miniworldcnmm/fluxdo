@@ -636,15 +636,7 @@ class _MainPageState extends ConsumerState<MainPage>
 
       // 初始化 Deep Link 服务
       DeepLinkService.instance.initialize(context);
-      _checkClipboardTopicLink();
-
-      // 自动检查更新
-      _autoCheckUpdate();
-
-      // 一次性数据收集告知（仅 Android）
-      if (Platform.isAndroid) {
-        _showCrashlyticsNotice();
-      }
+      unawaited(_runStartupUiTasks());
     });
     // 监听登录失效事件
     _authErrorSub = ref.listenManual<AsyncValue<String>>(authErrorProvider, (
@@ -722,6 +714,20 @@ class _MainPageState extends ConsumerState<MainPage>
     final prefs = ref.read(sharedPreferencesProvider);
     final updateService = UpdateService(prefs: prefs);
     await UpdateCheckerHelper.checkUpdateOnStartup(context, updateService);
+  }
+
+  Future<void> _runStartupUiTasks() async {
+    // 启动弹窗先于剪贴板提示，避免 SnackBar 被弹窗遮挡后仍被记为已提示。
+    await _autoCheckUpdate();
+    if (!mounted) return;
+
+    // 一次性数据收集告知（仅 Android）
+    if (Platform.isAndroid) {
+      await _showCrashlyticsNotice();
+      if (!mounted) return;
+    }
+
+    await _checkClipboardTopicLink();
   }
 
   Future<void> _showCrashlyticsNotice() async {
@@ -910,17 +916,30 @@ class _MainPageState extends ConsumerState<MainPage>
     final messenger = ScaffoldMessenger.maybeOf(context);
     if (messenger == null) return;
 
+    var promptHandled = false;
+    void markPromptedOnce() {
+      if (promptHandled) return;
+      promptHandled = true;
+      unawaited(
+        clipboardTopicLinkService.markPrompted(candidate, prefs: prefs),
+      );
+    }
+
     messenger.hideCurrentSnackBar();
-    messenger.showSnackBar(
+    final controller = messenger.showSnackBar(
       SnackBar(
         content: _ClipboardTopicLinkSnackContent(
           message: context.l10n.clipboardTopicLink_detected,
           actionLabel: context.l10n.clipboardTopicLink_open,
           onOpen: () {
+            markPromptedOnce();
             messenger.hideCurrentSnackBar();
             DeepLinkService.instance.handleUri(candidate.uri);
           },
-          onDismiss: messenger.hideCurrentSnackBar,
+          onDismiss: () {
+            markPromptedOnce();
+            messenger.hideCurrentSnackBar();
+          },
         ),
         behavior: SnackBarBehavior.floating,
         backgroundColor: Colors.transparent,
@@ -935,7 +954,7 @@ class _MainPageState extends ConsumerState<MainPage>
         ),
       ),
     );
-    await clipboardTopicLinkService.markPrompted(candidate, prefs: prefs);
+    unawaited(controller.closed.then((_) => markPromptedOnce()));
   }
 
   /// App 进入后台：先启动前台服务保活，再切换到只轮询通知频道

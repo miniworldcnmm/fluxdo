@@ -62,15 +62,26 @@ class DeepLinkService {
     }
   }
 
-  /// 处理已验证的外部或应用内链接，供剪贴板等入口复用
+  /// 处理外部或应用内链接，入口内会先校验可处理的 scheme 和 host
   void handleUri(Uri uri) {
     _handleLink(uri);
   }
+
+  @visibleForTesting
+  bool canHandleUri(Uri uri) => _canHandleUri(uri);
 
   /// 处理链接
   void _handleLink(Uri uri) {
     if (_navigatorContext == null) {
       debugPrint('DeepLinkService: 导航 context 未就绪');
+      return;
+    }
+
+    final context = _navigatorContext!;
+    final url = uri.toString();
+
+    if (!_canHandleUri(uri)) {
+      debugPrint('DeepLinkService: 未知链接类型 $url');
       return;
     }
 
@@ -85,10 +96,13 @@ class DeepLinkService {
     _lastHandledUri = uri;
     _lastHandledTime = now;
 
-    final context = _navigatorContext!;
-    final url = uri.toString();
-
     debugPrint('DeepLinkService: 收到链接 $url');
+
+    // 自定义 scheme (fluxdo://...)
+    if (uri.scheme == 'fluxdo') {
+      _handleCustomScheme(context, uri);
+      return;
+    }
 
     // 尝试匹配用户链接 /u/username
     final userInfo = DiscourseUrlParser.parseUser(uri.path);
@@ -135,12 +149,6 @@ class DeepLinkService {
       return;
     }
 
-    // 自定义 scheme (fluxdo://...)
-    if (uri.scheme == 'fluxdo') {
-      _handleCustomScheme(context, uri);
-      return;
-    }
-
     debugPrint('DeepLinkService: 未知链接类型 $url');
   }
 
@@ -150,7 +158,10 @@ class DeepLinkService {
   /// - fluxdo://topic/123/5 (指定楼层)
   /// - fluxdo://user/username
   void _handleCustomScheme(BuildContext context, Uri uri) {
-    final pathSegments = uri.pathSegments;
+    final pathSegments = [
+      if (uri.host.isNotEmpty) uri.host,
+      ...uri.pathSegments,
+    ];
 
     if (pathSegments.isEmpty) return;
 
@@ -237,5 +248,18 @@ class DeepLinkService {
     _initialized = false;
     _lastHandledUri = null;
     _lastHandledTime = null;
+  }
+
+  static bool _canHandleUri(Uri uri) {
+    if (uri.scheme == 'fluxdo') return true;
+    if (uri.scheme != 'http' && uri.scheme != 'https') return false;
+    return _isLinuxDoHost(uri.host);
+  }
+
+  static bool _isLinuxDoHost(String host) {
+    final normalizedHost = host.toLowerCase();
+    return normalizedHost == 'linux.do' ||
+        normalizedHost == 'www.linux.do' ||
+        normalizedHost.endsWith('.linux.do');
   }
 }

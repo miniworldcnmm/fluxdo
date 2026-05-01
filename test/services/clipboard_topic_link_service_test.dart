@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxdo/services/clipboard_topic_link_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -158,6 +159,20 @@ void main() {
       );
 
       expect(candidate, isNull);
+    });
+
+    test('标记已提示时写入持久化 hash', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final candidate = service.findFirstTopicLink('https://linux.do/t/123');
+      expect(candidate, isNotNull);
+
+      await service.markPrompted(candidate!, prefs: prefs);
+
+      expect(
+        prefs.getInt(ClipboardTopicLinkService.lastPromptedHashPrefsKey),
+        candidate.normalizedHash,
+      );
     });
 
     test('读取剪贴板失败时返回 null', () async {
