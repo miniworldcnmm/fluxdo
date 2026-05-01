@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxdo/l10n/app_localizations.dart';
+import 'package:fluxdo/models/emoji.dart';
+import 'package:fluxdo/providers/emoji_provider.dart';
+import 'package:fluxdo/services/local_notification_service.dart';
 import 'package:fluxdo/utils/emoji_shortcodes.dart';
 import 'package:fluxdo/widgets/post/post_boost/boost_input.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -15,11 +18,17 @@ void main() {
 
     late Future<BoostInputResult?> resultFuture;
     await tester.pumpWidget(
-      const ProviderScope(
+      ProviderScope(
+        overrides: [
+          emojiGroupsProvider.overrideWith(
+            (ref) async => const <String, List<Emoji>>{},
+          ),
+        ],
         child: MaterialApp(
+          navigatorKey: navigatorKey,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: _BoostInputTestHost(),
+          home: const _BoostInputTestHost(),
         ),
       ),
     );
