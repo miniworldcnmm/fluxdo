@@ -585,6 +585,9 @@ class Post {
   final List<Boost>? boosts;
   final bool canBoost;
 
+  // 用户签名（来自 user_custom_fields.signature_cooked）
+  final String? signatureCooked;
+
   // Policy 插件（discourse-policy）：
   // 当前用户能否接受/撤销；接受/撤销状态；已/未接受用户摘要列表与计数。
   final bool policyAccepted;
@@ -655,6 +658,7 @@ class Post {
     this.notice,
     this.boosts,
     this.canBoost = false,
+    this.signatureCooked,
     this.policyAccepted = false,
     this.policyRevoked = false,
     this.policyCanAccept = false,
@@ -754,6 +758,7 @@ class Post {
           .map((e) => Boost.fromJson(e))
           .toList(),
       canBoost: json['can_boost'] as bool? ?? false,
+      signatureCooked: (json['user_custom_fields'] as Map<String, dynamic>?)?['signature_cooked'] as String?,
       policyAccepted: json['policy_accepted'] as bool? ?? false,
       policyRevoked: json['policy_revoked'] as bool? ?? false,
       policyCanAccept: json['policy_can_accept'] as bool? ?? false,
@@ -875,6 +880,7 @@ class Post {
     PostNotice? notice,
     List<Boost>? boosts,
     bool? canBoost,
+    String? signatureCooked,
     bool clearCurrentUserReaction = false,
     bool? policyAccepted,
     bool? policyRevoked,
@@ -944,6 +950,7 @@ class Post {
       notice: notice ?? this.notice,
       boosts: boosts ?? this.boosts,
       canBoost: canBoost ?? this.canBoost,
+      signatureCooked: signatureCooked ?? this.signatureCooked,
       policyAccepted: policyAccepted ?? this.policyAccepted,
       policyRevoked: policyRevoked ?? this.policyRevoked,
       policyCanAccept: policyCanAccept ?? this.policyCanAccept,

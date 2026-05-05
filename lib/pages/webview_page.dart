@@ -54,7 +54,6 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
   double _progress = 0;
   bool _canGoBack = false;
   bool _canGoForward = false;
-  late final Future<void> _cookieSyncFuture;
 
   /// 对话框期间用静态截图盖住 WebView，避免 BackdropFilter 对
   /// hybrid composition（Android）/HWND（Windows）实时回读造成卡顿。
@@ -66,7 +65,6 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
     super.initState();
     _currentUrl = widget.url;
     _currentTitle = widget.title ?? '';
-    _cookieSyncFuture = _seedAndBarrier();
   }
 
   @override
@@ -222,13 +220,7 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
             ),
           ],
         ),
-        body: FutureBuilder<void>(
-          future: _cookieSyncFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState != ConnectionState.done) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            return Column(
+        body: Column(
               children: [
                 if (_isLoading)
                   LinearProgressIndicator(
@@ -244,11 +236,6 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
                         child: WebViewSettings.wrapWithScrollFix(
                       InAppWebView(
                             webViewEnvironment: windowsWebViewEnvironment,
-                            // Windows：不自动加载 URL，先在 onWebViewCreated 中写入 cookie
-                            initialUrlRequest:
-                                (!io.Platform.isWindows && widget.url.isNotEmpty)
-                                ? URLRequest(url: WebUri(widget.url))
-                                : null,
                             initialSettings: WebViewSettings.visible
                               ..useShouldOverrideUrlLoading = true,
                             initialUserScripts:
@@ -261,8 +248,7 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
                                 ),
                             onWebViewCreated: (controller) async {
                               _controller = controller;
-                              if (io.Platform.isWindows &&
-                                  widget.url.isNotEmpty) {
+                              if (widget.url.isNotEmpty) {
                                 await RawSetCookieQueue.instance
                                     .flushToWebView();
                                 await controller.loadUrl(
@@ -364,8 +350,6 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
                   ),
                 ),
               ],
-            );
-          },
         ),
       ),
     );
@@ -419,11 +403,6 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
 
     // 无论用户选择如何，都不让 WebView 加载此 URL
     return NavigationActionPolicy.CANCEL;
-  }
-
-  Future<void> _seedAndBarrier() async {
-    if (io.Platform.isWindows) return; // Windows 在 onWebViewCreated 中处理
-    await RawSetCookieQueue.instance.flushToWebView();
   }
 
   void _handleMenuAction(String action) {

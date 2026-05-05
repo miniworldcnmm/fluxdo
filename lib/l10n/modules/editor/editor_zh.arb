@@ -78,5 +78,7 @@
   "toolbar_quotePlaceholder": "引用文本",
   "toolbar_spoilerPlaceholder": "剧透内容",
   "toolbar_spoilerTooltip": "剧透",
+  "toolbar_calloutPlaceholder": "内容",
+  "toolbar_calloutTooltip": "插入标注",
   "toolbar_strikethroughPlaceholder": "删除线文本"
 }

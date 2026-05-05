@@ -81,6 +81,15 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setExpandRelatedLinks(v),
         ),
+        SwitchModel(
+          id: 'showSignatures',
+          title: l10n.reading_showSignatures,
+          subtitle: l10n.reading_showSignaturesDesc,
+          icon: Icons.draw_rounded,
+          getValue: (ref) => ref.watch(preferencesProvider).showSignatures,
+          onChanged: (ref, v) =>
+              ref.read(preferencesProvider.notifier).setShowSignatures(v),
+        ),
         PlatformConditionalModel(
           inner: SwitchModel(
             id: 'aiSwipeEntry',

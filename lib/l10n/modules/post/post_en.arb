@@ -34,6 +34,14 @@
   "nested_sortTop": "Top",
   "nested_title": "Threaded View",
   "nested_continueThread": "Continue this thread",
+  "nested_newReplies": "{count} new replies",
+  "@nested_newReplies": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "nested_defaultView": "Default to threaded view",
   "nested_defaultViewDesc": "Automatically switch to threaded view when opening a topic",
   "nested_lineStyle": "Thread connector style",

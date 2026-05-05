@@ -87,6 +87,28 @@ class NestedRootsResponse {
   }
 }
 
+/// 子回复创建事件（用于通知 NestedPostCard 组件插入新子帖子）
+class NestedChildCreatedEvent {
+  final Post post;
+  final int parentPostNumber;
+  final int _id;
+
+  NestedChildCreatedEvent({
+    required this.post,
+    required this.parentPostNumber,
+  }) : _id = _nextId++;
+
+  static int _nextId = 0;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NestedChildCreatedEvent && _id == other._id;
+
+  @override
+  int get hashCode => _id.hashCode;
+}
+
 /// 子回复 API 响应
 class NestedChildrenResponse {
   final List<NestedNode> children;

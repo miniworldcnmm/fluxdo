@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/ai_l10n.dart';
 import '../models/ai_chat_message.dart';
 import '../providers/ai_provider_providers.dart';
+import '../services/ai_chat_storage_service.dart';
 import '../utils/dialog_utils.dart';
 
 /// 打开会话回调类型
@@ -59,9 +60,12 @@ class _AiChatHistoryPageState extends ConsumerState<AiChatHistoryPage> {
           ? _buildEmpty(theme)
           : ListView.builder(
               padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: _groups.length,
+              itemCount: _groups.length + 1,
               itemBuilder: (context, index) {
-                final group = _groups[index];
+                if (index == 0) {
+                  return _MaxSessionsRow(ref: ref);
+                }
+                final group = _groups[index - 1];
                 return _TopicGroupTile(
                   group: group,
                   onOpenSession: widget.onOpenSession,
@@ -265,5 +269,97 @@ class _TopicGroupTile extends StatelessWidget {
     if (diff.inDays < 30) return AiL10n.current.daysAgo(diff.inDays);
 
     return '${time.month}/${time.day}';
+  }
+}
+
+class _MaxSessionsRow extends StatelessWidget {
+  final WidgetRef ref;
+  const _MaxSessionsRow({required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final storageService = ref.watch(aiChatStorageServiceProvider);
+    final maxSessions = storageService.getMaxSessions();
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _showPicker(context, storageService, maxSessions),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.storage_outlined,
+                  size: 20, color: theme.colorScheme.onSurfaceVariant),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(AiL10n.current.maxSessionCount,
+                        style: theme.textTheme.bodyMedium),
+                    Text(
+                      AiL10n.current.autoDeleteOldestSession,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$maxSessions',
+                  style: theme.textTheme.bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPicker(
+    BuildContext context,
+    AiChatStorageService storageService,
+    int currentValue,
+  ) {
+    final options = [10, 20, 30, 50, 100, 200];
+    showAppBottomSheet(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: options
+              .map((v) => ListTile(
+                    title: Text('$v'),
+                    trailing:
+                        v == currentValue ? const Icon(Icons.check) : null,
+                    onTap: () {
+                      storageService.setMaxSessions(v);
+                      Navigator.pop(ctx);
+                      (context as Element).markNeedsBuild();
+                    },
+                  ))
+              .toList(),
+        ),
+      ),
+    );
   }
 }

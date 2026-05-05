@@ -57,7 +57,8 @@ class TopicChannelNotifier extends Notifier<TopicChannelState> {
         case 'created':
           state = state.copyWith(hasNewReplies: true);
           if (postId != null) {
-            _addPostUpdate(postId, TopicMessageType.created, updatedAt);
+            final createdUserId = data['user_id'] as int?;
+            _addPostUpdate(postId, TopicMessageType.created, updatedAt, userId: createdUserId);
           }
           break;
 

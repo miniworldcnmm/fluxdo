@@ -72,6 +72,9 @@ class AppPreferences {
   /// 对话框背景高斯模糊
   final bool dialogBlur;
 
+  /// 显示用户签名
+  final bool showSignatures;
+
   /// 默认使用树形视图
   final bool defaultNestedView;
 
@@ -115,6 +118,7 @@ class AppPreferences {
     required this.expandRelatedLinks,
     required this.aiSwipeEntry,
     required this.dialogBlur,
+    this.showSignatures = true,
     this.defaultNestedView = false,
     this.nestedLineStyle = NestedLineStyle.auto,
     required this.maxConcurrent,
@@ -144,6 +148,7 @@ class AppPreferences {
     bool? expandRelatedLinks,
     bool? aiSwipeEntry,
     bool? dialogBlur,
+    bool? showSignatures,
     bool? defaultNestedView,
     NestedLineStyle? nestedLineStyle,
     int? maxConcurrent,
@@ -174,6 +179,7 @@ class AppPreferences {
       expandRelatedLinks: expandRelatedLinks ?? this.expandRelatedLinks,
       aiSwipeEntry: aiSwipeEntry ?? this.aiSwipeEntry,
       dialogBlur: dialogBlur ?? this.dialogBlur,
+      showSignatures: showSignatures ?? this.showSignatures,
       defaultNestedView: defaultNestedView ?? this.defaultNestedView,
       nestedLineStyle: nestedLineStyle ?? this.nestedLineStyle,
       maxConcurrent: maxConcurrent ?? this.maxConcurrent,
@@ -210,6 +216,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   static const String _expandRelatedLinksKey = 'pref_expand_related_links';
   static const String _aiSwipeEntryKey = 'pref_ai_swipe_entry';
   static const String _dialogBlurKey = 'pref_dialog_blur';
+  static const String _showSignaturesKey = 'pref_show_signatures';
   static const String _defaultNestedViewKey = 'pref_default_nested_view';
   static const String _nestedLineStyleKey = 'pref_nested_line_style';
   static const String _maxConcurrentKey = 'pref_max_concurrent';
@@ -248,6 +255,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
           expandRelatedLinks: _prefs.getBool(_expandRelatedLinksKey) ?? false,
           aiSwipeEntry: _prefs.getBool(_aiSwipeEntryKey) ?? false,
           dialogBlur: _prefs.getBool(_dialogBlurKey) ?? true,
+          showSignatures: _prefs.getBool(_showSignaturesKey) ?? true,
           defaultNestedView: _prefs.getBool(_defaultNestedViewKey) ?? false,
           nestedLineStyle: NestedLineStyle.fromString(
             _prefs.getString(_nestedLineStyleKey),
@@ -378,6 +386,11 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   Future<void> setDialogBlur(bool enabled) async {
     state = state.copyWith(dialogBlur: enabled);
     await _prefs.setBool(_dialogBlurKey, enabled);
+  }
+
+  Future<void> setShowSignatures(bool enabled) async {
+    state = state.copyWith(showSignatures: enabled);
+    await _prefs.setBool(_showSignaturesKey, enabled);
   }
 
   Future<void> setDefaultNestedView(bool enabled) async {

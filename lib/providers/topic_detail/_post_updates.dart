@@ -164,7 +164,10 @@ extension PostUpdateMethods on TopicDetailNotifier {
   }
 
   /// 添加新创建的帖子到列表（用于回复后直接更新）
-  bool addPost(Post post) {
+  ///
+  /// [wasAtBottom] 调用方在打开回复面板前捕获的快照，用于解决 MessageBus
+  /// created 事件先于 API 响应到达、将 _hasMoreAfter 改为 true 的竞态问题。
+  bool addPost(Post post, {bool wasAtBottom = false}) {
     final currentDetail = state.value;
     if (currentDetail == null) return false;
 
@@ -172,23 +175,31 @@ extension PostUpdateMethods on TopicDetailNotifier {
 
     if (currentPosts.any((p) => p.id == post.id)) return true;
 
-    final newStream = [...currentDetail.postStream.stream];
-    if (!newStream.contains(post.id)) {
+    final currentStream = currentDetail.postStream.stream;
+    final alreadyInStream = currentStream.contains(post.id);
+
+    final newStream = [...currentStream];
+    if (!alreadyInStream) {
       newStream.add(post.id);
     }
 
-    if (!_hasMoreAfter) {
+    if (!_hasMoreAfter || wasAtBottom) {
       final newPosts = [...currentPosts, post];
       newPosts.sort((a, b) => a.postNumber.compareTo(b.postNumber));
 
-      final newPostsCount = currentDetail.postsCount + 1;
+      // onNewPostCreated 可能已递增过 postsCount，避免双重递增
+      final newPostsCount = alreadyInStream
+          ? currentDetail.postsCount
+          : currentDetail.postsCount + 1;
 
       state = AsyncValue.data(currentDetail.copyWith(
         postsCount: newPostsCount,
         postStream: PostStream(posts: newPosts, stream: newStream, gaps: currentDetail.postStream.gaps),
       ));
 
-      // 从 API 刷新被回复帖子以获取正确的 replyCount（避免与 MessageBus 路径重复递增）
+      // MessageBus 可能已将 _hasMoreAfter 设为 true，插入帖子后修正
+      _updateBoundaryState(newPosts, newStream);
+
       if (post.replyToPostNumber > 0) {
         _refreshReplyTarget(post.replyToPostNumber);
       }

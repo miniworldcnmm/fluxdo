@@ -5,7 +5,6 @@ import 'package:catcher_2/catcher_2.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'l10n/app_localizations.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
@@ -14,6 +13,7 @@ import 'pages/topics_page.dart';
 import 'pages/data_management_page.dart';
 import 'providers/discourse_providers.dart';
 import 'providers/locale_provider.dart';
+import 'widgets/ai/builtin_presets_factory.dart';
 import 'providers/message_bus_providers.dart';
 import 'services/auth_issue_notice_service.dart';
 import 'services/discourse/discourse_service.dart';
@@ -29,6 +29,7 @@ import 'services/local_notification_service.dart';
 import 'services/data_management/cache_size_service.dart';
 import 'services/discourse_cache_manager.dart';
 import 'services/toast_service.dart';
+import 'widgets/common/loading_spinner.dart';
 import 'l10n/s.dart';
 
 import 'services/preloaded_data_service.dart';
@@ -42,7 +43,6 @@ import 'services/hcaptcha_accessibility_service.dart';
 import 'services/network/doh_proxy/proxy_certificate.dart';
 import 'services/cf_challenge_logger.dart';
 import 'services/cf_clearance_refresh_service.dart';
-import 'services/fingerprint_service.dart';
 import 'services/update_service.dart';
 import 'services/update_checker_helper.dart';
 import 'services/clipboard_topic_link_service.dart';
@@ -238,16 +238,7 @@ Future<void> main() async {
 
   // 提前触发预加载数据请求，与 runApp 并行执行
   // PreheatGate 中的 ensureLoaded() 会复用这个已在进行的请求
-  unawaited(
-    PreloadedDataService()
-        .ensureLoaded()
-        .then((_) {
-          if (PreloadedDataService().currentUserSync != null) {
-            unawaited(FingerprintService.instance.collectAndReport());
-          }
-        })
-        .catchError((Object _) {}),
-  );
+  unawaited(PreloadedDataService().ensureLoaded().catchError((Object _) {}));
 
   // 记录应用启动日志
   LogWriter.instance.write({
@@ -273,6 +264,11 @@ Future<void> main() async {
     }
   });
 
+  // 注入自定义加载指示器
+  AiToastDelegate.configureLoading(({color, size = 48}) {
+    return LoadingSpinner(color: color, size: size);
+  });
+
   // 根据当前语言配置 AI 模型管理包的语言
   final savedLocale = prefs.getString('pref_locale');
   if (savedLocale != null && savedLocale != 'system') {
@@ -280,6 +276,9 @@ Future<void> main() async {
     AiL10n.configureLocale(
       Locale(parts[0], parts.length > 1 ? parts[1] : null),
     );
+    await LocaleSettings.setLocaleRaw(savedLocale);
+  } else {
+    await LocaleSettings.useDeviceLocale();
   }
 
   // 过滤 Flutter 框架已知 bug（https://github.com/flutter/flutter/issues/115787）
@@ -323,6 +322,14 @@ Future<void> main() async {
         aiDioAdapterFactoryProvider.overrideWithValue(
           createExternalHttpAdapter,
         ),
+        // 内置 PromptPreset 列表：在 override 函数内 watch localeProvider，
+        // locale 切换时整个 builtInPresetsProvider 重建 → 下游
+        // promptPresetListProvider 的 StateNotifier 重新构造 → preset i18n
+        // 文本随之刷新。
+        builtInPresetsProvider.overrideWith((ref) {
+          ref.watch(localeProvider);
+          return BuiltInPresetsFactory.create();
+        }),
       ],
       child: const MainApp(),
     ),
@@ -339,6 +346,9 @@ class MainApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeState = ref.watch(themeProvider);
+    ref.listen<Locale?>(localeProvider, (_, next) {
+      unawaited(_syncSlangLocale(next));
+    });
 
     return DynamicColorBuilder(
       builder: (lightDynamic, darkDynamic) {
@@ -379,103 +389,107 @@ class MainApp extends ConsumerWidget {
           );
         }
 
-        return MaterialApp(
-          navigatorKey: navigatorKey,
-          navigatorObservers: [appRouteObserver],
-          title: 'FluxDO',
-          locale: ref.watch(localeProvider),
-          localizationsDelegates: const [
-            AppLocalizations.delegate,
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: AppLocalizations.supportedLocales,
-          themeMode: themeState.mode,
-          theme: ThemeData(
-            colorScheme: lightScheme,
-            useMaterial3: true,
-            fontFamily: themeState.fontFamilyName,
-            cardTheme: CardThemeData(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              color: lightScheme.surfaceContainerLow,
-              margin: EdgeInsets.zero,
-            ),
-          ),
-          darkTheme: ThemeData(
-            colorScheme: darkScheme,
-            useMaterial3: true,
-            fontFamily: themeState.fontFamilyName,
-            cardTheme: CardThemeData(
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              color: darkScheme.surfaceContainerLow,
-              margin: EdgeInsets.zero,
-            ),
-          ),
-          builder: (context, child) {
-            final brightness = Theme.of(context).brightness;
-            final iconBrightness = brightness == Brightness.light
-                ? Brightness.dark
-                : Brightness.light;
-            // 桌面平台：跟随应用主题明暗切换窗口效果
-            if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-              final isDark = brightness == Brightness.dark;
-              acrylic.Window.setEffect(
-                effect: Platform.isMacOS
-                    ? acrylic.WindowEffect.sidebar
-                    : Platform.isWindows
-                    ? acrylic.WindowEffect.mica
-                    : acrylic.WindowEffect.disabled,
-                dark: isDark,
-              );
-              if (Platform.isMacOS) {
-                acrylic.Window.overrideMacOSBrightness(dark: isDark);
-              }
-            }
-            Widget result = AnnotatedRegion<SystemUiOverlayStyle>(
-              value: SystemUiOverlayStyle(
-                statusBarColor: Colors.transparent,
-                statusBarIconBrightness: iconBrightness,
-                systemNavigationBarIconBrightness: iconBrightness,
-                systemNavigationBarColor: Colors.transparent,
-                // Android 28 上 dividerColor 不能完全透明，用 withAlpha(1) 兼容
-                systemNavigationBarDividerColor: Colors.transparent.withAlpha(
-                  1,
+        return TranslationProvider(
+          child: Builder(
+            builder: (context) => MaterialApp(
+              navigatorKey: navigatorKey,
+              navigatorObservers: [appRouteObserver],
+              title: 'FluxDO',
+              locale: TranslationProvider.of(context).flutterLocale,
+              localizationsDelegates: const [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: AppLocaleUtils.supportedLocales,
+              themeMode: themeState.mode,
+              theme: ThemeData(
+                colorScheme: lightScheme,
+                useMaterial3: true,
+                fontFamily: themeState.fontFamilyName,
+                cardTheme: CardThemeData(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  color: lightScheme.surfaceContainerLow,
+                  margin: EdgeInsets.zero,
                 ),
-                // 关闭系统自动 scrim，实现完全沉浸
-                systemNavigationBarContrastEnforced: false,
               ),
-              child: Stack(
-                fit: StackFit.passthrough,
-                children: [child!, const ReadLaterBubble()],
+              darkTheme: ThemeData(
+                colorScheme: darkScheme,
+                useMaterial3: true,
+                fontFamily: themeState.fontFamilyName,
+                cardTheme: CardThemeData(
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  color: darkScheme.surfaceContainerLow,
+                  margin: EdgeInsets.zero,
+                ),
               ),
-            );
-
-            // 桌面端：全局鼠标返回键 + 键盘快捷键（HardwareKeyboard）
-            if (PlatformUtils.isDesktop) {
-              result = Listener(
-                onPointerDown: (event) {
-                  // 鼠标侧键返回（第 4 按钮，bit flag 0x08）
-                  if (event.buttons & 0x08 != 0) {
-                    navigatorKey.currentState?.maybePop();
+              builder: (context, child) {
+                final brightness = Theme.of(context).brightness;
+                final iconBrightness = brightness == Brightness.light
+                    ? Brightness.dark
+                    : Brightness.light;
+                // 桌面平台：跟随应用主题明暗切换窗口效果
+                if (Platform.isMacOS ||
+                    Platform.isWindows ||
+                    Platform.isLinux) {
+                  final isDark = brightness == Brightness.dark;
+                  acrylic.Window.setEffect(
+                    effect: Platform.isMacOS
+                        ? acrylic.WindowEffect.sidebar
+                        : Platform.isWindows
+                        ? acrylic.WindowEffect.mica
+                        : acrylic.WindowEffect.disabled,
+                    dark: isDark,
+                  );
+                  if (Platform.isMacOS) {
+                    acrylic.Window.overrideMacOSBrightness(dark: isDark);
                   }
-                },
-                child: KeyboardShortcutHandler(
-                  navigatorKey: navigatorKey,
-                  child: result,
-                ),
-              );
-            }
+                }
+                Widget result = AnnotatedRegion<SystemUiOverlayStyle>(
+                  value: SystemUiOverlayStyle(
+                    statusBarColor: Colors.transparent,
+                    statusBarIconBrightness: iconBrightness,
+                    systemNavigationBarIconBrightness: iconBrightness,
+                    systemNavigationBarColor: Colors.transparent,
+                    // Android 28 上 dividerColor 不能完全透明，用 withAlpha(1) 兼容
+                    systemNavigationBarDividerColor: Colors.transparent
+                        .withAlpha(1),
+                    // 关闭系统自动 scrim，实现完全沉浸
+                    systemNavigationBarContrastEnforced: false,
+                  ),
+                  child: Stack(
+                    fit: StackFit.passthrough,
+                    children: [child!, const ReadLaterBubble()],
+                  ),
+                );
 
-            return result;
-          },
-          home: const OnboardingGate(child: PreheatGate(child: MainPage())),
+                // 桌面端：全局鼠标返回键 + 键盘快捷键（HardwareKeyboard）
+                if (PlatformUtils.isDesktop) {
+                  result = Listener(
+                    onPointerDown: (event) {
+                      // 鼠标侧键返回（第 4 按钮，bit flag 0x08）
+                      if (event.buttons & 0x08 != 0) {
+                        navigatorKey.currentState?.maybePop();
+                      }
+                    },
+                    child: KeyboardShortcutHandler(
+                      navigatorKey: navigatorKey,
+                      child: result,
+                    ),
+                  );
+                }
+
+                return result;
+              },
+              home: const OnboardingGate(child: PreheatGate(child: MainPage())),
+            ),
+          ),
         );
       },
     );
@@ -588,6 +602,18 @@ class _ClipboardTopicLinkSnackContent extends StatelessWidget {
       ),
     );
   }
+}
+
+Future<void> _syncSlangLocale(Locale? locale) async {
+  if (locale == null) {
+    await LocaleSettings.useDeviceLocale();
+    return;
+  }
+
+  final rawLocale = locale.countryCode?.isNotEmpty == true
+      ? '${locale.languageCode}_${locale.countryCode}'
+      : locale.languageCode;
+  await LocaleSettings.setLocaleRaw(rawLocale);
 }
 
 class MainPage extends ConsumerStatefulWidget {

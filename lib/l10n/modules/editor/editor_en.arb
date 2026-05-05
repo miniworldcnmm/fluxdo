@@ -50,5 +50,7 @@
   "toolbar_quotePlaceholder": "Quote text",
   "toolbar_spoilerPlaceholder": "Spoiler content",
   "toolbar_spoilerTooltip": "Spoiler",
+  "toolbar_calloutPlaceholder": "Content",
+  "toolbar_calloutTooltip": "Insert callout",
   "toolbar_strikethroughPlaceholder": "Strikethrough text"
 }

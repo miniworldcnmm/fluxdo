@@ -649,6 +649,59 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
     widget.focusNode?.requestFocus();
   }
 
+  /// 插入 Obsidian Callout（带占位符并自动选中）
+  void insertCallout(String type) {
+    final selection = widget.controller.selection;
+    final text = widget.controller.text;
+    final placeholder = S.current.toolbar_calloutPlaceholder;
+
+    if (!selection.isValid || selection.start == selection.end) {
+      // 没有选中文本，插入带占位符的 callout
+      final callout = '> [!$type]\n> $placeholder';
+      final insertPos = selection.isValid ? selection.start : text.length;
+
+      final needNewline = insertPos > 0 && text[insertPos - 1] != '\n';
+      final newText = text.replaceRange(
+        insertPos,
+        insertPos,
+        needNewline ? '\n$callout' : callout,
+      );
+
+      // 选中占位符
+      final placeholderStart = insertPos + (needNewline ? 1 : 0) + '> [!$type]\n> '.length;
+      widget.controller.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection(
+          baseOffset: placeholderStart,
+          extentOffset: placeholderStart + placeholder.length,
+        ),
+      );
+    } else {
+      // 有选中文本，将每行添加 > 前缀并加上 callout 头
+      final selectedText = selection.textInside(text);
+      final lines = selectedText.split('\n');
+      final quotedLines = lines.map((line) => '> $line').join('\n');
+      final callout = '> [!$type]\n$quotedLines';
+
+      final newText = text.replaceRange(
+        selection.start,
+        selection.end,
+        callout,
+      );
+
+      final contentStart = selection.start + '> [!$type]\n'.length;
+      widget.controller.value = TextEditingValue(
+        text: newText,
+        selection: TextSelection(
+          baseOffset: contentStart,
+          extentOffset: contentStart + quotedLines.length,
+        ),
+      );
+    }
+
+    widget.focusNode?.requestFocus();
+  }
+
   /// 插入引用（带占位符并自动选中）
   void insertQuote() {
     final selection = widget.controller.selection;
@@ -944,6 +997,33 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
                         _ToolbarButton(
                           icon: FontAwesomeIcons.quoteRight,
                           onPressed: insertQuote,
+                        ),
+                        // Callout 按钮（带弹出菜单）
+                        SwipeDismissiblePopupMenuButton<String>(
+                          icon: FaIcon(
+                            FontAwesomeIcons.noteSticky,
+                            size: 16,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          tooltip: S.current.toolbar_calloutTooltip,
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(value: 'note', child: Text('Note')),
+                            const PopupMenuItem(value: 'tip', child: Text('Tip')),
+                            const PopupMenuItem(value: 'info', child: Text('Info')),
+                            const PopupMenuItem(value: 'warning', child: Text('Warning')),
+                            const PopupMenuItem(value: 'danger', child: Text('Danger')),
+                            const PopupMenuItem(value: 'bug', child: Text('Bug')),
+                            const PopupMenuItem(value: 'example', child: Text('Example')),
+                            const PopupMenuItem(value: 'quote', child: Text('Quote')),
+                            const PopupMenuItem(value: 'abstract', child: Text('Abstract')),
+                            const PopupMenuItem(value: 'todo', child: Text('Todo')),
+                            const PopupMenuItem(value: 'success', child: Text('Success')),
+                            const PopupMenuItem(value: 'question', child: Text('Question')),
+                            const PopupMenuItem(value: 'failure', child: Text('Failure')),
+                          ],
+                          onSelected: insertCallout,
+                          padding: EdgeInsets.zero,
+                          iconSize: 20,
                         ),
                         _ToolbarButton(
                           icon: FontAwesomeIcons.clipboard,

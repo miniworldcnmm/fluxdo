@@ -9,6 +9,7 @@ import '../../providers/topic_session_provider.dart';
 import '../../pages/user_profile_page.dart';
 import '../../utils/responsive.dart';
 import '../../utils/time_utils.dart';
+import '../content/collapsed_html_content.dart';
 import '../content/discourse_html_content/chunked/chunked_html_content.dart';
 import '../post/post_item/widgets/post_footer_section/post_footer_section.dart';
 import 'nested_collapsed_bar.dart';
@@ -108,6 +109,28 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
       _expanded = _children.isNotEmpty;
       _collapsed = false;
     }
+
+    _listenChildCreated();
+  }
+
+  void _listenChildCreated() {
+    ref.listenManual(
+      nestedTopicProvider(widget.params).select((s) => s.value?.lastChildCreated),
+      (previous, next) {
+        if (next == null || next == previous) return;
+        if (next.parentPostNumber != widget.node.post.postNumber) return;
+
+        // 去重
+        if (_children.any((n) => n.post.id == next.post.id)) return;
+
+        setState(() {
+          _children.insert(0, NestedNode(post: next.post));
+          _expanded = true;
+          _collapsed = false;
+          widget.expansionState?[widget.node.post.postNumber] = true;
+        });
+      },
+    );
   }
 
   bool get _hasReplies => widget.node.directReplyCount > 0 || _children.isNotEmpty;
@@ -433,6 +456,33 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
           post: post,
           topicId: widget.topicId,
         ),
+        // 用户签名
+        if (ref.watch(preferencesProvider).showSignatures &&
+            post.signatureCooked != null &&
+            post.signatureCooked!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Container(
+              padding: const EdgeInsets.only(top: 6),
+              decoration: BoxDecoration(
+                border: Border(
+                  top: BorderSide(
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+                    width: 0.5,
+                  ),
+                ),
+              ),
+              child: CollapsedHtmlContent(
+                html: post.signatureCooked!,
+                textStyle: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                  fontSize: 11,
+                  height: 1.4,
+                ),
+                maxLines: 2,
+              ),
+            ),
+          ),
         // 完整操作栏（复用 PostFooterSection，隐藏回复展开按钮）
         PostFooterSection(
           post: post,

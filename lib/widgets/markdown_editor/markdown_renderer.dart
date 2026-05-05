@@ -50,22 +50,25 @@ class MarkdownBody extends StatelessWidget {
     final gridBlocks = <String, String>{};
     processedData = _extractGridBlocks(processedData, gridBlocks);
 
-    // 6. 使用 GitHub Flavored Markdown 扩展集转换为 HTML
+    // 6. 将单个换行转换为硬换行，使预览换行行为符合用户直觉
+    processedData = _convertSoftBreaks(processedData);
+
+    // 7. 使用 GitHub Flavored Markdown 扩展集转换为 HTML
     var html = md.markdownToHtml(
       processedData,
       extensionSet: md.ExtensionSet.gitHubFlavored,
     );
 
-    // 7. 后处理：将 grid 占位符替换回 div.d-image-grid 包裹的图片
+    // 8. 后处理：将 grid 占位符替换回 div.d-image-grid 包裹的图片
     html = _restoreGridBlocks(html, gridBlocks);
 
-    // 8. 后处理：将 spoiler 占位符替换回 div.spoiler
+    // 9. 后处理：将 spoiler 占位符替换回 div.spoiler
     html = _restoreSpoilerBlocks(html, spoilerBlocks);
 
-    // 9. 后处理：将 quote 占位符替换回 aside.quote
+    // 10. 后处理：将 quote 占位符替换回 aside.quote
     html = _restoreQuoteBlocks(html, quoteBlocks);
-    
-    // 10. 使用 DiscourseHtmlContent 渲染，与帖子显示保持一致
+
+    // 11. 使用 DiscourseHtmlContent 渲染，与帖子显示保持一致
     return DiscourseHtmlContent(
       html: html,
       textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -75,6 +78,38 @@ class MarkdownBody extends StatelessWidget {
     );
   }
   
+  /// 将单个换行转换为硬换行（行尾添加两个空格）
+  /// 标准 Markdown 把单个换行当作空格，但用户通常期望换行就是换行
+  String _convertSoftBreaks(String text) {
+    final lines = text.split('\n');
+    final result = StringBuffer();
+    bool inCodeBlock = false;
+
+    for (int i = 0; i < lines.length; i++) {
+      final line = lines[i];
+
+      if (line.trimLeft().startsWith('```')) {
+        inCodeBlock = !inCodeBlock;
+      }
+
+      if (!inCodeBlock &&
+          i < lines.length - 1 &&
+          line.isNotEmpty &&
+          lines[i + 1].isNotEmpty &&
+          !line.endsWith('  ')) {
+        result.write('$line  ');
+      } else {
+        result.write(line);
+      }
+
+      if (i < lines.length - 1) {
+        result.write('\n');
+      }
+    }
+
+    return result.toString();
+  }
+
   /// 处理 Discourse 图片格式：![alt|widthxheight](url) -> <img src="" width="" height="" alt="">
   /// 标准 Markdown 包不识别竖线语法，需要手动转换
   String _processDiscourseImages(String text) {

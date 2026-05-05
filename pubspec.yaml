@@ -1,16 +1,26 @@
 name: fluxdo
 description: "A new Flutter project."
 publish_to: 'none'
-version: 0.2.13+2026042418
+version: 0.2.15-beta.1+2026042623
 
 environment:
   sdk: ^3.10.4
+
+workspace:
+  - packages/ai_model_manager
+  - packages/enhanced_cookie_jar
+  - packages/extended_image_lite
+  - packages/pangutext
+  - packages/paper_shaders
 
 dependencies:
   flutter:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  # tool/gen_l10n.dart 直接调用 slang 内部 runner，升级时需一起验证。
+  slang: 4.14.0
+  slang_flutter: 4.14.0
   collection: ^1.19.1
   dio: ^5.9.0
   http: ^1.6.0
@@ -71,8 +81,8 @@ dependencies:
   flutter_image_compress: ^2.4.0
   image: ^4.7.2
   flutter_math_fork: ^0.7.2
-  device_info_plus: ^12.3.0
-  connectivity_plus: ^7.0.0
+  device_info_plus: 12.3.0
+  connectivity_plus: 7.0.0
   ua_client_hints: ^1.4.1
   ota_update: ^7.1.0
   app_links: ^7.0.0
@@ -108,9 +118,13 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  melos: ^7.5.1
+  dart_console: ^4.1.4
+
+melos:
+  useRootAsPackage: true
 
 flutter:
-  generate: true
   uses-material-design: true
   assets:
     - assets/logo.svg
@@ -118,6 +132,8 @@ flutter:
     - assets/logo_modern_light.svg
     - assets/images/
     - assets/certs/
+    - assets/ai_brands/
+    - assets/icons/thinking/
 
   fonts:
     - family: MiSans

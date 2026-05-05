@@ -118,9 +118,10 @@ class MainActivity : FlutterActivity() {
                     if (url != null && rawSetCookie != null) {
                         try {
                             val cookieManager = WebCookieManager.getInstance()
-                            cookieManager.setCookie(url, rawSetCookie)
-                            cookieManager.flush()
-                            result.success(true)
+                            cookieManager.setCookie(url, rawSetCookie) { success ->
+                                cookieManager.flush()
+                                result.success(success)
+                            }
                         } catch (e: Exception) {
                             Log.e("RawCookie", "setCookie failed: ${e.message}", e)
                             result.success(false)

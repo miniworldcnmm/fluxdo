@@ -24,6 +24,89 @@ class AiL10nZhTW extends AiL10n {
   @override
   String get import_ => '匯入';
 
+  // ---- 快捷詞管理 ----
+  @override
+  String get quickPromptsManageTitle => '快捷詞管理';
+  @override
+  String get quickPromptsImageTab => '圖像';
+  @override
+  String get quickPromptsTextTab => '文字';
+  @override
+  String get quickPromptsBuiltInSection => '內建';
+  @override
+  String get quickPromptsCustomSection => '自訂';
+  @override
+  String get quickPromptsAddNew => '新增快捷詞';
+  @override
+  String get quickPromptsEditTitle => '編輯快捷詞';
+  @override
+  String get quickPromptsCreateTitle => '新增快捷詞';
+  @override
+  String get quickPromptsName => '名稱';
+  @override
+  String get quickPromptsNameHint => '如：手繪小報';
+  @override
+  String get quickPromptsType => '類型';
+  @override
+  String get quickPromptsIcon => '圖示';
+  @override
+  String get quickPromptsIconTab => '圖示';
+  @override
+  String get quickPromptsEmojiTab => 'Emoji';
+  @override
+  String get quickPromptsEmojiInputHint => '輸入或貼上 emoji';
+  @override
+  String get quickPromptsTemplate => 'Prompt 範本';
+  @override
+  String get quickPromptsTemplateHint => '支援 {title} {context}';
+  @override
+  String get quickPromptsAspect => '預設比例';
+  @override
+  String get quickPromptsTags => '標籤';
+  @override
+  String get quickPromptsTagsHint => '用逗號分隔';
+  @override
+  String get quickPromptsDimensions => '維度組合（進階）';
+  @override
+  String get quickPromptsTestGenerate => '測試生成';
+  @override
+  String get quickPromptsTesting => '測試中…';
+  @override
+  String get quickPromptsTestSuccess => '測試圖已生成';
+  @override
+  String get quickPromptsTestFailed => '測試失敗';
+  @override
+  String get quickPromptsResetBuiltIns => '恢復內建預設';
+  @override
+  String get quickPromptsResetBuiltInsConfirm =>
+      '確定要恢復所有內建快捷詞的預設配置嗎？（不影響自訂）';
+  @override
+  String get quickPromptsHide => '隱藏';
+  @override
+  String get quickPromptsUnhide => '顯示';
+  @override
+  String get quickPromptsDuplicate => '複製';
+  @override
+  String quickPromptsDeleteConfirm(String name) => '確定刪除快捷詞「$name」嗎？';
+  @override
+  String get quickPromptsPin => 'Pin 到聊天頁';
+  @override
+  String get quickPromptsUnpin => '取消 Pin';
+  @override
+  String get quickPromptsValidateNameRequired => '請輸入名稱';
+  @override
+  String get quickPromptsValidateTemplateRequired => '請輸入 prompt 範本';
+  @override
+  String get quickPromptsEmpty => '還沒有自訂快捷詞';
+  @override
+  String get quickPromptsAspectAuto => '自動';
+  @override
+  String get quickPromptsTypeImage => '圖像';
+  @override
+  String get quickPromptsTypeText => '文字';
+  @override
+  String get quickPromptsManageHint => '管理 AI 助手底部的快捷詞';
+
   // ---- AI 模型服務頁 ----
   @override
   String get aiModelService => 'AI 模型服務';
@@ -41,6 +124,45 @@ class AiL10nZhTW extends AiL10n {
   String confirmDeleteProvider(String name) => '確定要刪除供應商「$name」嗎？';
   @override
   String modelCount(int enabled, int total) => '$enabled/$total 個模型';
+  @override
+  @override
+  String get modelConfig => '模型設定';
+  @override
+  String get defaultChatModel => '預設聊天模型';
+  @override
+  String get defaultImageModel => '預設圖像模型';
+  @override
+  String get advancedSettings => '進階設定';
+  @override
+  String get presetExport => '匯出';
+  @override
+  String get presetExportAll => '匯出全部自訂';
+  @override
+  String get presetImport => '從剪貼簿匯入';
+  @override
+  String get presetExportSuccess => '已複製到剪貼簿';
+  @override
+  String presetImportCount(int count) => '匯入了 $count 個快捷詞';
+  @override
+  String get presetImportEmpty => '剪貼簿中沒有有效的快捷詞資料';
+  @override
+  String get presetImportPreview => '即將匯入以下快捷詞';
+  @override
+  String get presetImportConfirm => '確認匯入';
+  @override
+  String get thinkingLevelLabel => '思考深度';
+  @override
+  String get thinkingOff => '關閉思考';
+  @override
+  String get thinkingAuto => '自動';
+  @override
+  String get thinkingCustom => '自訂';
+  @override
+  String get thinkingLow => '輕度思考';
+  @override
+  String get thinkingMedium => '中度思考';
+  @override
+  String get thinkingHigh => '深度思考';
   @override
   String get chatHistory => '聊天紀錄';
   @override
@@ -118,6 +240,22 @@ class AiL10nZhTW extends AiL10n {
   @override
   String get cancelDefault => '取消預設';
   @override
+  String get setAsImageDefault => '設為圖像預設';
+  @override
+  String get imageDefaultActive => '圖像預設';
+  @override
+  String get setAsTextDefault => '設為文字預設';
+  @override
+  String get textDefaultActive => '文字預設';
+  @override
+  String get imageDefaultModelCleared => '已取消圖像預設';
+  @override
+  String get textDefaultModelCleared => '已取消文字預設';
+  @override
+  String get setAsImageDefaultDone => '已設為圖像預設';
+  @override
+  String get setAsTextDefaultDone => '已設為文字預設';
+  @override
   String get setAsDefault => '設為預設';
 
   // ---- 聊天歷史頁 ----
@@ -185,6 +323,15 @@ class AiL10nZhTW extends AiL10n {
   @override
   String serverInternalError(int code) => '伺服器內部錯誤 ($code)';
   @override
+  String get upstreamBadGatewayError =>
+      '上游服務異常 (502 Bad Gateway)。如使用代理（one-api / aihubmix 等），請檢查代理服務是否正常。';
+  @override
+  String get upstreamUnavailableError =>
+      '上游服務暫時不可用 (503)。OpenAI 服務繁忙或代理過載，已自動重試 3 次仍失敗，請稍後再試。';
+  @override
+  String get upstreamGatewayTimeoutError =>
+      '上游回應逾時 (504 Gateway Timeout)。gpt-image 等慢請求容易觸發；請嘗試更短 prompt、降低畫質，或直連官方 API 不走代理。';
+  @override
   String requestFailed(int code) => '請求失敗 ($code)';
   @override
   String get requestCancelled => '請求已取消';
@@ -196,6 +343,92 @@ class AiL10nZhTW extends AiL10n {
   String get unknownNetworkError => '未知網路錯誤';
   @override
   String get emptyResponseError => '未收到 AI 回覆，請檢查網路設定或重試';
+
+  // ---- 圖像生成設定 ----
+  @override
+  String get partialImagesTitle => '圖像生成漸進幀';
+  @override
+  String get partialImagesSubtitle =>
+      '開啟後 gpt-image 系列會先回傳模糊草圖再回傳終態圖；'
+      '需要 OpenAI 已驗證 organization，未驗證帳號開啟會失敗';
+  @override
+  String get imagePromptOptimizerModel => '圖像 Prompt 優化模型';
+  @override
+  String get imagePromptOptimizerSubtitle =>
+      '畫圖前用聊天模型把話題上下文翻譯成視覺化 prompt，顯著提升出圖質量；'
+      '推薦用 gpt-4o-mini / haiku 等輕量模型';
+  @override
+  String get optimizerNotSet => '不優化（直接拼接上下文）';
+
+  // ---- 模型能力 chip ----
+  @override
+  String get capabilityVisionLabel => '識圖';
+  @override
+  String get capabilityReasoningLabel => '推理';
+  @override
+  String get capabilityToolLabel => '工具';
+  @override
+  String get capabilityImageOutputLabel => '畫圖';
+  @override
+  String get capabilityResetTooltip => '重置為自動';
+  @override
+  String get capabilityResetSnack => '已重置為自動推斷';
+
+  // ---- 模型詳情 sheet ----
+  @override
+  String get modelDetailTitle => '編輯模型';
+  @override
+  String get modelDetailAddTitle => '新增模型';
+  @override
+  String get modelDetailIdLabel => '模型 ID';
+  @override
+  String get modelDetailIdHint => '例如: gpt-4o';
+  @override
+  String get modelDetailNameLabel => '顯示名稱';
+  @override
+  String get modelDetailInputLabel => '輸入模態';
+  @override
+  String get modelDetailOutputLabel => '輸出模態';
+  @override
+  String get modelDetailAbilitiesLabel => '模型能力';
+  @override
+  String get modelDetailTextMode => '文字';
+  @override
+  String get modelDetailImageMode => '圖像';
+  @override
+  String get modelDetailToolAbility => '工具呼叫';
+  @override
+  String get modelDetailReasoningAbility => '推理';
+  @override
+  String get modelDetailConfirm => '確認';
+  @override
+  String get modelDetailResetAuto => '重置為自動推斷';
+  @override
+  String get modelDetailIdCopied => '模型 ID 已複製';
+  @override
+  String get modelDetailIdRequired => '請輸入模型 ID';
+
+  // ---- 供應商編輯頁 Tab ----
+  @override
+  String get configTab => '設定';
+  @override
+  String get modelsTab => '模型';
+  @override
+  String get fetchModelsSelect => '選擇要新增的模型';
+  @override
+  String get fetchModelsSelectAll => '全選';
+  @override
+  String get fetchModelsDeselectAll => '取消全選';
+  @override
+  String addSelectedModels(int count) => '新增選取的 $count 個模型';
+  @override
+  String get modelAlreadyAdded => '已新增';
+  @override
+  String get searchModelsHint => '搜尋模型';
+  @override
+  String get testModel => '測試模型';
+  @override
+  String get selectModelToTest => '選擇要測試的模型';
 
   // ---- System Prompts ----
   @override
@@ -212,6 +445,12 @@ class AiL10nZhTW extends AiL10n {
   String contextContentPrefix(String text) => '以下是話題內容：\n$text';
   @override
   String get contextReadyResponse => '好的，我已經閱讀了話題內容。請問你有什麼問題？';
+  @override
+  String imageContextPromptTemplate(String context, String userPrompt) =>
+      '請基於下面的話題上下文生成一張圖，但不要把上下文文字直接畫到圖中。\n\n'
+      '話題上下文：\n---\n$context\n---\n\n'
+      '畫圖需求：$userPrompt';
+
   @override
   String get titleGenerationPrompt =>
       '請用不超過15個字概括使用者這段話的主題，直接輸出標題文字，不要加標點符號和引號。';

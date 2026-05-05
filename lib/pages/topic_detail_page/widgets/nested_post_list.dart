@@ -160,6 +160,17 @@ class _NestedPostListState extends ConsumerState<NestedPostList> {
             ),
           ),
 
+          if (ns.newRootPostIds.isNotEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: FilledButton.tonal(
+                  onPressed: () => ref.read(nestedTopicProvider(p).notifier).loadNewRoots(),
+                  child: Text(context.l10n.nested_newReplies(ns.newRootPostIds.length)),
+                ),
+              ),
+            ),
+
           SliverList.builder(
             itemCount: ns.roots.length + (ns.hasMoreRoots || ns.isLoadingMore ? 1 : 0),
             itemBuilder: (context, index) {

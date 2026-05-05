@@ -168,6 +168,9 @@ import workmanager_apple
             result(false)
             return
           }
+          // 同时写入 HTTPCookieStorage.shared，配合 sharedCookiesEnabled
+          // 确保 WKWebView 在创建时即可从 shared storage 读取到 cookie
+          HTTPCookieStorage.shared.setCookie(cookie)
           let store = WKWebsiteDataStore.default().httpCookieStore
           store.setCookie(cookie) {
             result(true)

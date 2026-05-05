@@ -1,4 +1,6 @@
+import java.io.File
 import java.util.Properties
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
@@ -9,32 +11,47 @@ plugins {
     id("com.google.firebase.crashlytics")
 }
 
-// 读取签名配置
-val keystorePropertiesFile = rootProject.file("key.properties")
-val keystoreProperties = Properties()
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(keystorePropertiesFile.inputStream())
-}
-val hasReleaseSigningConfig = listOf(
-    "keyAlias",
-    "keyPassword",
-    "storeFile",
-    "storePassword",
-).all { key -> !keystoreProperties.getProperty(key).isNullOrBlank() }
+fun Properties.readNonBlank(name: String): String? =
+    getProperty(name)?.trim()?.takeIf { it.isNotEmpty() }
 
-gradle.taskGraph.whenReady {
-    val releaseBuildRequested = allTasks.any { task ->
-        task.name.contains("Release") &&
-            (task.name.startsWith("assemble") ||
-                task.name.startsWith("bundle") ||
-                task.name.startsWith("package"))
+fun resolveStoreFile(pathValue: String?): File? {
+    val normalized = pathValue?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    val directFile = File(normalized)
+    if (directFile.isAbsolute) {
+        return directFile
     }
-    if (releaseBuildRequested && !hasReleaseSigningConfig) {
-        throw GradleException(
-            "Release signing requires android/key.properties with keyAlias, keyPassword, storeFile, and storePassword."
-        )
+
+    val candidates = linkedSetOf(
+        file(normalized),
+        rootProject.file(normalized),
+    )
+    return candidates.firstOrNull { it.exists() } ?: candidates.firstOrNull()
+}
+
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties().apply {
+    if (keystorePropertiesFile.exists()) {
+        load(keystorePropertiesFile.inputStream())
     }
 }
+val releaseKeyAlias = keystoreProperties.readNonBlank("keyAlias")
+val releaseKeyPassword = keystoreProperties.readNonBlank("keyPassword")
+val releaseStorePassword = keystoreProperties.readNonBlank("storePassword")
+val releaseStoreFile = resolveStoreFile(keystoreProperties.readNonBlank("storeFile"))
+val hasReleaseSigning =
+    releaseKeyAlias != null &&
+    releaseKeyPassword != null &&
+    releaseStorePassword != null &&
+    releaseStoreFile?.exists() == true
+val releaseBuildSigningName = if (hasReleaseSigning) "release" else "debug"
+
+println(
+    if (hasReleaseSigning) {
+        "Android local signing: using ${releaseStoreFile?.path} for debug/profile/release"
+    } else {
+        "Android local signing: incomplete config, debug uses default debug signing and profile/release fallback to debug signing"
+    }
+)
 
 android {
     namespace = "com.github.lingyan000.fluxdo"
@@ -45,10 +62,6 @@ android {
         isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
     defaultConfig {
@@ -63,33 +76,27 @@ android {
     }
 
     signingConfigs {
-        if (hasReleaseSigningConfig) {
+        if (hasReleaseSigning) {
             create("release") {
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
-                storeFile = keystoreProperties.getProperty("storeFile")?.let { path -> file(path) }
-                storePassword = keystoreProperties.getProperty("storePassword")
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePassword
             }
         }
     }
 
     buildTypes {
         release {
-            if (hasReleaseSigningConfig) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+            signingConfig = signingConfigs.getByName(releaseBuildSigningName)
         }
 
         debug {
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(releaseBuildSigningName)
         }
 
         getByName("profile") {
-            signingConfig = if (hasReleaseSigningConfig) {
-                signingConfigs.getByName("release")
-            } else {
-                signingConfigs.getByName("debug")
-            }
+            signingConfig = signingConfigs.getByName(releaseBuildSigningName)
         }
     }
 
@@ -122,6 +129,12 @@ android {
                 }
             }
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_17
     }
 }
 

@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:extended_image_lite/extended_image_lite.dart';
 import 'package:jovial_svg/jovial_svg.dart';
 import 'package:gal/gal.dart';
+import 'package:super_clipboard/super_clipboard.dart';
 import '../services/discourse_cache_manager.dart';
+import '../utils/dialog_utils.dart';
 import '../utils/double_tap_zoom_controller.dart';
 import '../utils/hero_visibility_controller.dart';
+import '../utils/screenshot_utils.dart';
 import '../utils/svg_utils.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:flutter/services.dart';
@@ -163,6 +166,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
       imageUrl: _currentImageUrl,
       showViewFullImage: false,
       position: position,
+      onClose: () => Navigator.of(context).pop(),
     );
   }
 
@@ -285,6 +289,128 @@ class _ImageViewerPageState extends State<ImageViewerPage>
     }
   }
 
+  /// 复制内存图片到剪贴板
+  Future<void> _copyMemoryImage() async {
+    final bytes = widget.imageBytes;
+    if (bytes == null || bytes.isEmpty) return;
+    try {
+      final clipboard = SystemClipboard.instance;
+      if (clipboard == null) {
+        ToastService.showError(S.current.common_clipboardUnavailable);
+        return;
+      }
+      final item = DataWriterItem();
+      item.add(Formats.png(bytes));
+      await clipboard.write([item]);
+      if (mounted) ToastService.showSuccess(S.current.image_copied);
+    } catch (e) {
+      debugPrint('[ImageViewerPage] copyMemoryImage error: $e');
+      if (mounted) ToastService.showError(S.current.image_copyFailed);
+    }
+  }
+
+  /// 分享内存图片
+  Future<void> _shareMemoryImage() async {
+    final bytes = widget.imageBytes;
+    if (bytes == null || bytes.isEmpty) return;
+    try {
+      await ScreenshotUtils.shareImage(bytes);
+    } catch (e) {
+      debugPrint('[ImageViewerPage] shareMemoryImage error: $e');
+      if (mounted) ToastService.showError(S.current.common_shareFailed);
+    }
+  }
+
+  /// 内存图片的长按 / 右键菜单（保存 / 复制 / 分享）
+  void _showBytesContextMenu(BuildContext context, {Offset? position}) {
+    if (widget.imageBytes == null) return;
+
+    if (PlatformUtils.isDesktop && position != null) {
+      final overlayRenderObject =
+          Overlay.of(context).context.findRenderObject();
+      if (overlayRenderObject is RenderBox && overlayRenderObject.hasSize) {
+        final relativeRect = RelativeRect.fromRect(
+          position & Size.zero,
+          Offset.zero & overlayRenderObject.size,
+        );
+        showMenu<String>(
+          context: context,
+          position: relativeRect,
+          items: [
+            PopupMenuItem(
+              value: 'save',
+              child: _BytesMenuRow(
+                icon: Icons.save_alt,
+                label: S.current.share_saveToGallery,
+              ),
+            ),
+            PopupMenuItem(
+              value: 'copy',
+              child: _BytesMenuRow(
+                icon: Icons.copy,
+                label: S.current.image_copyImage,
+              ),
+            ),
+            PopupMenuItem(
+              value: 'share',
+              child: _BytesMenuRow(
+                icon: Icons.share,
+                label: S.current.common_shareImage,
+              ),
+            ),
+          ],
+        ).then((value) {
+          switch (value) {
+            case 'save':
+              _saveMemoryImage();
+            case 'copy':
+              _copyMemoryImage();
+            case 'share':
+              _shareMemoryImage();
+          }
+        });
+        return;
+      }
+    }
+
+    showAppBottomSheet(
+      context: context,
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.save_alt),
+                title: Text(S.current.share_saveToGallery),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _saveMemoryImage();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.copy),
+                title: Text(S.current.image_copyImage),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _copyMemoryImage();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share),
+                title: Text(S.current.common_shareImage),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _shareMemoryImage();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   /// 从 URL 中获取文件扩展名
   String _getExtensionFromUrl(String url) {
     try {
@@ -364,6 +490,9 @@ class _ImageViewerPageState extends State<ImageViewerPage>
               children: [
                 GestureDetector(
                   onTap: _toggleUI,
+                  onLongPress: () => _showBytesContextMenu(context),
+                  onSecondaryTapUp: (details) =>
+                      _showBytesContextMenu(context, position: details.globalPosition),
                   child: ExtendedImage.memory(
                     widget.imageBytes!,
                     width: double.infinity,
@@ -473,7 +602,11 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                   mode: ExtendedImageMode.gesture,
                   enableSlideOutPage: true,
                   heroBuilderForSlidingPage: widget.heroTag != null
-                      ? (child) => Hero(tag: widget.heroTag!, child: child)
+                      ? (child) => Hero(
+                          tag: widget.heroTag!,
+                          flightShuttleBuilder: (_, _, _, _, _) => child,
+                          child: child,
+                        )
                       : null,
                   initGestureConfigHandler: (state) {
                     return GestureConfig(
@@ -566,7 +699,11 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                           mode: ExtendedImageMode.gesture,
                           enableSlideOutPage: true,
                           heroBuilderForSlidingPage: heroTag != null
-                              ? (child) => Hero(tag: heroTag!, child: child)
+                              ? (child) => Hero(
+                                  tag: heroTag!,
+                                  flightShuttleBuilder: (_, _, _, _, _) => child,
+                                  child: child,
+                                )
                               : null,
                           initGestureConfigHandler: (state) {
                             return GestureConfig(
@@ -925,6 +1062,24 @@ class _ImageDecodeFallbackState extends State<_ImageDecodeFallback> {
         size: 64,
         color: Colors.white54,
       ),
+    );
+  }
+}
+
+class _BytesMenuRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _BytesMenuRow({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 20),
+        const SizedBox(width: 12),
+        Text(label),
+      ],
     );
   }
 }

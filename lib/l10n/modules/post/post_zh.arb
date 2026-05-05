@@ -34,6 +34,14 @@
   "nested_sortTop": "热门",
   "nested_title": "树形视图",
   "nested_continueThread": "继续此主题",
+  "nested_newReplies": "{count} 条新回复",
+  "@nested_newReplies": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "nested_defaultView": "默认使用树形视图",
   "nested_defaultViewDesc": "进入话题时自动切换到树形视图",
   "nested_lineStyle": "树形连接线样式",

@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 /// 消息提示类型
 enum AiToastType { success, error, info }
 
@@ -23,5 +25,28 @@ class AiToastDelegate {
 
   static void showInfo(String message) {
     _showToast?.call(message, type: AiToastType.info);
+  }
+
+  /// 自定义加载指示器构建器，由主项目注入。
+  /// 未注入时 fallback 到 [CircularProgressIndicator]。
+  static Widget Function({Color? color, double size})? _loadingBuilder;
+
+  static void configureLoading(
+      Widget Function({Color? color, double size}) builder) {
+    _loadingBuilder = builder;
+  }
+
+  static Widget buildLoading({Color? color, double size = 48}) {
+    if (_loadingBuilder != null) {
+      return _loadingBuilder!(color: color, size: size);
+    }
+    return SizedBox(
+      width: size,
+      height: size,
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        color: color,
+      ),
+    );
   }
 }
