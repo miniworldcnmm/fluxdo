@@ -45,6 +45,7 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
 
   // 本地筛选、排序和标签状态（独立于首页，初始值从持久化偏好读取）
   late TopicListFilter _currentFilter;
+  late NewSubset _currentSubset;
   TopicSortOrder _currentOrder = TopicSortOrder.defaultOrder;
   bool _ascending = false;
   List<String> _selectedTags = [];
@@ -57,6 +58,7 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
   void initState() {
     super.initState();
     _currentFilter = ref.read(topicFilterProvider);
+    _currentSubset = ref.read(topicNewSubsetProvider);
     _currentOrder = ref.read(topicSortOrderProvider);
     _ascending = ref.read(topicSortAscendingProvider);
     _scrollController.addListener(_onScroll);
@@ -106,6 +108,9 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
         ascending: _currentOrder != TopicSortOrder.defaultOrder
             ? _ascending
             : null,
+        subset: _currentFilter == TopicListFilter.newTopics
+            ? _currentSubset.apiValue
+            : null,
       );
 
       final result = _paginationHelper.processRefresh(
@@ -148,6 +153,9 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
         order: _currentOrder.apiValue,
         ascending: _currentOrder != TopicSortOrder.defaultOrder
             ? _ascending
+            : null,
+        subset: _currentFilter == TopicListFilter.newTopics
+            ? _currentSubset.apiValue
             : null,
       );
 
@@ -193,6 +201,9 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
         ascending: _currentOrder != TopicSortOrder.defaultOrder
             ? _ascending
             : null,
+        subset: _currentFilter == TopicListFilter.newTopics
+            ? _currentSubset.apiValue
+            : null,
       );
 
       final currentState = PaginationState(items: _topics);
@@ -228,6 +239,13 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
     if (filter == _currentFilter) return;
     setState(() => _currentFilter = filter);
     ref.read(topicFilterProvider.notifier).setFilter(filter);
+    _loadTopics();
+  }
+
+  void _setSubset(NewSubset subset) {
+    if (subset == _currentSubset) return;
+    setState(() => _currentSubset = subset);
+    ref.read(topicNewSubsetProvider.notifier).setSubset(subset);
     _loadTopics();
   }
 
@@ -381,6 +399,8 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
             currentFilter: _currentFilter,
             isLoggedIn: isLoggedIn,
             onFilterChanged: _setFilter,
+            currentSubset: _currentSubset,
+            onSubsetChanged: _setSubset,
             currentOrder: _currentOrder,
             ascending: _ascending,
             onOrderChanged: _setOrder,

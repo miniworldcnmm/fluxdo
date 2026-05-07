@@ -63,7 +63,12 @@
   "topic_currentFloor": "当前楼层",
   "topic_filterHot": "热门",
   "topic_filterLatest": "最新",
-  "topic_filterNew": "新话题",
+  "topic_filterNew": "新",
+  "topic_filterNewAllShort": "所有",
+  "topic_filterNewReplies": "新 · 回复",
+  "topic_filterNewRepliesShort": "回复",
+  "topic_filterNewTopics": "新 · 话题",
+  "topic_filterNewTopicsShort": "话题",
   "topic_filterTooltip": "筛选: {label}",
   "@topic_filterTooltip": {
     "placeholders": {

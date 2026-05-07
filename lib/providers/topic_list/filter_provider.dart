@@ -13,6 +13,27 @@ enum TopicListFilter {
   hot,
 }
 
+/// 「新话题」二级子过滤
+enum NewSubset {
+  all,
+  topics,
+  replies,
+}
+
+extension NewSubsetX on NewSubset {
+  /// 传给 Discourse API 的 subset 查询参数值，all 时返回 null（不传即默认行为）
+  String? get apiValue {
+    switch (this) {
+      case NewSubset.all:
+        return null;
+      case NewSubset.topics:
+        return 'topics';
+      case NewSubset.replies:
+        return 'replies';
+    }
+  }
+}
+
 /// TopicListFilter 扩展方法
 extension TopicListFilterX on TopicListFilter {
   /// 获取 API 请求所用的过滤器名称
@@ -90,4 +111,32 @@ final topicFilterProvider =
     StateNotifierProvider<TopicFilterNotifier, TopicListFilter>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
   return TopicFilterNotifier(prefs);
+});
+
+/// 「新话题」子过滤持久化 Notifier
+class NewSubsetNotifier extends StateNotifier<NewSubset> {
+  static const String _key = 'topic_new_subset';
+  final SharedPreferences _prefs;
+
+  NewSubsetNotifier(this._prefs)
+      : super(_fromName(_prefs.getString(_key)));
+
+  static NewSubset _fromName(String? name) {
+    for (final subset in NewSubset.values) {
+      if (subset.name == name) return subset;
+    }
+    return NewSubset.all;
+  }
+
+  void setSubset(NewSubset subset) {
+    state = subset;
+    _prefs.setString(_key, subset.name);
+  }
+}
+
+/// 当前「新话题」子过滤（持久化到 SharedPreferences）
+final topicNewSubsetProvider =
+    StateNotifierProvider<NewSubsetNotifier, NewSubset>((ref) {
+  final prefs = ref.watch(sharedPreferencesProvider);
+  return NewSubsetNotifier(prefs);
 });

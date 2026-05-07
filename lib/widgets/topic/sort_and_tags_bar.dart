@@ -3,7 +3,7 @@ import '../../providers/topic_list/filter_provider.dart';
 import '../../providers/topic_list/sort_provider.dart';
 import '../common/topic_badges.dart';
 import 'filter_dropdown.dart';
-import '../../../../../l10n/s.dart';
+import '../../l10n/s.dart';
 
 /// 筛选选项定义
 List<(TopicListFilter, String)> get filterOptions => [
@@ -30,6 +30,8 @@ class SortAndTagsBar extends StatelessWidget {
   final TopicListFilter currentFilter;
   final bool isLoggedIn;
   final ValueChanged<TopicListFilter> onFilterChanged;
+  final NewSubset currentSubset;
+  final ValueChanged<NewSubset> onSubsetChanged;
   final TopicSortOrder currentOrder;
   final bool ascending;
   final ValueChanged<TopicSortOrder> onOrderChanged;
@@ -44,6 +46,8 @@ class SortAndTagsBar extends StatelessWidget {
     required this.currentFilter,
     required this.isLoggedIn,
     required this.onFilterChanged,
+    required this.currentSubset,
+    required this.onSubsetChanged,
     required this.currentOrder,
     required this.ascending,
     required this.onOrderChanged,
@@ -69,6 +73,14 @@ class SortAndTagsBar extends StatelessWidget {
             isLoggedIn: isLoggedIn,
             onFilterChanged: onFilterChanged,
           ),
+          // 「新话题」子过滤下拉
+          if (currentFilter == TopicListFilter.newTopics) ...[
+            const SizedBox(width: 6),
+            NewSubsetDropdown(
+              currentSubset: currentSubset,
+              onSubsetChanged: onSubsetChanged,
+            ),
+          ],
           const SizedBox(width: 6),
           // 排序下拉
           OrderDropdown(

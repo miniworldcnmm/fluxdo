@@ -1095,10 +1095,15 @@ class _TopicsHeaderDelegate extends SliverPersistentHeaderDelegate {
                     builder: (context, ref, _) {
                       final order = ref.watch(topicSortOrderProvider);
                       final ascending = ref.watch(topicSortAscendingProvider);
+                      final subset = ref.watch(topicNewSubsetProvider);
                       return SortAndTagsBar(
                         currentFilter: currentFilter,
                         isLoggedIn: isLoggedIn,
                         onFilterChanged: onFilterChanged,
+                        currentSubset: subset,
+                        onSubsetChanged: (s) => ref
+                            .read(topicNewSubsetProvider.notifier)
+                            .setSubset(s),
                         currentOrder: order,
                         ascending: ascending,
                         onOrderChanged: (o) => ref

@@ -47,6 +47,7 @@ mixin _TopicsMixin on _DiscourseServiceBase {
     int page = 0,
     String? order,
     bool? ascending,
+    String? subset,
   }) async {
     String path;
     final queryParams = <String, dynamic>{};
@@ -65,6 +66,10 @@ mixin _TopicsMixin on _DiscourseServiceBase {
 
     if (ascending != null) {
       queryParams['ascending'] = ascending.toString();
+    }
+
+    if (subset != null) {
+      queryParams['subset'] = subset;
     }
 
     if (categoryId != null && categorySlug != null) {
@@ -92,11 +97,12 @@ mixin _TopicsMixin on _DiscourseServiceBase {
     return TopicListResponse.fromJson(response.data);
   }
 
-  Future<TopicListResponse> getNewTopics({int page = 0, String? order, bool? ascending}) async {
+  Future<TopicListResponse> getNewTopics({int page = 0, String? order, bool? ascending, String? subset}) async {
     final queryParams = <String, dynamic>{};
     if (page > 0) queryParams['page'] = page;
     if (order != null) queryParams['order'] = order;
     if (ascending != null) queryParams['ascending'] = ascending.toString();
+    if (subset != null) queryParams['subset'] = subset;
 
     final response = await _dio.get(
       '/new.json',
@@ -292,11 +298,15 @@ mixin _TopicsMixin on _DiscourseServiceBase {
     throw Exception(S.current.error_unknownResponseFormat);
   }
 
-  /// 忽略新话题
-  Future<void> dismissNewTopics({int? categoryId}) async {
+  /// 忽略新话题/新回复
+  Future<void> dismissNewTopics({
+    int? categoryId,
+    bool dismissTopics = true,
+    bool dismissPosts = false,
+  }) async {
     final data = <String, dynamic>{
-      'dismiss_topics': true,
-      'dismiss_posts': false,
+      'dismiss_topics': dismissTopics,
+      'dismiss_posts': dismissPosts,
     };
     if (categoryId != null) {
       data['category_id'] = categoryId;

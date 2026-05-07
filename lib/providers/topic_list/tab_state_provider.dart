@@ -22,6 +22,7 @@ final staleTabsProvider = StateProvider<Set<int?>>((ref) => {});
 /// 未来新增全局筛选条件时，只需在此添加 ref.watch
 final topicListGlobalParamsSignal = Provider<Object>((ref) {
   ref.watch(topicFilterProvider);
+  ref.watch(topicNewSubsetProvider);
   ref.watch(topicSortOrderProvider);
   ref.watch(topicSortAscendingProvider);
   return Object();
