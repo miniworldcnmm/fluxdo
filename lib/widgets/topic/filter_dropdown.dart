@@ -92,7 +92,7 @@ class FilterDropdown extends ConsumerWidget {
   static int _countForFilter(TopicListFilter filter, int newCount, int unreadCount) {
     switch (filter) {
       case TopicListFilter.newTopics:
-        return newCount;
+        return newCount + unreadCount;
       case TopicListFilter.unread:
         return unreadCount;
       default:

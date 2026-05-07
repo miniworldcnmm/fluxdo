@@ -350,9 +350,14 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
         dismissTopics: subset != NewSubset.replies,
         dismissPosts: subset != NewSubset.topics,
       );
-      // 同步更新追踪状态计数
-      ref.read(topicTrackingStateProvider.notifier)
-          .dismissNewTopics(categoryId: _categoryId);
+      // 同步更新追踪状态计数（与服务端 dismiss 对齐）
+      final trackingNotifier = ref.read(topicTrackingStateProvider.notifier);
+      if (subset != NewSubset.replies) {
+        trackingNotifier.dismissNewTopics(categoryId: _categoryId);
+      }
+      if (subset != NewSubset.topics) {
+        trackingNotifier.dismissUnreadTopics(categoryId: _categoryId);
+      }
     } else if (filter == TopicListFilter.unread) {
       await service.dismissUnreadTopics(categoryId: _categoryId);
       // 同步更新追踪状态计数
