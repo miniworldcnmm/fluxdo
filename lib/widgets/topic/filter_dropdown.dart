@@ -281,11 +281,13 @@ class OrderDropdown extends StatelessWidget {
 class NewSubsetDropdown extends StatelessWidget {
   final NewSubset currentSubset;
   final ValueChanged<NewSubset> onSubsetChanged;
+  final bool compact;
 
   const NewSubsetDropdown({
     super.key,
     required this.currentSubset,
     required this.onSubsetChanged,
+    this.compact = false,
   });
 
   String _shortLabel(NewSubset subset) {
@@ -303,50 +305,83 @@ class NewSubsetDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return SwipeDismissiblePopupMenuButton<NewSubset>(
-      onSelected: onSubsetChanged,
-      offset: const Offset(0, 36),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      tooltip: _shortLabel(currentSubset),
-      itemBuilder: (context) {
-        return NewSubset.values.map((subset) {
-          final isSelected = subset == currentSubset;
-          return PopupMenuItem<NewSubset>(
-            value: subset,
-            child: Row(
-              children: [
-                if (isSelected)
-                  Icon(Icons.check, size: 16, color: colorScheme.primary)
-                else
-                  const SizedBox(width: 16),
-                const SizedBox(width: 8),
-                Text(_shortLabel(subset)),
-              ],
+    return SizedBox(
+      width: compact ? 36 : null,
+      child: SwipeDismissiblePopupMenuButton<NewSubset>(
+        onSelected: onSubsetChanged,
+        offset: const Offset(0, 36),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        tooltip: _shortLabel(currentSubset),
+        child: compact
+            ? _buildCompactChild(colorScheme)
+            : _buildNormalChild(colorScheme),
+        itemBuilder: (context) {
+          return NewSubset.values.map((subset) {
+            final isSelected = subset == currentSubset;
+            return PopupMenuItem<NewSubset>(
+              value: subset,
+              child: Row(
+                children: [
+                  if (isSelected)
+                    Icon(Icons.check, size: 16, color: colorScheme.primary)
+                  else
+                    const SizedBox(width: 16),
+                  const SizedBox(width: 8),
+                  Text(_shortLabel(subset)),
+                ],
+              ),
+            );
+          }).toList();
+        },
+      ),
+    );
+  }
+
+  Widget _buildNormalChild(ColorScheme colorScheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _shortLabel(currentSubset),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: colorScheme.onSecondaryContainer,
             ),
-          );
-        }).toList();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: colorScheme.secondaryContainer.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+          ),
+          const SizedBox(width: 2),
+          Icon(Icons.arrow_drop_down, size: 18, color: colorScheme.onSurfaceVariant),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactChild(ColorScheme colorScheme) {
+    final isDefault = currentSubset == NewSubset.all;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isDefault ? Icons.filter_list : Icons.filter_alt,
+            size: 18,
+            color: isDefault
+                ? colorScheme.onSurfaceVariant
+                : colorScheme.primary,
+          ),
+          if (!isDefault)
             Text(
               _shortLabel(currentSubset),
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: colorScheme.onSecondaryContainer,
-              ),
+              style: TextStyle(fontSize: 11, color: colorScheme.primary),
             ),
-            const SizedBox(width: 2),
-            Icon(Icons.arrow_drop_down, size: 18, color: colorScheme.onSurfaceVariant),
-          ],
-        ),
+        ],
       ),
     );
   }

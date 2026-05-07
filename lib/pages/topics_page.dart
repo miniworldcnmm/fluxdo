@@ -426,9 +426,7 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
   }
 
   void _showDismissConfirmDialog(TopicListFilter currentFilter) {
-    final label = currentFilter == TopicListFilter.newTopics
-        ? context.l10n.topics_newTopics
-        : context.l10n.topics_unreadTopics;
+    final label = _dismissLabel(currentFilter);
     showAppDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -449,6 +447,21 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
         ],
       ),
     );
+  }
+
+  String _dismissLabel(TopicListFilter filter) {
+    if (filter == TopicListFilter.newTopics) {
+      final subset = ref.read(topicNewSubsetProvider);
+      switch (subset) {
+        case NewSubset.topics:
+          return context.l10n.topic_filterNewTopicsShort;
+        case NewSubset.replies:
+          return context.l10n.topic_filterNewRepliesShort;
+        case NewSubset.all:
+          return context.l10n.topic_filterNewAllShort;
+      }
+    }
+    return context.l10n.topics_unreadTopics;
   }
 
   Future<void> _doDismiss() async {
