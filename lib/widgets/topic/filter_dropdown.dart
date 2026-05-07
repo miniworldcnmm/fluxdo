@@ -305,9 +305,7 @@ class NewSubsetDropdown extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return SizedBox(
-      width: compact ? 36 : null,
-      child: SwipeDismissiblePopupMenuButton<NewSubset>(
+    return SwipeDismissiblePopupMenuButton<NewSubset>(
         onSelected: onSubsetChanged,
         offset: const Offset(0, 36),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -333,7 +331,6 @@ class NewSubsetDropdown extends StatelessWidget {
             );
           }).toList();
         },
-      ),
     );
   }
 

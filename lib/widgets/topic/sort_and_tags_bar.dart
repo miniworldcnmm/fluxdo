@@ -65,11 +65,8 @@ class SortAndTagsBar extends StatelessWidget {
     return Container(
       color: Theme.of(context).scaffoldBackgroundColor,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isNarrow = constraints.maxWidth < 360;
-          return Row(
-            children: [
+      child: Row(
+        children: [
               // 筛选下拉
               FilterDropdown(
                 currentFilter: currentFilter,
@@ -78,21 +75,19 @@ class SortAndTagsBar extends StatelessWidget {
               ),
               // 「新话题」子过滤下拉
               if (currentFilter == TopicListFilter.newTopics) ...[
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 NewSubsetDropdown(
                   currentSubset: currentSubset,
                   onSubsetChanged: onSubsetChanged,
-                  compact: isNarrow,
                 ),
               ],
-              const SizedBox(width: 6),
+              const SizedBox(width: 4),
               // 排序下拉
               OrderDropdown(
                 currentOrder: currentOrder,
                 ascending: ascending,
                 onOrderChanged: onOrderChanged,
                 onToggleAscending: onToggleAscending,
-                style: isNarrow ? DropdownStyle.compact : DropdownStyle.normal,
               ),
               const SizedBox(width: 8),
               // 标签区域
@@ -128,9 +123,7 @@ class SortAndTagsBar extends StatelessWidget {
                 trailing!,
               ],
             ],
-          );
-        },
-      ),
+          ),
     );
   }
 }
