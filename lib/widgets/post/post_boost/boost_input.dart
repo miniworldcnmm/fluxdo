@@ -7,10 +7,27 @@ import '../../../utils/platform_utils.dart';
 import '../../common/emoji_text.dart';
 import '../../markdown_editor/emoji_picker.dart';
 
+/// Boost 输入框的提交结果。
+sealed class BoostInputResult {
+  const BoostInputResult(this.raw);
+
+  final String raw;
+}
+
+/// 可见长度在 Boost 限制内，继续创建 Boost。
+class BoostInputBoostResult extends BoostInputResult {
+  const BoostInputBoostResult(super.raw);
+}
+
+/// 可见长度超过 Boost 限制，应转为回复。
+class BoostInputReplyResult extends BoostInputResult {
+  const BoostInputReplyResult(super.raw);
+}
+
 /// 以底部浮层方式显示 Boost 输入框
-/// 返回用户输入的文本，用户取消则返回 null
-Future<String?> showBoostInputSheet(BuildContext context) {
-  return showModalBottomSheet<String>(
+/// 返回类型化提交结果，用户取消则返回 null
+Future<BoostInputResult?> showBoostInputSheet(BuildContext context) {
+  return showModalBottomSheet<BoostInputResult>(
     context: context,
     isScrollControlled: true,
     builder: (ctx) => const _BoostInputSheet(),
@@ -33,7 +50,9 @@ class _BoostTextEditingController extends TextEditingController {
   }) {
     final hasEmojiShortcode = emojiShortcodeRegex.hasMatch(text);
     final hasComposingRegion =
-        withComposing && value.composing.isValid && !value.composing.isCollapsed;
+        withComposing &&
+        value.composing.isValid &&
+        !value.composing.isCollapsed;
 
     if (!hasEmojiShortcode || hasComposingRegion) {
       return super.buildTextSpan(
@@ -82,11 +101,17 @@ class _BoostInputSheetState extends ConsumerState<_BoostInputSheet> {
     return visibleLengthWithEmojiShortcodes(_controller.text);
   }
 
-  bool get _canSubmit => _controller.text.trim().isNotEmpty && _visibleLength <= _maxVisibleLength;
+  bool get _canSubmit => _controller.text.trim().isNotEmpty;
+
+  bool get _isReplyIntent => _visibleLength > _maxVisibleLength;
 
   void _handleSubmit() {
     if (!_canSubmit) return;
-    Navigator.pop(context, _controller.text.trim());
+    final raw = _controller.text.trim();
+    Navigator.pop(
+      context,
+      _isReplyIntent ? BoostInputReplyResult(raw) : BoostInputBoostResult(raw),
+    );
   }
 
   void _normalizeSelectionIfNeeded() {
@@ -148,6 +173,8 @@ class _BoostInputSheetState extends ConsumerState<_BoostInputSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final visibleLength = _visibleLength;
+    final isReplyIntent = visibleLength > _maxVisibleLength;
 
     return Padding(
       padding: EdgeInsets.only(bottom: _showEmojiPanel ? 0 : bottomInset),
@@ -205,16 +232,18 @@ class _BoostInputSheetState extends ConsumerState<_BoostInputSheet> {
                       ),
                       hintText: context.l10n.boost_placeholder,
                       hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.5),
+                        color: theme.colorScheme.onSurfaceVariant.withValues(
+                          alpha: 0.5,
+                        ),
                       ),
                       counterText: '',
-                      suffixText: '$_visibleLength/$_maxVisibleLength',
+                      suffixText: '$visibleLength/$_maxVisibleLength',
                       suffixStyle: theme.textTheme.labelSmall?.copyWith(
-                        color: _visibleLength > _maxVisibleLength
+                        color: isReplyIntent
                             ? theme.colorScheme.error
-                            : theme.colorScheme.onSurfaceVariant
-                                .withValues(alpha: 0.5),
+                            : theme.colorScheme.onSurfaceVariant.withValues(
+                                alpha: 0.5,
+                              ),
                       ),
                     ),
                     onChanged: (_) => setState(() {}),
@@ -232,12 +261,16 @@ class _BoostInputSheetState extends ConsumerState<_BoostInputSheet> {
                 // 发送按钮
                 IconButton(
                   onPressed: _canSubmit ? _handleSubmit : null,
+                  tooltip: isReplyIntent
+                      ? context.l10n.common_reply
+                      : context.l10n.boost_send,
                   icon: Icon(
-                    Icons.send_rounded,
+                    isReplyIntent ? Icons.reply_rounded : Icons.send_rounded,
                     color: _canSubmit
                         ? theme.colorScheme.primary
-                        : theme.colorScheme.onSurfaceVariant
-                            .withValues(alpha: 0.3),
+                        : theme.colorScheme.onSurfaceVariant.withValues(
+                            alpha: 0.3,
+                          ),
                   ),
                   visualDensity: VisualDensity.compact,
                 ),
@@ -257,7 +290,8 @@ class _BoostInputSheetState extends ConsumerState<_BoostInputSheet> {
             ),
 
           // 底部安全区
-          if (!_showEmojiPanel) SizedBox(height: MediaQuery.of(context).padding.bottom),
+          if (!_showEmojiPanel)
+            SizedBox(height: MediaQuery.of(context).padding.bottom),
         ],
       ),
     );

@@ -37,7 +37,7 @@ class PostFooterSection extends ConsumerStatefulWidget {
   final bool topicHasAcceptedAnswer;
   final int? acceptedAnswerPostNumber;
   final EdgeInsetsGeometry padding;
-  final VoidCallback? onReply;
+  final void Function({String? initialContent})? onReply;
   final VoidCallback? onEdit;
   final VoidCallback? onShareAsImage;
   final void Function(int postId)? onRefreshPost;
@@ -45,14 +45,19 @@ class PostFooterSection extends ConsumerStatefulWidget {
   final void Function(int postId, bool accepted)? onSolutionChanged;
   final ValueChanged<bool>? onAcceptedAnswerChanged;
   final bool useReplyDialog;
+
   /// 隐藏回复列表按钮（弹框内使用时不需要展示）
   final bool hideRepliesButton;
+
   /// 查看帖子详情回调（菜单中的"查看帖子详情"或"跳转"）
   final VoidCallback? onShowPostDetail;
+
   /// 自定义帖子详情菜单项文本（默认"帖子详情"，弹框中可用"跳转"）
   final String? postDetailLabel;
+
   /// Boost 更新回调
   final void Function(Post updatedPost)? onBoostUpdated;
+
   /// 高亮指定用户的 boost（从 boost 通知跳转时使用）
   final String? highlightBoostUsername;
 
@@ -96,7 +101,9 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
   late List<Boost> _boosts;
   late bool _canBoost;
   final List<Post> _replies = [];
-  final ValueNotifier<bool> _isLoadingRepliesNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _isLoadingRepliesNotifier = ValueNotifier<bool>(
+    false,
+  );
   final ValueNotifier<bool> _showRepliesNotifier = ValueNotifier<bool>(false);
   bool _isAcceptedAnswer = false;
   bool _isTogglingAnswer = false;
@@ -143,10 +150,9 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
       _boosts = _dedupeBoostsById([..._boosts, boost]);
       _canBoost = false;
     });
-    widget.onBoostUpdated?.call(widget.post.copyWith(
-      boosts: List.from(_boosts),
-      canBoost: _canBoost,
-    ));
+    widget.onBoostUpdated?.call(
+      widget.post.copyWith(boosts: List.from(_boosts), canBoost: _canBoost),
+    );
   }
 
   void _handleBoostDeleted(Boost boost) {
@@ -158,10 +164,9 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
         _canBoost = true;
       }
     });
-    widget.onBoostUpdated?.call(widget.post.copyWith(
-      boosts: List.from(_boosts),
-      canBoost: _canBoost,
-    ));
+    widget.onBoostUpdated?.call(
+      widget.post.copyWith(boosts: List.from(_boosts), canBoost: _canBoost),
+    );
   }
 
   List<Boost> _dedupeBoostsById(List<Boost> boosts) {
@@ -207,7 +212,8 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
 
   void _showBoostActions(Boost boost) {
     final currentUser = ref.read(currentUserProvider).value;
-    final isOwn = currentUser != null && boost.user.username == currentUser.username;
+    final isOwn =
+        currentUser != null && boost.user.username == currentUser.username;
 
     if (!isOwn && !boost.canDelete) return;
 
@@ -239,8 +245,18 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
   }
 
   Future<void> _openBoostInput() async {
-    final raw = await showBoostInputSheet(context);
-    if (raw == null || raw.isEmpty || !mounted) return;
+    final result = await showBoostInputSheet(context);
+    if (result == null || !mounted) return;
+
+    final raw = result.raw;
+    if (raw.isEmpty) return;
+
+    if (result is BoostInputReplyResult) {
+      // 末尾追加空行，避免与已有草稿粘连
+      widget.onReply?.call(initialContent: '$raw\n\n');
+      return;
+    }
+
     await _createBoost(raw);
   }
 
@@ -260,7 +276,8 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final currentUser = ref.read(currentUserProvider).value;
-    final isOwnPost = currentUser != null && currentUser.username == widget.post.username;
+    final isOwnPost =
+        currentUser != null && currentUser.username == widget.post.username;
     final isGuest = currentUser == null;
 
     // 预热打赏凭证，避免首次打开更多菜单时因 AsyncLoading 导致打赏选项不显示
@@ -299,7 +316,7 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
             onShowReactionPicker: () => _showReactionPicker(context, theme),
             onShowReactionUsers: (reactionId) =>
                 _showReactionUsers(context, reactionId: reactionId),
-            onReply: widget.onReply,
+            onReply: widget.onReply == null ? null : () => widget.onReply!(),
             onShowMoreMenu: () => _showMoreMenu(context, theme),
             onToggleReplies: _toggleReplies,
             onAddBoost: _openBoostInput,
@@ -327,7 +344,9 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
                 showRepliesNotifier: _showRepliesNotifier,
                 onLoadMore: _loadReplies,
                 onJumpToPost: widget.onJumpToPost,
-                contentFontScale: ref.watch(preferencesProvider).contentFontScale,
+                contentFontScale: ref
+                    .watch(preferencesProvider)
+                    .contentFontScale,
               );
             },
           ),

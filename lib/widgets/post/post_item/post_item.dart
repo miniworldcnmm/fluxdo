@@ -18,7 +18,7 @@ import 'widgets/post_segment_frame.dart';
 class PostItem extends ConsumerStatefulWidget {
   final Post post;
   final int topicId;
-  final VoidCallback? onReply;
+  final void Function({String? initialContent})? onReply;
   final VoidCallback? onLike;
   final VoidCallback? onEdit;
   final VoidCallback? onShareAsImage;

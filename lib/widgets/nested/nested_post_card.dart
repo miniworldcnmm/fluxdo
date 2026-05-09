@@ -52,13 +52,15 @@ class NestedPostCard extends ConsumerStatefulWidget {
   final int maxDepth;
   final bool isLastChild;
   final bool isLoggedIn;
-  final void Function(Post? replyToPost) onReply;
+  final void Function(Post? replyToPost, {String? initialContent}) onReply;
   final void Function(Post post) onEdit;
   final void Function(int postId) onRefreshPost;
   final void Function(int postNumber) onJumpToPost;
   final void Function(int postId, bool accepted)? onSolutionChanged;
+
   /// 父节点竖线是否高亮
   final bool parentLineHighlighted;
+
   /// 展开/折叠状态存储（跨滚动回收保持状态）
   final Map<int, bool>? expansionState;
 
@@ -133,7 +135,8 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
     );
   }
 
-  bool get _hasReplies => widget.node.directReplyCount > 0 || _children.isNotEmpty;
+  bool get _hasReplies =>
+      widget.node.directReplyCount > 0 || _children.isNotEmpty;
   bool get _atMaxDepth => widget.depth >= widget.maxDepth;
   bool get _showDepthLine => _hasReplies && !_collapsed && !_atMaxDepth;
 
@@ -206,8 +209,12 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
     // 线条颜色
     final defaultLineColor = theme.colorScheme.outlineVariant;
     final highlightColor = theme.colorScheme.primary;
-    final depthLineColor = _depthLineHovered ? highlightColor : defaultLineColor;
-    final connectorColor = widget.parentLineHighlighted ? highlightColor : defaultLineColor;
+    final depthLineColor = _depthLineHovered
+        ? highlightColor
+        : defaultLineColor;
+    final connectorColor = widget.parentLineHighlighted
+        ? highlightColor
+        : defaultLineColor;
 
     // 已删除帖子
     final bool isDeletedPlaceholder = widget.node.isDeletedPlaceholder;
@@ -216,12 +223,12 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
     final Widget contentColumn = isDeletedPlaceholder
         ? _buildDeletedLabel(theme)
         : _collapsed
-            ? NestedCollapsedBar(
-                username: post.username,
-                replyCount: _replyCount,
-                onTap: _toggleExpanded,
-              )
-            : _buildArticle(theme, post, isMobile: isMobile);
+        ? NestedCollapsedBar(
+            username: post.username,
+            replyCount: _replyCount,
+            onTap: _toggleExpanded,
+          )
+        : _buildArticle(theme, post, isMobile: isMobile);
 
     // 主体行
     Widget mainRow;
@@ -233,7 +240,13 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
           if (isDeletedPlaceholder)
             SizedBox(
               width: _mobileGutterWidth,
-              child: Icon(Icons.delete_outline, size: 14, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
+              child: Icon(
+                Icons.delete_outline,
+                size: 14,
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.4,
+                ),
+              ),
             )
           else
             SizedBox(width: _mobileGutterWidth),
@@ -250,10 +263,19 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
             SizedBox(
               width: _avatarSize,
               height: _avatarSize,
-              child: Icon(Icons.delete_outline, size: 18, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
+              child: Icon(
+                Icons.delete_outline,
+                size: 18,
+                color: theme.colorScheme.onSurfaceVariant.withValues(
+                  alpha: 0.4,
+                ),
+              ),
             )
           else
-            NestedPostAvatar(avatarTemplate: post.avatarTemplate, username: post.username),
+            NestedPostAvatar(
+              avatarTemplate: post.avatarTemplate,
+              username: post.username,
+            ),
           const SizedBox(width: _columnGap),
           Expanded(child: contentColumn),
         ],
@@ -274,14 +296,27 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      Center(child: Container(width: _lineWidth, color: depthLineColor)),
+                      Center(
+                        child: Container(
+                          width: _lineWidth,
+                          color: depthLineColor,
+                        ),
+                      ),
                       if (_expanded)
                         Positioned(
                           bottom: 0,
                           child: Container(
-                            width: 16, height: 16,
-                            decoration: BoxDecoration(shape: BoxShape.circle, color: theme.colorScheme.surface),
-                            child: Icon(Icons.remove_circle_outline, size: 14, color: depthLineColor),
+                            width: 16,
+                            height: 16,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: theme.colorScheme.surface,
+                            ),
+                            child: Icon(
+                              Icons.remove_circle_outline,
+                              size: 14,
+                              color: depthLineColor,
+                            ),
                           ),
                         ),
                     ],
@@ -296,9 +331,13 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
 
     // 子节点
     final bool showContinueThread = _atMaxDepth && _hasReplies;
-    final bool showChildren = !_atMaxDepth && _expanded && !_collapsed &&
+    final bool showChildren =
+        !_atMaxDepth &&
+        _expanded &&
+        !_collapsed &&
         (_children.isNotEmpty || _isLoadingMore || _hasMore);
-    final bool showExpandBtn = !_atMaxDepth && !_expanded && !_collapsed && _hasReplies;
+    final bool showExpandBtn =
+        !_atMaxDepth && !_expanded && !_collapsed && _hasReplies;
 
     Widget card = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,14 +353,20 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
           Padding(
             padding: EdgeInsets.only(left: childIndent),
             child: isMobile
-                ? Padding(padding: EdgeInsets.only(top: vGap), child: _buildExpandButton(theme))
+                ? Padding(
+                    padding: EdgeInsets.only(top: vGap),
+                    child: _buildExpandButton(theme),
+                  )
                 : _wrapWithConnector(theme, _buildExpandButton(theme)),
           ),
         if (showContinueThread)
           Padding(
             padding: EdgeInsets.only(left: childIndent),
             child: isMobile
-                ? Padding(padding: EdgeInsets.only(top: vGap), child: _buildContinueThread(theme))
+                ? Padding(
+                    padding: EdgeInsets.only(top: vGap),
+                    child: _buildContinueThread(theme),
+                  )
                 : _wrapWithConnector(theme, _buildContinueThread(theme)),
           ),
       ],
@@ -338,7 +383,12 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
               left: _mobileGutterWidth / 2 - _lineWidth / 2,
               top: 0,
               bottom: 0,
-              child: IgnorePointer(child: SizedBox(width: _lineWidth, child: ColoredBox(color: depthLineColor))),
+              child: IgnorePointer(
+                child: SizedBox(
+                  width: _lineWidth,
+                  child: ColoredBox(color: depthLineColor),
+                ),
+              ),
             ),
             // 竖线交互区（含 hover 高亮）
             Positioned(
@@ -389,7 +439,13 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
                 top: -_verticalGap,
                 child: IgnorePointer(
                   child: CustomPaint(
-                    size: Size(_lineCenterX + _columnGap + _lineWidth / 2 - _lineAvatarGap, _verticalGap + _avatarSize / 2),
+                    size: Size(
+                      _lineCenterX +
+                          _columnGap +
+                          _lineWidth / 2 -
+                          _lineAvatarGap,
+                      _verticalGap + _avatarSize / 2,
+                    ),
                     painter: _LConnectorPainter(color: connectorColor),
                   ),
                 ),
@@ -450,7 +506,8 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
           html: post.cooked,
           textStyle: theme.textTheme.bodyMedium?.copyWith(
             height: 1.5,
-            fontSize: (theme.textTheme.bodyMedium?.fontSize ?? 14) *
+            fontSize:
+                (theme.textTheme.bodyMedium?.fontSize ?? 14) *
                 ref.watch(preferencesProvider).contentFontScale,
           ),
           post: post,
@@ -490,8 +547,15 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
           topicHasAcceptedAnswer: widget.detail.hasAcceptedAnswer,
           acceptedAnswerPostNumber: widget.detail.acceptedAnswerPostNumber,
           padding: const EdgeInsets.only(top: 4),
-          onReply: widget.isLoggedIn ? () => widget.onReply(post) : null,
-          onEdit: widget.isLoggedIn && post.canEdit ? () => widget.onEdit(post) : null,
+          onReply: widget.isLoggedIn
+              ? ({initialContent}) => widget.onReply(
+                  post.postNumber == 1 ? null : post,
+                  initialContent: initialContent,
+                )
+              : null,
+          onEdit: widget.isLoggedIn && post.canEdit
+              ? () => widget.onEdit(post)
+              : null,
           onShareAsImage: null,
           onRefreshPost: widget.onRefreshPost,
           onJumpToPost: widget.onJumpToPost,
@@ -516,18 +580,29 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
     );
   }
 
-  Widget _buildHeader(ThemeData theme, Post post, bool isOp, {bool isMobile = false}) {
+  Widget _buildHeader(
+    ThemeData theme,
+    Post post,
+    bool isOp, {
+    bool isMobile = false,
+  }) {
     return Row(
       children: [
         // 移动端内联头像
         if (isMobile) ...[
           GestureDetector(
-            onTap: () => Navigator.push(context,
-              MaterialPageRoute(builder: (_) => UserProfilePage(username: post.username))),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => UserProfilePage(username: post.username),
+              ),
+            ),
             child: CircleAvatar(
               radius: _mobileInlineAvatarSize / 2,
               backgroundImage: post.avatarTemplate.isNotEmpty
-                  ? discourseImageProvider(NestedPostAvatar.resolveUrl(post.avatarTemplate))
+                  ? discourseImageProvider(
+                      NestedPostAvatar.resolveUrl(post.avatarTemplate),
+                    )
                   : null,
               backgroundColor: theme.colorScheme.surfaceContainerHighest,
             ),
@@ -536,9 +611,18 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
         ],
         // 用户名（可点击）
         GestureDetector(
-          onTap: () => Navigator.push(context,
-            MaterialPageRoute(builder: (_) => UserProfilePage(username: post.username))),
-          child: Text(post.username, style: theme.textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold)),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => UserProfilePage(username: post.username),
+            ),
+          ),
+          child: Text(
+            post.username,
+            style: theme.textTheme.labelMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
         if (isOp) ...[
           const SizedBox(width: 4),
@@ -548,32 +632,54 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
               color: theme.colorScheme.primaryContainer,
               borderRadius: BorderRadius.circular(4),
             ),
-            child: Text('OP', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+            child: Text(
+              'OP',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.primary,
+              ),
+            ),
           ),
         ],
         if (post.replyToPostNumber > 0 && post.replyToUser != null) ...[
           const SizedBox(width: 4),
-          Icon(Icons.subdirectory_arrow_right, size: 12, color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6)),
+          Icon(
+            Icons.subdirectory_arrow_right,
+            size: 12,
+            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+          ),
           const SizedBox(width: 2),
-          Text(post.replyToUser!.username, style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
-          )),
+          Text(
+            post.replyToUser!.username,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+            ),
+          ),
         ],
         const Spacer(),
         // 时间 + 未读蓝点（蓝点在时间右上角，和 PostItem 一致）
         Consumer(
           builder: (context, ref, _) {
-            final sessionState = ref.watch(topicSessionProvider(widget.topicId));
+            final sessionState = ref.watch(
+              topicSessionProvider(widget.topicId),
+            );
             final isNew = !post.read;
-            final isReadInSession = sessionState.readPostNumbers.contains(post.postNumber);
+            final isReadInSession = sessionState.readPostNumbers.contains(
+              post.postNumber,
+            );
             final showDot = isNew && !isReadInSession;
 
             return Stack(
               clipBehavior: Clip.none,
               children: [
-                Text(TimeUtils.formatRelativeTime(post.createdAt), style: theme.textTheme.labelSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant, fontSize: 11,
-                )),
+                Text(
+                  TimeUtils.formatRelativeTime(post.createdAt),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontSize: 11,
+                  ),
+                ),
                 Positioned(
                   right: -6,
                   top: -2,
@@ -582,11 +688,15 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
                     duration: const Duration(milliseconds: 500),
                     curve: Curves.easeOut,
                     child: Container(
-                      width: 6, height: 6,
+                      width: 6,
+                      height: 6,
                       decoration: BoxDecoration(
                         color: theme.colorScheme.primary,
                         shape: BoxShape.circle,
-                        border: Border.all(color: theme.colorScheme.surface, width: 1),
+                        border: Border.all(
+                          color: theme.colorScheme.surface,
+                          width: 1,
+                        ),
                       ),
                     ),
                   ),
@@ -605,11 +715,19 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.add_circle_outline, size: 14, color: theme.colorScheme.primary),
+          Icon(
+            Icons.add_circle_outline,
+            size: 14,
+            color: theme.colorScheme.primary,
+          ),
           const SizedBox(width: 4),
-          Text(context.l10n.nested_repliesCount(_replyCount), style: theme.textTheme.labelSmall?.copyWith(
-            color: theme.colorScheme.primary, fontWeight: FontWeight.w500,
-          )),
+          Text(
+            context.l10n.nested_repliesCount(_replyCount),
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
         ],
       ),
     );
@@ -639,13 +757,19 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
             expansionState: widget.expansionState,
           ),
         if (_hasMore)
-          isMobile ? _buildLoadMoreSimple(theme) : _buildLoadMoreWithConnector(theme),
+          isMobile
+              ? _buildLoadMoreSimple(theme)
+              : _buildLoadMoreWithConnector(theme),
       ],
     );
   }
 
   /// 为子树区域内的操作按钮添加 L 形连接线
-  Widget _wrapWithConnector(ThemeData theme, Widget child, {double topPadding = _verticalGap}) {
+  Widget _wrapWithConnector(
+    ThemeData theme,
+    Widget child, {
+    double topPadding = _verticalGap,
+  }) {
     final lineColor = widget.parentLineHighlighted
         ? theme.colorScheme.primary
         : theme.colorScheme.outlineVariant;
@@ -680,11 +804,19 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
     return Padding(
       padding: const EdgeInsets.only(top: _mobileVerticalGap, bottom: 8),
       child: _isLoadingMore
-          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
           : GestureDetector(
               onTap: _loadChildren,
-              child: Text(context.l10n.nested_loadMoreReplies,
-                style: theme.textTheme.labelSmall?.copyWith(color: theme.colorScheme.primary)),
+              child: Text(
+                context.l10n.nested_loadMoreReplies,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                ),
+              ),
             ),
     );
   }
@@ -703,8 +835,9 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
               onTap: _loadChildren,
               child: Text(
                 context.l10n.nested_loadMoreReplies,
-                style: theme.textTheme.labelSmall
-                    ?.copyWith(color: theme.colorScheme.primary),
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                ),
               ),
             ),
     );
@@ -731,7 +864,11 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.subdirectory_arrow_right, size: 14, color: theme.colorScheme.primary),
+          Icon(
+            Icons.subdirectory_arrow_right,
+            size: 14,
+            color: theme.colorScheme.primary,
+          ),
           const SizedBox(width: 4),
           Text(
             context.l10n.nested_continueThread,

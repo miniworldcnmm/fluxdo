@@ -179,7 +179,7 @@ class LongPostFooterSegment extends ConsumerWidget {
   final bool topicHasAcceptedAnswer;
   final int? acceptedAnswerPostNumber;
   final String? bottomDateSeparatorLabel;
-  final VoidCallback? onReply;
+  final void Function({String? initialContent})? onReply;
   final VoidCallback? onEdit;
   final VoidCallback? onShareAsImage;
   final void Function(int postId)? onRefreshPost;

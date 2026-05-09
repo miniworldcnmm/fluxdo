@@ -55,10 +55,12 @@ class _PostRepliesSheetContent extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_PostRepliesSheetContent> createState() => _PostRepliesSheetContentState();
+  ConsumerState<_PostRepliesSheetContent> createState() =>
+      _PostRepliesSheetContentState();
 }
 
-class _PostRepliesSheetContentState extends ConsumerState<_PostRepliesSheetContent> {
+class _PostRepliesSheetContentState
+    extends ConsumerState<_PostRepliesSheetContent> {
   static const int _batchSize = 20;
 
   final DiscourseService _service = DiscourseService();
@@ -91,7 +93,9 @@ class _PostRepliesSheetContentState extends ConsumerState<_PostRepliesSheetConte
       onTimingsSent: (topicId, postNumbers, highestSeen) {
         if (!mounted) return;
         // 更新会话已读状态，消除蓝点
-        ref.read(topicSessionProvider(topicId).notifier).markAsRead(postNumbers);
+        ref
+            .read(topicSessionProvider(topicId).notifier)
+            .markAsRead(postNumbers);
       },
     );
     if (_isLoggedIn) {
@@ -142,7 +146,10 @@ class _PostRepliesSheetContentState extends ConsumerState<_PostRepliesSheetConte
     } catch (e, s) {
       AppErrorHandler.handleUnexpected(e, s);
       if (mounted) {
-        setState(() { _error = e.toString(); _isLoading = false; });
+        setState(() {
+          _error = e.toString();
+          _isLoading = false;
+        });
       }
     }
   }
@@ -151,7 +158,10 @@ class _PostRepliesSheetContentState extends ConsumerState<_PostRepliesSheetConte
     if (_isLoadingMore || !_canLoadMore) return;
     setState(() => _isLoadingMore = true);
     try {
-      final nextBatch = _allReplyIds.skip(_replies.length).take(_batchSize).toList();
+      final nextBatch = _allReplyIds
+          .skip(_replies.length)
+          .take(_batchSize)
+          .toList();
       if (nextBatch.isNotEmpty) {
         final postStream = await _service.getPosts(widget.topicId, nextBatch);
         if (mounted) setState(() => _replies.addAll(postStream.posts));
@@ -193,32 +203,43 @@ class _PostRepliesSheetContentState extends ConsumerState<_PostRepliesSheetConte
     });
   }
 
-  void _handleReply(Post post) {
+  void _handleReply(Post post, {String? initialContent}) {
+    final replyToPost = post.postNumber == 1 ? null : post;
     showReplySheet(
       context: context,
       topicId: widget.topicId,
-      replyToPost: post,
+      replyToPost: replyToPost,
+      initialContent: initialContent,
     );
   }
 
   void _handleQuoteSelection(String selectedText, Post post) {
-    final codePayload = CodeSelectionContextTracker.instance.decodePayload(selectedText);
+    final codePayload = CodeSelectionContextTracker.instance.decodePayload(
+      selectedText,
+    );
     final plainSelectedText = codePayload?.text ?? selectedText;
 
     // 从 HTML 提取并转为 Markdown
     String markdown;
-    final htmlFragment = HtmlTextMapper.extractHtml(post.cooked, plainSelectedText);
+    final htmlFragment = HtmlTextMapper.extractHtml(
+      post.cooked,
+      plainSelectedText,
+    );
     if (htmlFragment != null) {
       markdown = HtmlToMarkdown.convert(htmlFragment);
       if (markdown.trim().isEmpty) {
         markdown = codePayload != null
             ? CodeSelectionContextTracker.instance.toMarkdown(
-                plainSelectedText, context: codePayload.context)
+                plainSelectedText,
+                context: codePayload.context,
+              )
             : plainSelectedText;
       }
     } else if (codePayload != null) {
       markdown = CodeSelectionContextTracker.instance.toMarkdown(
-          plainSelectedText, context: codePayload.context);
+        plainSelectedText,
+        context: codePayload.context,
+      );
     } else {
       markdown = plainSelectedText;
     }
@@ -287,7 +308,8 @@ class _PostRepliesSheetContentState extends ConsumerState<_PostRepliesSheetConte
     return Padding(
       padding: const EdgeInsets.only(top: 8, bottom: 4),
       child: Container(
-        width: 36, height: 4,
+        width: 36,
+        height: 4,
         decoration: BoxDecoration(
           color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
           borderRadius: BorderRadius.circular(2),
@@ -303,7 +325,9 @@ class _PostRepliesSheetContentState extends ConsumerState<_PostRepliesSheetConte
         children: [
           Text(
             '#${widget.post.postNumber} ${context.l10n.post_detail}',
-            style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
           ),
           const Spacer(),
           IconButton(
@@ -316,7 +340,11 @@ class _PostRepliesSheetContentState extends ConsumerState<_PostRepliesSheetConte
     );
   }
 
-  Widget _buildContent(BuildContext context, ThemeData theme, ScrollController scrollController) {
+  Widget _buildContent(
+    BuildContext context,
+    ThemeData theme,
+    ScrollController scrollController,
+  ) {
     if (_isLoading) return const Center(child: LoadingSpinner());
 
     if (_error != null) {
@@ -330,7 +358,10 @@ class _PostRepliesSheetContentState extends ConsumerState<_PostRepliesSheetConte
               const SizedBox(height: 12),
               TextButton(
                 onPressed: () {
-                  setState(() { _isLoading = true; _error = null; });
+                  setState(() {
+                    _isLoading = true;
+                    _error = null;
+                  });
                   _loadInitial();
                 },
                 child: Text(S.current.common_retry),
@@ -343,7 +374,8 @@ class _PostRepliesSheetContentState extends ConsumerState<_PostRepliesSheetConte
 
     final hasReplies = _replies.isNotEmpty;
     // 帖子本身 + (有回复时: 分隔标题 + 回复列表 + 可能的加载更多)
-    final itemCount = 1 + (hasReplies ? 1 + _replies.length + (_canLoadMore ? 1 : 0) : 0);
+    final itemCount =
+        1 + (hasReplies ? 1 + _replies.length + (_canLoadMore ? 1 : 0) : 0);
 
     return NotificationListener<ScrollNotification>(
       onNotification: _handleScrollNotification,
@@ -370,14 +402,17 @@ class _PostRepliesSheetContentState extends ConsumerState<_PostRepliesSheetConte
 
   /// 回复分隔标题
   Widget _buildRepliesDivider(ThemeData theme) {
-    final totalCount = _allReplyIds.isNotEmpty ? _allReplyIds.length : widget.post.replyCount;
+    final totalCount = _allReplyIds.isNotEmpty
+        ? _allReplyIds.length
+        : widget.post.replyCount;
     return SelectionContainer.disabled(
       child: Padding(
         padding: const EdgeInsets.only(left: 4, top: 4, bottom: 8),
         child: Row(
           children: [
             Container(
-              width: 3, height: 14,
+              width: 3,
+              height: 14,
               decoration: BoxDecoration(
                 color: theme.colorScheme.primary,
                 borderRadius: BorderRadius.circular(1.5),
@@ -386,7 +421,9 @@ class _PostRepliesSheetContentState extends ConsumerState<_PostRepliesSheetConte
             const SizedBox(width: 8),
             Text(
               S.current.post_relatedRepliesCount(totalCount),
-              style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ],
         ),
@@ -461,7 +498,9 @@ class _PostRepliesSheetContentState extends ConsumerState<_PostRepliesSheetConte
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
           child: DiscourseHtmlContent(
             html: post.cooked,
-            textStyle: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 14, height: 1.5),
+            textStyle: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(fontSize: 14, height: 1.5),
             compact: true,
             onSelectionChanged: (content) {
               _lastSelectedContent = content;
@@ -495,7 +534,10 @@ class _PostRepliesSheetContentState extends ConsumerState<_PostRepliesSheetConte
             topicHasAcceptedAnswer: false,
             acceptedAnswerPostNumber: null,
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-            onReply: _isLoggedIn ? () => _handleReply(post) : null,
+            onReply: _isLoggedIn
+                ? ({initialContent}) =>
+                      _handleReply(post, initialContent: initialContent)
+                : null,
             onEdit: null,
             onShareAsImage: null,
             onRefreshPost: null,
@@ -517,7 +559,11 @@ class _PostRepliesSheetContentState extends ConsumerState<_PostRepliesSheetConte
         child: TextButton.icon(
           onPressed: _isLoadingMore ? null : _loadMore,
           icon: _isLoadingMore
-              ? const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
+              ? const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
               : const Icon(Icons.expand_more, size: 16),
           label: Text(S.current.post_loadMoreReplies),
           style: TextButton.styleFrom(visualDensity: VisualDensity.compact),

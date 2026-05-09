@@ -19,7 +19,7 @@ void showNestedThreadSheet({
   required NestedTopicParams params,
   required int maxDepth,
   required bool isLoggedIn,
-  required void Function(Post? replyToPost) onReply,
+  required void Function(Post? replyToPost, {String? initialContent}) onReply,
   required void Function(Post post) onEdit,
   required void Function(int postId) onRefreshPost,
   required void Function(int postNumber) onJumpToPost,
@@ -56,7 +56,7 @@ class _NestedThreadSheetContent extends ConsumerStatefulWidget {
   final NestedTopicParams params;
   final int maxDepth;
   final bool isLoggedIn;
-  final void Function(Post? replyToPost) onReply;
+  final void Function(Post? replyToPost, {String? initialContent}) onReply;
   final void Function(Post post) onEdit;
   final void Function(int postId) onRefreshPost;
   final void Function(int postNumber) onJumpToPost;
@@ -103,8 +103,7 @@ class _NestedThreadSheetContentState
     if (_isLoadingMore) return;
     setState(() => _isLoadingMore = true);
     try {
-      final notifier =
-          ref.read(nestedTopicProvider(widget.params).notifier);
+      final notifier = ref.read(nestedTopicProvider(widget.params).notifier);
       final response = await notifier.loadChildren(
         widget.node.post.postNumber,
         page: _page,
@@ -165,14 +164,17 @@ class _NestedThreadSheetContentState
                   if (_hasMore)
                     Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
                       child: _isLoadingMore
                           ? const Center(
                               child: SizedBox(
                                 width: 20,
                                 height: 20,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2),
+                                  strokeWidth: 2,
+                                ),
                               ),
                             )
                           : Center(
@@ -214,8 +216,9 @@ class _NestedThreadSheetContentState
           Expanded(
             child: Text(
               '@${post.username} · ${context.l10n.nested_continueThread}',
-              style: theme.textTheme.titleSmall
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),

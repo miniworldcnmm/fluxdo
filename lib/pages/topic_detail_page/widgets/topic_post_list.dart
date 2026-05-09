@@ -51,7 +51,7 @@ class TopicPostList extends StatefulWidget {
   final void Function(Map<int, ({int firstScrollIndex, int lastScrollIndex})>)?
   onPostSegmentRangesChanged;
   final void Function(int postNumber) onJumpToPost;
-  final void Function(Post? replyToPost) onReply;
+  final void Function(Post? replyToPost, {String? initialContent}) onReply;
   final void Function(Post post) onEdit;
   final void Function(Post post)? onShareAsImage;
   final void Function(int postId) onRefreshPost;
@@ -174,7 +174,8 @@ class _TopicPostListState extends State<TopicPostList> {
   int get centerPostIndex => widget.centerPostIndex;
   int? get dividerPostIndex => widget.dividerPostIndex;
   void Function(int postNumber) get onJumpToPost => widget.onJumpToPost;
-  void Function(Post? replyToPost) get onReply => widget.onReply;
+  void Function(Post? replyToPost, {String? initialContent}) get onReply =>
+      widget.onReply;
   void Function(Post post) get onEdit => widget.onEdit;
   void Function(Post post)? get onShareAsImage => widget.onShareAsImage;
   void Function(int postId) get onRefreshPost => widget.onRefreshPost;
@@ -700,6 +701,7 @@ class _TopicPostListState extends State<TopicPostList> {
         boostUsername != null &&
         (post.boosts ?? []).any((b) => b.user.username == boostUsername);
     final highlight = isTargetPost && !canLocateBoost;
+    final replyTarget = post.postNumber == 1 ? null : post;
     final Widget child;
 
     switch (segment.type) {
@@ -717,7 +719,8 @@ class _TopicPostListState extends State<TopicPostList> {
           bottomDateSeparatorLabel: bottomDateSeparatorLabel,
           onLike: () => ToastService.showInfo(S.current.ai_likeInDev),
           onReply: isLoggedIn
-              ? () => onReply(post.postNumber == 1 ? null : post)
+              ? ({initialContent}) =>
+                    onReply(replyTarget, initialContent: initialContent)
               : null,
           onEdit: isLoggedIn && post.canEdit ? () => onEdit(post) : null,
           onShareAsImage: onShareAsImage != null
@@ -769,7 +772,8 @@ class _TopicPostListState extends State<TopicPostList> {
           acceptedAnswerPostNumber: detail.acceptedAnswerPostNumber,
           bottomDateSeparatorLabel: bottomDateSeparatorLabel,
           onReply: isLoggedIn
-              ? () => onReply(post.postNumber == 1 ? null : post)
+              ? ({initialContent}) =>
+                    onReply(replyTarget, initialContent: initialContent)
               : null,
           onEdit: isLoggedIn && post.canEdit ? () => onEdit(post) : null,
           onShareAsImage: onShareAsImage != null
