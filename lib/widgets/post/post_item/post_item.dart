@@ -18,8 +18,7 @@ import 'widgets/post_segment_frame.dart';
 class PostItem extends ConsumerStatefulWidget {
   final Post post;
   final int topicId;
-  final VoidCallback? onReply;
-  final void Function(String initialContent)? onReplyWithInitialContent;
+  final void Function({String? initialContent})? onReply;
   final VoidCallback? onLike;
   final VoidCallback? onEdit;
   final VoidCallback? onShareAsImage;
@@ -46,7 +45,6 @@ class PostItem extends ConsumerStatefulWidget {
     required this.post,
     required this.topicId,
     this.onReply,
-    this.onReplyWithInitialContent,
     this.onLike,
     this.onEdit,
     this.onShareAsImage,
@@ -280,7 +278,6 @@ class _PostItemState extends ConsumerState<PostItem> {
                 padding: const EdgeInsets.only(top: 12),
                 highlightBoostUsername: widget.highlightBoostUsername,
                 onReply: widget.onReply,
-                onReplyWithInitialContent: widget.onReplyWithInitialContent,
                 onEdit: widget.onEdit,
                 onShareAsImage: widget.onShareAsImage,
                 onRefreshPost: widget.onRefreshPost,

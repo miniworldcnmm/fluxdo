@@ -173,6 +173,8 @@ class _BoostInputSheetState extends ConsumerState<_BoostInputSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final visibleLength = _visibleLength;
+    final isReplyIntent = visibleLength > _maxVisibleLength;
 
     return Padding(
       padding: EdgeInsets.only(bottom: _showEmojiPanel ? 0 : bottomInset),
@@ -235,9 +237,9 @@ class _BoostInputSheetState extends ConsumerState<_BoostInputSheet> {
                         ),
                       ),
                       counterText: '',
-                      suffixText: '$_visibleLength/$_maxVisibleLength',
+                      suffixText: '$visibleLength/$_maxVisibleLength',
                       suffixStyle: theme.textTheme.labelSmall?.copyWith(
-                        color: _visibleLength > _maxVisibleLength
+                        color: isReplyIntent
                             ? theme.colorScheme.error
                             : theme.colorScheme.onSurfaceVariant.withValues(
                                 alpha: 0.5,
@@ -259,11 +261,11 @@ class _BoostInputSheetState extends ConsumerState<_BoostInputSheet> {
                 // 发送按钮
                 IconButton(
                   onPressed: _canSubmit ? _handleSubmit : null,
-                  tooltip: _isReplyIntent
+                  tooltip: isReplyIntent
                       ? context.l10n.common_reply
                       : context.l10n.boost_send,
                   icon: Icon(
-                    _isReplyIntent ? Icons.reply_rounded : Icons.send_rounded,
+                    isReplyIntent ? Icons.reply_rounded : Icons.send_rounded,
                     color: _canSubmit
                         ? theme.colorScheme.primary
                         : theme.colorScheme.onSurfaceVariant.withValues(

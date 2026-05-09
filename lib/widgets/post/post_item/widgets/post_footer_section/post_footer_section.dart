@@ -37,8 +37,7 @@ class PostFooterSection extends ConsumerStatefulWidget {
   final bool topicHasAcceptedAnswer;
   final int? acceptedAnswerPostNumber;
   final EdgeInsetsGeometry padding;
-  final VoidCallback? onReply;
-  final void Function(String initialContent)? onReplyWithInitialContent;
+  final void Function({String? initialContent})? onReply;
   final VoidCallback? onEdit;
   final VoidCallback? onShareAsImage;
   final void Function(int postId)? onRefreshPost;
@@ -70,7 +69,6 @@ class PostFooterSection extends ConsumerStatefulWidget {
     required this.acceptedAnswerPostNumber,
     required this.padding,
     required this.onReply,
-    this.onReplyWithInitialContent,
     required this.onEdit,
     required this.onShareAsImage,
     required this.onRefreshPost,
@@ -250,23 +248,17 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
     final result = await showBoostInputSheet(context);
     if (result == null || !mounted) return;
 
-    final raw = result.raw.trim();
+    final raw = result.raw;
     if (raw.isEmpty) return;
 
     if (result is BoostInputReplyResult) {
-      final onReplyWithInitialContent = widget.onReplyWithInitialContent;
-      if (onReplyWithInitialContent != null) {
-        onReplyWithInitialContent(_replyInitialContent(raw));
-      } else {
-        widget.onReply?.call();
-      }
+      // 末尾追加空行，避免与已有草稿粘连
+      widget.onReply?.call(initialContent: '$raw\n\n');
       return;
     }
 
     await _createBoost(raw);
   }
-
-  String _replyInitialContent(String raw) => '$raw\n\n';
 
   Future<void> _createBoost(String raw) async {
     try {
@@ -324,7 +316,7 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
             onShowReactionPicker: () => _showReactionPicker(context, theme),
             onShowReactionUsers: (reactionId) =>
                 _showReactionUsers(context, reactionId: reactionId),
-            onReply: widget.onReply,
+            onReply: widget.onReply == null ? null : () => widget.onReply!(),
             onShowMoreMenu: () => _showMoreMenu(context, theme),
             onToggleReplies: _toggleReplies,
             onAddBoost: _openBoostInput,

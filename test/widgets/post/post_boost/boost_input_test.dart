@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxdo/l10n/app_localizations.dart';
@@ -24,11 +25,17 @@ void main() {
             (ref) async => const <String, List<Emoji>>{},
           ),
         ],
-        child: MaterialApp(
-          navigatorKey: navigatorKey,
-          localizationsDelegates: AppLocalizations.localizationsDelegates,
-          supportedLocales: AppLocalizations.supportedLocales,
-          home: const _BoostInputTestHost(),
+        child: TranslationProvider(
+          child: MaterialApp(
+            navigatorKey: navigatorKey,
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: AppLocaleUtils.supportedLocales,
+            home: const _BoostInputTestHost(),
+          ),
         ),
       ),
     );

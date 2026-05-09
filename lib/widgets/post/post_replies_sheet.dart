@@ -534,9 +534,8 @@ class _PostRepliesSheetContentState
             topicHasAcceptedAnswer: false,
             acceptedAnswerPostNumber: null,
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-            onReply: _isLoggedIn ? () => _handleReply(post) : null,
-            onReplyWithInitialContent: _isLoggedIn
-                ? (initialContent) =>
+            onReply: _isLoggedIn
+                ? ({initialContent}) =>
                       _handleReply(post, initialContent: initialContent)
                 : null,
             onEdit: null,

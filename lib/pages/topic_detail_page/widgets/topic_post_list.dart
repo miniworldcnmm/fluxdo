@@ -718,9 +718,8 @@ class _TopicPostListState extends State<TopicPostList> {
           dateSeparatorLabel: dateSeparatorLabel,
           bottomDateSeparatorLabel: bottomDateSeparatorLabel,
           onLike: () => ToastService.showInfo(S.current.ai_likeInDev),
-          onReply: isLoggedIn ? () => onReply(replyTarget) : null,
-          onReplyWithInitialContent: isLoggedIn
-              ? (initialContent) =>
+          onReply: isLoggedIn
+              ? ({initialContent}) =>
                     onReply(replyTarget, initialContent: initialContent)
               : null,
           onEdit: isLoggedIn && post.canEdit ? () => onEdit(post) : null,
@@ -772,9 +771,8 @@ class _TopicPostListState extends State<TopicPostList> {
           topicHasAcceptedAnswer: detail.hasAcceptedAnswer,
           acceptedAnswerPostNumber: detail.acceptedAnswerPostNumber,
           bottomDateSeparatorLabel: bottomDateSeparatorLabel,
-          onReply: isLoggedIn ? () => onReply(replyTarget) : null,
-          onReplyWithInitialContent: isLoggedIn
-              ? (initialContent) =>
+          onReply: isLoggedIn
+              ? ({initialContent}) =>
                     onReply(replyTarget, initialContent: initialContent)
               : null,
           onEdit: isLoggedIn && post.canEdit ? () => onEdit(post) : null,
