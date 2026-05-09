@@ -304,41 +304,44 @@ class NewSubsetDropdown extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final isActive = currentSubset != NewSubset.all;
 
     return SwipeDismissiblePopupMenuButton<NewSubset>(
-        onSelected: onSubsetChanged,
-        offset: const Offset(0, 36),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        tooltip: _shortLabel(currentSubset),
-        child: compact
-            ? _buildCompactChild(colorScheme)
-            : _buildNormalChild(colorScheme),
-        itemBuilder: (context) {
-          return NewSubset.values.map((subset) {
-            final isSelected = subset == currentSubset;
-            return PopupMenuItem<NewSubset>(
-              value: subset,
-              child: Row(
-                children: [
-                  if (isSelected)
-                    Icon(Icons.check, size: 16, color: colorScheme.primary)
-                  else
-                    const SizedBox(width: 16),
-                  const SizedBox(width: 8),
-                  Text(_shortLabel(subset)),
-                ],
-              ),
-            );
-          }).toList();
-        },
+      onSelected: onSubsetChanged,
+      offset: const Offset(0, 36),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      tooltip: _shortLabel(currentSubset),
+      itemBuilder: (context) {
+        return NewSubset.values.map((subset) {
+          final isSelected = subset == currentSubset;
+          return PopupMenuItem<NewSubset>(
+            value: subset,
+            child: Row(
+              children: [
+                if (isSelected)
+                  Icon(Icons.check, size: 16, color: colorScheme.primary)
+                else
+                  const SizedBox(width: 16),
+                const SizedBox(width: 8),
+                Text(_shortLabel(subset)),
+              ],
+            ),
+          );
+        }).toList();
+      },
+      child: compact
+          ? _buildCompactChild(colorScheme, isActive)
+          : _buildNormalChild(colorScheme, isActive),
     );
   }
 
-  Widget _buildNormalChild(ColorScheme colorScheme) {
+  Widget _buildNormalChild(ColorScheme colorScheme, bool isActive) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: colorScheme.secondaryContainer.withValues(alpha: 0.5),
+        color: isActive
+            ? colorScheme.primaryContainer.withValues(alpha: 0.3)
+            : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -349,7 +352,7 @@ class NewSubsetDropdown extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: colorScheme.onSecondaryContainer,
+              color: isActive ? colorScheme.primary : colorScheme.onSurface,
             ),
           ),
           const SizedBox(width: 2),
@@ -359,21 +362,20 @@ class NewSubsetDropdown extends StatelessWidget {
     );
   }
 
-  Widget _buildCompactChild(ColorScheme colorScheme) {
-    final isDefault = currentSubset == NewSubset.all;
+  Widget _buildCompactChild(ColorScheme colorScheme, bool isActive) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            isDefault ? Icons.filter_list : Icons.filter_alt,
+            isActive ? Icons.filter_alt : Icons.filter_list,
             size: 18,
-            color: isDefault
-                ? colorScheme.onSurfaceVariant
-                : colorScheme.primary,
+            color: isActive
+                ? colorScheme.primary
+                : colorScheme.onSurfaceVariant,
           ),
-          if (!isDefault)
+          if (isActive)
             Text(
               _shortLabel(currentSubset),
               style: TextStyle(fontSize: 11, color: colorScheme.primary),

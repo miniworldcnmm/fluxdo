@@ -67,63 +67,63 @@ class SortAndTagsBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: Row(
         children: [
-              // 筛选下拉
-              FilterDropdown(
-                currentFilter: currentFilter,
-                isLoggedIn: isLoggedIn,
-                onFilterChanged: onFilterChanged,
-              ),
-              // 「新话题」子过滤下拉
-              if (currentFilter == TopicListFilter.newTopics) ...[
-                const SizedBox(width: 4),
-                NewSubsetDropdown(
-                  currentSubset: currentSubset,
-                  onSubsetChanged: onSubsetChanged,
-                ),
-              ],
-              const SizedBox(width: 4),
-              // 排序下拉
-              OrderDropdown(
-                currentOrder: currentOrder,
-                ascending: ascending,
-                onOrderChanged: onOrderChanged,
-                onToggleAscending: onToggleAscending,
-              ),
-              const SizedBox(width: 8),
-              // 标签区域
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      ...selectedTags.map((tag) => Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: RemovableTagBadge(
-                          name: tag,
-                          onDeleted: () => onTagRemoved(tag),
-                          size: const BadgeSize(
-                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            radius: 6,
-                            iconSize: 12,
-                            fontSize: 12,
-                          ),
-                        ),
-                      )),
-                      if (onAddTag != null)
-                        _AddTagButton(
-                          colorScheme: colorScheme,
-                          onTap: onAddTag!,
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              if (trailing != null) ...[
-                const SizedBox(width: 8),
-                trailing!,
-              ],
-            ],
+          // 筛选下拉
+          FilterDropdown(
+            currentFilter: currentFilter,
+            isLoggedIn: isLoggedIn,
+            onFilterChanged: onFilterChanged,
           ),
+          // 「新话题」子过滤下拉
+          if (currentFilter == TopicListFilter.newTopics) ...[
+            const SizedBox(width: 4),
+            NewSubsetDropdown(
+              currentSubset: currentSubset,
+              onSubsetChanged: onSubsetChanged,
+            ),
+          ],
+          const SizedBox(width: 4),
+          // 排序下拉
+          OrderDropdown(
+            currentOrder: currentOrder,
+            ascending: ascending,
+            onOrderChanged: onOrderChanged,
+            onToggleAscending: onToggleAscending,
+          ),
+          const SizedBox(width: 8),
+          // 标签区域
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  ...selectedTags.map((tag) => Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: RemovableTagBadge(
+                      name: tag,
+                      onDeleted: () => onTagRemoved(tag),
+                      size: const BadgeSize(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        radius: 6,
+                        iconSize: 12,
+                        fontSize: 12,
+                      ),
+                    ),
+                  )),
+                  if (onAddTag != null)
+                    _AddTagButton(
+                      colorScheme: colorScheme,
+                      onTap: onAddTag!,
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (trailing != null) ...[
+            const SizedBox(width: 8),
+            trailing!,
+          ],
+        ],
+      ),
     );
   }
 }
