@@ -116,4 +116,32 @@ void main() {
     Navigator.of(context).pop();
     await tester.pumpAndSettle();
   });
+
+  testWidgets('handleUri 对 fluxdo scheme 大小写不敏感', (tester) async {
+    BuildContext? capturedContext;
+    final observer = _RecordingNavigatorObserver();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorObservers: [observer],
+        home: Builder(
+          builder: (context) {
+            capturedContext = context;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    );
+
+    final context = capturedContext!;
+    observer.pushedRoutes.clear();
+    DeepLinkService.instance.updateContext(context);
+    DeepLinkService.instance.handleUri(Uri.parse('fluxdo://Topic/123'));
+
+    expect(observer.pushedRoutes, hasLength(1));
+    expect(Navigator.of(context).canPop(), isTrue);
+
+    Navigator.of(context).pop();
+    await tester.pumpAndSettle();
+  });
 }

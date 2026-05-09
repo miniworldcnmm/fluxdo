@@ -165,7 +165,7 @@ class DeepLinkService {
 
     if (pathSegments.isEmpty) return;
 
-    switch (pathSegments[0]) {
+    switch (pathSegments[0].toLowerCase()) {
       case 'topic':
         if (pathSegments.length >= 2) {
           final topicId = int.tryParse(pathSegments[1]);

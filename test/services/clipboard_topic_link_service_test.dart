@@ -75,6 +75,8 @@ void main() {
         'https://example.com/?a=1&next=https://linux.do/t/123',
         'https://example.com/?next=(https://linux.do/t/123)',
         'https://example.com/?next=foo:https://linux.do/t/123',
+        'mailto:linux.do/t/123',
+        'foo:linux.do/t/123/5',
         'https://linux.do/t/topic-slug',
         'https://linux.do/t/123/not-post-number',
         'https://linux.do/t/topic-slug/123/not-post-number',
