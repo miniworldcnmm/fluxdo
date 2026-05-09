@@ -22,17 +22,17 @@ class UpdateCheckerHelper {
   ) async {
     final updateInfo = await updateService.autoCheckUpdate();
     if (updateInfo != null && context.mounted) {
-      _showAutoUpdateDialog(context, updateInfo, updateService);
+      await _showAutoUpdateDialog(context, updateInfo, updateService);
     }
   }
 
   /// 显示自动更新对话框
-  static void _showAutoUpdateDialog(
+  static Future<void> _showAutoUpdateDialog(
     BuildContext context,
     UpdateInfo updateInfo,
     UpdateService updateService,
   ) {
-    showAppDialog(
+    return showAppDialog<void>(
       context: context,
       builder: (context) => UpdateDialog(
         updateInfo: updateInfo,
@@ -96,9 +96,6 @@ class UpdateCheckerHelper {
 
   /// 在浏览器中打开
   static void _openInBrowser(String url) {
-    launchUrl(
-      Uri.parse(url),
-      mode: LaunchMode.externalApplication,
-    );
+    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 }

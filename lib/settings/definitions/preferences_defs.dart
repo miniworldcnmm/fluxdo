@@ -37,6 +37,17 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
               ref.read(preferencesProvider.notifier).setAutoFillLogin(v),
         ),
         SwitchModel(
+          id: 'clipboardTopicLinkDetection',
+          title: l10n.preferences_clipboardTopicLinkDetection,
+          subtitle: l10n.preferences_clipboardTopicLinkDetectionDesc,
+          icon: Icons.content_paste_rounded,
+          getValue: (ref) =>
+              ref.watch(preferencesProvider).clipboardTopicLinkDetection,
+          onChanged: (ref, v) => ref
+              .read(preferencesProvider.notifier)
+              .setClipboardTopicLinkDetection(v),
+        ),
+        SwitchModel(
           id: 'cfClearanceRefresh',
           title: l10n.preferences_cfClearanceRefresh,
           subtitle: l10n.preferences_cfClearanceRefreshDesc,
