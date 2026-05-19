@@ -1314,6 +1314,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                               topicId: widget.topicId,
                               categoryId: detail.categoryId,
                               initialContent: '$imageMarkdown\n',
+                              topicTitle: detail.title,
                               isPrivateMessageTopic: detail.isPrivateMessage,
                             );
                           },
@@ -1353,6 +1354,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             topicId: widget.topicId,
             categoryId: detail.categoryId,
             initialContent: '$imageMarkdown\n',
+            topicTitle: detail.title,
             isPrivateMessageTopic: detail.isPrivateMessage,
           );
         },
@@ -1691,6 +1693,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                     context: context,
                     post: post,
                     topicId: widget.topicId,
+                    topicTitle: detail.title,
+                    isPrivateMessageTopic: detail.isPrivateMessage,
                     onJumpToPost: _scrollToPost,
                   ),
                 );
