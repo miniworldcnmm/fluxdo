@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:collection/collection.dart';
 import 'package:flutter/services.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_riverpod/legacy.dart';
@@ -58,6 +59,19 @@ class AppPreferences {
 
   /// 自动识别剪贴板中的 Linux.do 话题链接
   final bool clipboardTopicLinkDetection;
+
+  /// 话题关键词过滤列表（原样存储，仅 trim 去重去空，保留用户输入大小写以便回显）
+  final List<String> topicFilterKeywords;
+
+  /// 话题关键词过滤：是否启用完整词匹配（仅影响英文/数字等 word-char 关键词）
+  final bool topicFilterWholeWord;
+
+  /// 话题关键词过滤的归一化形式（lowercase），匹配时使用
+  late final List<String> normalizedFilterKeywords = List.unmodifiable(
+    topicFilterKeywords
+        .map((keyword) => keyword.trim().toLowerCase())
+        .where((keyword) => keyword.isNotEmpty),
+  );
 
   /// 崩溃日志上报（仅 Android）
   final bool crashlytics;
@@ -122,7 +136,7 @@ class AppPreferences {
   /// 底栏入口 id 列表（顺序即显示顺序）
   final List<String> bottomNavIds;
 
-  const AppPreferences({
+  AppPreferences({
     required this.autoPanguSpacing,
     required this.displayPanguSpacing,
     required this.anonymousShare,
@@ -132,6 +146,8 @@ class AppPreferences {
     required this.shareImageThemeIndex,
     required this.autoFillLogin,
     required this.clipboardTopicLinkDetection,
+    required this.topicFilterKeywords,
+    this.topicFilterWholeWord = false,
     required this.crashlytics,
     required this.androidNativeCdp,
     required this.portraitLock,
@@ -165,6 +181,8 @@ class AppPreferences {
     int? shareImageThemeIndex,
     bool? autoFillLogin,
     bool? clipboardTopicLinkDetection,
+    List<String>? topicFilterKeywords,
+    bool? topicFilterWholeWord,
     bool? crashlytics,
     bool? androidNativeCdp,
     bool? portraitLock,
@@ -199,6 +217,8 @@ class AppPreferences {
       autoFillLogin: autoFillLogin ?? this.autoFillLogin,
       clipboardTopicLinkDetection:
           clipboardTopicLinkDetection ?? this.clipboardTopicLinkDetection,
+      topicFilterKeywords: topicFilterKeywords ?? this.topicFilterKeywords,
+      topicFilterWholeWord: topicFilterWholeWord ?? this.topicFilterWholeWord,
       crashlytics: crashlytics ?? this.crashlytics,
       androidNativeCdp: androidNativeCdp ?? this.androidNativeCdp,
       portraitLock: portraitLock ?? this.portraitLock,
@@ -240,6 +260,8 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   static const String _autoFillLoginKey = 'pref_auto_fill_login';
   static const String _clipboardTopicLinkDetectionKey =
       'pref_clipboard_topic_link_detection';
+  static const String _topicFilterKeywordsKey = 'pref_topic_filter_keywords';
+  static const String _topicFilterWholeWordKey = 'pref_topic_filter_whole_word';
   static const String _crashlyticsKey = 'pref_crashlytics';
   static const String _androidNativeCdpKey = AndroidCdpFeature.prefKey;
   static const String _portraitLockKey = 'pref_portrait_lock';
@@ -283,6 +305,10 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
           autoFillLogin: _prefs.getBool(_autoFillLoginKey) ?? true,
           clipboardTopicLinkDetection:
               _prefs.getBool(_clipboardTopicLinkDetectionKey) ?? false,
+          topicFilterKeywords:
+              _prefs.getStringList(_topicFilterKeywordsKey) ?? const [],
+          topicFilterWholeWord:
+              _prefs.getBool(_topicFilterWholeWordKey) ?? false,
           crashlytics: _prefs.getBool(_crashlyticsKey) ?? true,
           androidNativeCdp: _prefs.getBool(_androidNativeCdpKey) ?? false,
           portraitLock: _prefs.getBool(_portraitLockKey) ?? false,
@@ -369,6 +395,27 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   Future<void> setClipboardTopicLinkDetection(bool enabled) async {
     state = state.copyWith(clipboardTopicLinkDetection: enabled);
     await _prefs.setBool(_clipboardTopicLinkDetectionKey, enabled);
+  }
+
+  Future<void> setTopicFilterKeywords(List<String> keywords) async {
+    final deduped = keywords
+        .map((keyword) => keyword.trim())
+        .where((keyword) => keyword.isNotEmpty)
+        .toSet()
+        .toList();
+    final current = state.topicFilterKeywords;
+    if (deduped.length == current.length &&
+        const ListEquality<String>().equals(deduped, current)) {
+      return;
+    }
+    state = state.copyWith(topicFilterKeywords: deduped);
+    await _prefs.setStringList(_topicFilterKeywordsKey, deduped);
+  }
+
+  Future<void> setTopicFilterWholeWord(bool enabled) async {
+    if (state.topicFilterWholeWord == enabled) return;
+    state = state.copyWith(topicFilterWholeWord: enabled);
+    await _prefs.setBool(_topicFilterWholeWordKey, enabled);
   }
 
   Future<void> setCrashlytics(bool enabled) async {

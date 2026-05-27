@@ -51,6 +51,21 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
               .read(preferencesProvider.notifier)
               .setClipboardTopicLinkDetection(v),
         ),
+        ActionModel(
+          id: 'topicFilterKeywords',
+          title: l10n.preferences_topicFilterKeywords,
+          subtitle: l10n.preferences_topicFilterKeywordsDesc,
+          icon: Icons.filter_alt_off_rounded,
+          getDynamicSubtitle: (ref) {
+            final count = ref
+                .watch(preferencesProvider)
+                .topicFilterKeywords
+                .length;
+            if (count == 0) return null;
+            return l10n.preferences_topicFilterKeywordsCount(count);
+          },
+          onTap: (context, ref) => showTopicFilterKeywordsDialog(context, ref),
+        ),
         SwitchModel(
           id: 'cfClearanceRefresh',
           title: l10n.preferences_cfClearanceRefresh,
@@ -179,6 +194,127 @@ Future<void> _showAiPostReviewModelSheet(
       .setAiPostReviewModelKey(
         buildAiModelKey(selected.provider.id, selected.model.id),
       );
+}
+
+typedef _TopicFilterDialogResult = ({List<String> keywords, bool wholeWord});
+
+/// 打开「标题关键词过滤」编辑弹窗（公共入口，hint bar 与设置项均复用）。
+Future<void> showTopicFilterKeywordsDialog(
+  BuildContext context,
+  WidgetRef ref,
+) async {
+  final prefs = ref.read(preferencesProvider);
+  final result = await showAppDialog<_TopicFilterDialogResult>(
+    context: context,
+    builder: (dialogContext) => _TopicFilterKeywordsDialog(
+      initialKeywords: prefs.topicFilterKeywords,
+      initialWholeWord: prefs.topicFilterWholeWord,
+    ),
+  );
+  if (result == null || !context.mounted) return;
+  final notifier = ref.read(preferencesProvider.notifier);
+  await notifier.setTopicFilterKeywords(result.keywords);
+  await notifier.setTopicFilterWholeWord(result.wholeWord);
+}
+
+class _TopicFilterKeywordsDialog extends StatefulWidget {
+  final List<String> initialKeywords;
+  final bool initialWholeWord;
+
+  const _TopicFilterKeywordsDialog({
+    required this.initialKeywords,
+    required this.initialWholeWord,
+  });
+
+  @override
+  State<_TopicFilterKeywordsDialog> createState() =>
+      _TopicFilterKeywordsDialogState();
+}
+
+class _TopicFilterKeywordsDialogState
+    extends State<_TopicFilterKeywordsDialog> {
+  late final TextEditingController _controller;
+  late bool _wholeWord;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: widget.initialKeywords.join('\n'),
+    );
+    _wholeWord = widget.initialWholeWord;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    return AlertDialog(
+      title: Text(l10n.preferences_topicFilterKeywords),
+      content: SizedBox(
+        width: 420,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton.icon(
+                icon: const Icon(Icons.clear_all_rounded, size: 18),
+                label: Text(l10n.common_clear),
+                onPressed: () => _controller.clear(),
+              ),
+            ),
+            TextField(
+              controller: _controller,
+              decoration: InputDecoration(
+                hintText: l10n.preferences_topicFilterKeywordsHint,
+                helperText: l10n.preferences_topicFilterKeywordsHelper,
+                helperMaxLines: 2,
+                border: const OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.multiline,
+              minLines: 5,
+              maxLines: 10,
+              autofocus: true,
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              dense: true,
+              title: Text(l10n.preferences_topicFilterWholeWord),
+              subtitle: Text(l10n.preferences_topicFilterWholeWordDesc),
+              value: _wholeWord,
+              onChanged: (v) => setState(() => _wholeWord = v),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l10n.common_cancel),
+        ),
+        FilledButton(
+          onPressed: () {
+            final keywords = _controller.text
+                .split('\n')
+                .map((keyword) => keyword.trim())
+                .where((keyword) => keyword.isNotEmpty)
+                .toList();
+            Navigator.pop(context, (keywords: keywords, wholeWord: _wholeWord));
+          },
+          child: Text(l10n.common_confirm),
+        ),
+      ],
+    );
+  }
 }
 
 void _showStickerBaseUrlDialog(BuildContext context, WidgetRef ref) {
