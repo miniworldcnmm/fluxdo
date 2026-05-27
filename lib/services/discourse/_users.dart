@@ -200,7 +200,7 @@ mixin _UsersMixin on _DiscourseServiceBase {
       '/u/$username/notification_level.json',
       data: {
         'notification_level': level,
-        if (expiringAt case final expiringAt?) 'expiring_at': expiringAt,
+        ...?(expiringAt == null ? null : {'expiring_at': expiringAt}),
       },
     );
   }
@@ -254,16 +254,43 @@ mixin _UsersMixin on _DiscourseServiceBase {
   }
 
   /// 获取用户个人书签
-  Future<TopicListResponse> getUserBookmarks({int page = 0}) async {
+  Future<TopicListResponse> getUserBookmarks({int page = 0, int? limit}) async {
+    final response = await _getUserBookmarksRaw(page: page, limit: limit);
+    return TopicListResponse.fromJson(response);
+  }
+
+  /// 拉书签接口并返回原始 JSON map，给本地缓存对账层使用——
+  /// 需要保留每条书签自身的 updated_at 等字段，无法通过 [TopicListResponse] 转回。
+  Future<Map<String, dynamic>> getUserBookmarksRaw({
+    int page = 0,
+    int? limit,
+  }) {
+    return _getUserBookmarksRaw(page: page, limit: limit);
+  }
+
+  Future<Map<String, dynamic>> _getUserBookmarksRaw({
+    required int page,
+    required int? limit,
+  }) async {
     final username = await getUsername();
     if (username == null) {
       throw Exception(S.current.error_notLoggedInNoUsername);
     }
+    final queryParameters = <String, dynamic>{};
+    if (page > 0) {
+      queryParameters['page'] = page;
+    }
+    if (limit != null) {
+      // Discourse 书签接口单页上限是 20，超过会直接返回 invalid_parameters。
+      if (limit > 0) {
+        queryParameters['limit'] = limit > 20 ? 20 : limit;
+      }
+    }
     final response = await _dio.get(
       '/u/$username/bookmarks.json',
-      queryParameters: page > 0 ? {'page': page} : null,
+      queryParameters: queryParameters.isEmpty ? null : queryParameters,
     );
-    return TopicListResponse.fromJson(response.data);
+    return Map<String, dynamic>.from(response.data as Map);
   }
 
   /// 获取用户创建的话题

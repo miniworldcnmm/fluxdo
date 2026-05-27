@@ -72,11 +72,35 @@ extension _PostFooterBookmarkActions on _PostFooterSectionState {
 
   /// 弹出书签编辑 BottomSheet
   Future<void> _showBookmarkSheet(int bookmarkId, {bool isEdit = false}) async {
-    final result = await BookmarkEditSheet.show(
+    final traceId = createBookmarkEditTraceId();
+    writeBookmarkEditTrace(
+      phase: 'post_footer_bookmark_sheet_request',
+      traceId: traceId,
+      source: 'post_footer_bookmark_action',
+      message: isEdit ? '帖子 footer 准备打开编辑书签面板' : '帖子 footer 准备打开新建书签编辑面板',
+      topicId: widget.topicId,
+      postId: widget.post.id,
+      bookmarkId: bookmarkId,
+      bookmarkName: _bookmarkName ?? widget.post.bookmarkName,
+      initialName: isEdit ? (_bookmarkName ?? widget.post.bookmarkName) : null,
+      bookmarked: _isBookmarked,
+      hasReminder:
+          isEdit
+              ? ((_bookmarkReminderAt ?? widget.post.bookmarkReminderAt) != null)
+              : false,
+    );
+    final result = await showBookmarkEditSheetWithCachedNames(
       context,
+      ref,
       bookmarkId: bookmarkId,
       initialName: isEdit ? (_bookmarkName ?? widget.post.bookmarkName) : null,
-      initialReminderAt: isEdit ? (_bookmarkReminderAt ?? widget.post.bookmarkReminderAt) : null,
+      initialReminderAt: isEdit
+          ? (_bookmarkReminderAt ?? widget.post.bookmarkReminderAt)
+          : null,
+      traceId: traceId,
+      source: 'post_footer_bookmark_action',
+      topicId: widget.topicId,
+      postId: widget.post.id,
     );
 
     if (result == null || !mounted) return;

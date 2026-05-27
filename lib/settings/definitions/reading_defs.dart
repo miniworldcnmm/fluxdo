@@ -67,7 +67,8 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
           title: l10n.preferences_openLinksInApp,
           subtitle: l10n.preferences_openLinksInAppDesc,
           icon: Icons.open_in_browser_rounded,
-          getValue: (ref) => ref.watch(preferencesProvider).openExternalLinksInAppBrowser,
+          getValue: (ref) =>
+              ref.watch(preferencesProvider).openExternalLinksInAppBrowser,
           onChanged: (ref, v) => ref
               .read(preferencesProvider.notifier)
               .setOpenExternalLinksInAppBrowser(v),
@@ -89,6 +90,32 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
           getValue: (ref) => ref.watch(preferencesProvider).showSignatures,
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setShowSignatures(v),
+        ),
+        CustomModel(
+          id: 'bookmarksOpenMode',
+          title: l10n.reading_bookmarksOpenMode,
+          builder: (context, ref) {
+            final currentMode = ref
+                .watch(preferencesProvider)
+                .bookmarksOpenMode;
+            final l = context.l10n;
+            return ListTile(
+              leading: Icon(
+                Icons.tab_rounded,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              title: Text(l.reading_bookmarksOpenMode),
+              subtitle: Text(switch (currentMode) {
+                BookmarksOpenMode.defaultRoute =>
+                  l.reading_bookmarksOpenModeDefault,
+                BookmarksOpenMode.tabbedWorkspace =>
+                  l.reading_bookmarksOpenModeTabbedWorkspace,
+              }),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () =>
+                  _showBookmarksOpenModePicker(context, ref, currentMode),
+            );
+          },
         ),
         PlatformConditionalModel(
           inner: SwitchModel(
@@ -167,8 +194,12 @@ void _showLineStylePicker(
             child: Row(
               children: [
                 Icon(
-                  style == current ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                  color: style == current ? Theme.of(context).colorScheme.primary : null,
+                  style == current
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: style == current
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
                   size: 20,
                 ),
                 const SizedBox(width: 12),
@@ -181,6 +212,53 @@ void _showLineStylePicker(
   ).then((selected) {
     if (selected != null) {
       ref.read(preferencesProvider.notifier).setNestedLineStyle(selected);
+    }
+  });
+}
+
+void _showBookmarksOpenModePicker(
+  BuildContext context,
+  WidgetRef ref,
+  BookmarksOpenMode current,
+) {
+  final l10n = context.l10n;
+  final options = [
+    (BookmarksOpenMode.defaultRoute, l10n.reading_bookmarksOpenModeDefault),
+    (
+      BookmarksOpenMode.tabbedWorkspace,
+      l10n.reading_bookmarksOpenModeTabbedWorkspace,
+    ),
+  ];
+
+  showDialog<BookmarksOpenMode>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: Text(l10n.reading_bookmarksOpenMode),
+      children: [
+        for (final (mode, label) in options)
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, mode),
+            child: Row(
+              children: [
+                Icon(
+                  mode == current
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
+                  color: mode == current
+                      ? Theme.of(context).colorScheme.primary
+                      : null,
+                  size: 20,
+                ),
+                const SizedBox(width: 12),
+                Text(label),
+              ],
+            ),
+          ),
+      ],
+    ),
+  ).then((selected) {
+    if (selected != null) {
+      ref.read(preferencesProvider.notifier).setBookmarksOpenMode(selected);
     }
   });
 }
