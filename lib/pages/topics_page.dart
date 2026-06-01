@@ -574,8 +574,14 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
         onNotification: _handleOuterScrollNotification,
         child: ScrollConfiguration(
           // 禁用自动 Scrollbar，避免 NestedScrollView + TabBarView
-          // 多个 ScrollPosition 同时存在时 Scrollbar 报错
-          behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
+          // 多个 ScrollPosition 同时存在时 Scrollbar 报错。
+          // 同时禁用 overscroll indicator：Material 3 在 Android 上默认
+          // StretchingOverscrollIndicator，与 NestedScrollView/SliverPersistentHeader
+          // 组合存在 framework bug（flutter/flutter #100967、#116522、#100538），
+          // 表现为上滑松手时 tab 区域回弹抖动。
+          behavior: ScrollConfiguration.of(
+            context,
+          ).copyWith(scrollbars: false, overscroll: false),
           child: ExtendedNestedScrollView(
             controller: _outerScrollController,
             floatHeaderSlivers: true,
