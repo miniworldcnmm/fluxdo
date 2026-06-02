@@ -413,7 +413,7 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
         title,
         style: TextStyle(
           fontSize: 13,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),

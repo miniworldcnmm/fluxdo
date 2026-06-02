@@ -1109,7 +1109,7 @@ class _ToolbarButton extends StatelessWidget {
         label!,
         style: TextStyle(
           fontSize: 11,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
           color: theme.colorScheme.primary,
         ),
       );

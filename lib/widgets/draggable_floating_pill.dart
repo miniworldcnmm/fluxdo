@@ -186,7 +186,7 @@ class _DraggableFloatingPillState extends State<DraggableFloatingPill>
                               style: Theme.of(context).textTheme.labelLarge!
                                   .copyWith(
                                     color: contentColor,
-                                    fontWeight: FontWeight.bold,
+                                    fontWeight: FontWeight.w600,
                                   ),
                               child: widget.child,
                             ),

@@ -591,7 +591,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                   Text(
                     title,
                     style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       fontSize: dense ? 15 : 16,
                     ),
                     maxLines: 1,
@@ -952,7 +952,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                       title,
                       style: TextStyle(
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         letterSpacing: 0.5,
                         color: accent,
                       ),
@@ -1053,7 +1053,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
               context.l10n.ai_selectedCount(_selectedMessageIds.length),
               style: const TextStyle(
                 fontSize: 16,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -1253,7 +1253,7 @@ class _SessionHistorySheetState extends State<_SessionHistorySheet> {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight:
-                            isCurrent ? FontWeight.w600 : FontWeight.normal,
+                            isCurrent ? FontWeight.w500 : FontWeight.normal,
                         color: isCurrent
                             ? theme.colorScheme.primary
                             : null,
@@ -1405,7 +1405,7 @@ class _ThinkingButton extends StatelessWidget {
       leading: _IdeaIcon(asset: _svgAsset(level), color: color, size: 22),
       title: Text(label, style: TextStyle(
           color: isSelected ? cs.primary : null,
-          fontWeight: isSelected ? FontWeight.w600 : null)),
+          fontWeight: isSelected ? FontWeight.w500 : null)),
       trailing: isSelected
           ? Icon(Icons.check, color: cs.primary, size: 20) : null,
       onTap: () {
@@ -1424,10 +1424,10 @@ class _ThinkingButton extends StatelessWidget {
           color: isSelected ? cs.primary : cs.onSurfaceVariant),
       title: Text(AiL10n.current.thinkingCustom, style: TextStyle(
           color: isSelected ? cs.primary : null,
-          fontWeight: isSelected ? FontWeight.w600 : null)),
+          fontWeight: isSelected ? FontWeight.w500 : null)),
       trailing: isSelected
           ? Text('${current.customBudget}', style: TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w600, color: cs.primary))
+              fontSize: 13, fontWeight: FontWeight.w500, color: cs.primary))
           : null,
       onTap: () {
         Navigator.pop(context);

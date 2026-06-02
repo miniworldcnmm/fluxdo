@@ -927,7 +927,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       child: Text.rich(
         TextSpan(
           style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
           ),
           children: [
             if (detail?.isPrivateMessage ?? false)
@@ -965,7 +965,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             ...EmojiText.buildEmojiSpans(
               context,
               detail?.title ?? widget.initialTitle ?? '',
-              theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600),
+              theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w500),
             ),
           ],
         ),

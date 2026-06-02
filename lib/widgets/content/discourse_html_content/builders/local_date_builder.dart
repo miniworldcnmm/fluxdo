@@ -276,7 +276,7 @@ class _LocalDatePopover extends StatelessWidget {
           Text(
             entry.label,
             style: theme.textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: entry.isLocal
                   ? theme.colorScheme.primary
                   : theme.colorScheme.onSurface,

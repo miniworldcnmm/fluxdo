@@ -173,7 +173,7 @@ class SearchPreviewDialog extends ConsumerWidget {
     return Text.rich(
       TextSpan(
         style: theme.textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
           height: 1.3,
         ),
         children: [

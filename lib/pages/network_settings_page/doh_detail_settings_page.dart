@@ -179,7 +179,7 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
   Widget _buildSectionHeader(ThemeData theme, String title) {
     return Text(
       title,
-      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+      style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w500),
     );
   }
 

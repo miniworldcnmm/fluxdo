@@ -79,7 +79,7 @@ class TopicDetailHeader extends ConsumerWidget {
             SelectableText.rich(
               TextSpan(
                 style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w600,
                   height: 1.4,
                   letterSpacing: 0.2,
                 ),
@@ -124,7 +124,7 @@ class TopicDetailHeader extends ConsumerWidget {
                     context,
                     detail.title,
                     theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       height: 1.4,
                     ),
                   ),

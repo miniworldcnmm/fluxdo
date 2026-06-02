@@ -333,7 +333,7 @@ class CategoryTrigger extends StatelessWidget {
                 category!.name,
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurface,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(width: 4),

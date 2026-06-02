@@ -66,7 +66,7 @@ class ErrorView extends StatelessWidget {
             Text(
               title ?? errorInfo.title,
               style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 8),
@@ -196,7 +196,7 @@ class ErrorDetailsSheet extends StatelessWidget {
                 Text(
                   context.l10n.common_errorDetails,
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
                 const Spacer(),

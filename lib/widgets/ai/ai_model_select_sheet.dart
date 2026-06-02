@@ -272,7 +272,7 @@ class _AiModelSelectSheetState extends ConsumerState<_AiModelSelectSheet> {
                   section.title,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -547,7 +547,7 @@ class _ModelRow extends StatelessWidget {
                               modelName,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 fontWeight: isCurrent
-                                    ? FontWeight.w600
+                                    ? FontWeight.w500
                                     : FontWeight.w500,
                               ),
                               maxLines: 1,
@@ -666,7 +666,7 @@ class _CapabilityBadge extends StatelessWidget {
             style: TextStyle(
               fontSize: 9,
               color: color,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],

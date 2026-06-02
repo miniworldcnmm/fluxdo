@@ -223,7 +223,7 @@ class _CategorySelectionSheetState extends State<CategorySelectionSheet> {
                                                                               Text(
                                                                                 cat.name,
                                                                                 style: theme.textTheme.titleSmall?.copyWith(
-                                                                                  fontWeight: FontWeight.bold,
+                                                                                  fontWeight: FontWeight.w600,
                                                                                   color: _parseColor(cat.color),
                                                                                 ),
                                                                               ),

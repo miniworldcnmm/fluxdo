@@ -338,7 +338,7 @@ class _PostRepliesSheetContentState
           Text(
             '#${widget.post.postNumber} ${context.l10n.post_detail}',
             style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const Spacer(),
@@ -434,7 +434,7 @@ class _PostRepliesSheetContentState
             Text(
               S.current.post_relatedRepliesCount(totalCount),
               style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
               ),
             ),
           ],

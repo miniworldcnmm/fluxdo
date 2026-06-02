@@ -333,7 +333,7 @@ class _TopicPreviewDialogState extends ConsumerState<TopicPreviewDialog> {
     return Text.rich(
       TextSpan(
         style: theme.textTheme.titleLarge?.copyWith(
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
           height: 1.3,
         ),
         children: [
@@ -373,7 +373,7 @@ class _TopicPreviewDialogState extends ConsumerState<TopicPreviewDialog> {
             context,
             topic.title,
             theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
               height: 1.3,
             ),
           ),

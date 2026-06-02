@@ -1068,7 +1068,7 @@ class _TopicsHeaderDelegate extends SliverPersistentHeaderDelegate {
                       isScrollable: true,
                       tabAlignment: TabAlignment.start,
                       tabs: _buildTabs(),
-                      labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                      labelStyle: const TextStyle(fontWeight: FontWeight.w600),
                       unselectedLabelStyle: const TextStyle(
                         fontWeight: FontWeight.normal,
                       ),

@@ -273,7 +273,7 @@ class _SectionHeader extends StatelessWidget {
           Text(
             title,
             style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: theme.colorScheme.primary,
             ),
           ),
@@ -534,7 +534,7 @@ class _GestureGroup extends StatelessWidget {
               Text(
                 group.title,
                 style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],

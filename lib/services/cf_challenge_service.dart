@@ -1202,7 +1202,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
                         title,
                         style: theme.textTheme.labelLarge?.copyWith(
                           color: foregroundColor,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(height: 2),
@@ -1460,7 +1460,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: colorScheme.onSurface,
                   letterSpacing: 0.1,
                 ),
@@ -1889,7 +1889,7 @@ class _ChallengeFallbackOverlayState extends State<_ChallengeFallbackOverlay>
             l10n.cf_noChallengeTitle,
             textAlign: TextAlign.center,
             style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: colorScheme.onSurface,
             ),
           ),
@@ -1947,7 +1947,7 @@ class _ChallengeFallbackOverlayState extends State<_ChallengeFallbackOverlay>
           title,
           textAlign: TextAlign.center,
           style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
             color: colorScheme.onSurface,
             letterSpacing: 0.1,
           ),

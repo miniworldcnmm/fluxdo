@@ -174,7 +174,7 @@ class _AiProviderEditPageState extends ConsumerState<AiProviderEditPage> {
               child: Text(
                 AiL10n.current.selectModelToTest,
                 style: const TextStyle(
-                    fontSize: 16, fontWeight: FontWeight.w600),
+                    fontSize: 16, fontWeight: FontWeight.w500),
               ),
             ),
             Flexible(
@@ -733,7 +733,7 @@ class _AiProviderEditPageState extends ConsumerState<AiProviderEditPage> {
                       Text(
                         model.name ?? model.id,
                         style: theme.textTheme.bodyMedium
-                            ?.copyWith(fontWeight: FontWeight.w600),
+                            ?.copyWith(fontWeight: FontWeight.w500),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -818,7 +818,7 @@ class _FloatingPill extends StatelessWidget {
                 style: TextStyle(
                   color: cs.primary,
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -1106,7 +1106,7 @@ class _FetchedModelsSelectorState extends State<_FetchedModelsSelector> {
                       group,
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w600,
                         color: cs.onSurface.withValues(alpha: 0.7),
                       ),
                     ),

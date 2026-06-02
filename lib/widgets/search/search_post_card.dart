@@ -196,7 +196,7 @@ class SearchPostCard extends ConsumerWidget {
     if (topic == null) return const SizedBox.shrink();
 
     final titleStyle = theme.textTheme.titleMedium?.copyWith(
-      fontWeight: FontWeight.w600,
+      fontWeight: FontWeight.w500,
       height: 1.3,
     );
 
@@ -287,7 +287,7 @@ class SearchPostCard extends ConsumerWidget {
           style: TextStyle(
             backgroundColor: theme.colorScheme.primaryContainer,
             color: theme.colorScheme.onPrimaryContainer,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
           ),
         ));
         lastEnd = match.end;
@@ -341,7 +341,7 @@ class SearchPostCard extends ConsumerWidget {
           style: TextStyle(
             backgroundColor: theme.colorScheme.primaryContainer,
             color: theme.colorScheme.onPrimaryContainer,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
           ),
         ),
       );

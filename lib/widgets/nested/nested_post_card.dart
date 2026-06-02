@@ -628,7 +628,7 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
           child: Text(
             post.username,
             style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.bold,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -644,7 +644,7 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
               'OP',
               style: TextStyle(
                 fontSize: 10,
-                fontWeight: FontWeight.bold,
+                fontWeight: FontWeight.w600,
                 color: theme.colorScheme.primary,
               ),
             ),

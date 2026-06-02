@@ -386,7 +386,7 @@ class _SectionLabel extends StatelessWidget {
         text,
         style: theme.textTheme.labelSmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
           letterSpacing: 0.5,
         ),
       ),
@@ -441,7 +441,7 @@ class _ProviderCard extends StatelessWidget {
                     Text(
                       provider.name,
                       style: theme.textTheme.titleSmall
-                          ?.copyWith(fontWeight: FontWeight.w600),
+                          ?.copyWith(fontWeight: FontWeight.w500),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

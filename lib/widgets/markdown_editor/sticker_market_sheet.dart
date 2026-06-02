@@ -98,7 +98,7 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
                         S.current.sticker_marketTitle,
                         style: TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -314,7 +314,7 @@ class _StickerGroupTile extends StatelessWidget {
           group.name.isNotEmpty ? group.name[0] : '?',
           style: TextStyle(
             fontSize: 18,
-            fontWeight: FontWeight.bold,
+            fontWeight: FontWeight.w600,
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),

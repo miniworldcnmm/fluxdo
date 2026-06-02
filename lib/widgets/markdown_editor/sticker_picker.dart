@@ -436,7 +436,7 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
       name.isNotEmpty ? name[0] : '?',
       style: TextStyle(
         fontSize: 14,
-        fontWeight: FontWeight.bold,
+        fontWeight: FontWeight.w600,
         color: Theme.of(context).colorScheme.onSurfaceVariant,
       ),
     );
@@ -490,7 +490,7 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
         title,
         style: TextStyle(
           fontSize: 13,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),

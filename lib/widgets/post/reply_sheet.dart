@@ -692,7 +692,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                                 vertical: 12,
                               ),
                             ),
-                            style: const TextStyle(fontWeight: FontWeight.bold),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
                             textInputAction: TextInputAction.next,
                             onTap: () {
                               if (_showEmojiPanel) {

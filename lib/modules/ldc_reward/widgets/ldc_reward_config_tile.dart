@@ -55,7 +55,7 @@ class LdcRewardConfigTile extends ConsumerWidget {
                     Text(
                       context.l10n.reward_title,
                       style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 4),
