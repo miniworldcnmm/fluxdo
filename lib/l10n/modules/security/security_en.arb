@@ -9,6 +9,7 @@
   "cf_abandonVerifyTitle": "Abandon verification?",
   "cf_autoVerifyBannerMessage": "You can keep browsing; if action is needed, the verification page will open.",
   "cf_autoVerifyBannerTitle": "Handling security verification",
+  "cf_autoVerifyDisabled": "Auto CF verification is off. Complete it manually from the error view.",
   "cf_autoVerifyTimeout": "Auto-verification needs your confirmation. Follow the page prompts to finish.",
   "cf_backgroundVerifying": "Verifying automatically. Tap to view",
   "cf_cannotOpenVerifyPage": "Cannot open verification page, please retry",

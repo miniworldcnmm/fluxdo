@@ -21,6 +21,8 @@
   "bottomNav_singleTapAction": "Single tap on active tab",
   "bottomNav_singleTapActionDesc": "Action triggered when tapping an already-selected tab",
   "bottomNav_title": "Bottom Navigation",
+  "cfVerify_autoTitle": "Auto-trigger CF challenge",
+  "cfVerify_autoDesc": "Show the verification page automatically when a Cloudflare challenge is detected. When off, trigger it manually from the error view.",
   "navTapAction_none": "None",
   "navTapAction_refresh": "Refresh",
   "navTapAction_scrollToTop": "Scroll to top",

@@ -38,6 +38,8 @@
   "bottomNav_singleTapAction": "单击已选中项",
   "bottomNav_singleTapActionDesc": "再次点击已选中的标签时执行的动作",
   "bottomNav_title": "底栏",
+  "cfVerify_autoTitle": "自动触发 CF 验证",
+  "cfVerify_autoDesc": "检测到 Cloudflare 安全盾时自动弹出验证页面；关闭后仅在错误页面手动触发",
   "navTapAction_none": "无",
   "navTapAction_refresh": "刷新",
   "navTapAction_scrollToTop": "回到顶部",

@@ -174,6 +174,16 @@ class CfChallengeInterceptor extends Interceptor {
         );
       }
 
+      if (!cfService.autoVerifyEnabled) {
+        CfChallengeLogger.log(
+          '[INTERCEPTOR] Auto verify disabled, rejecting: '
+          '$requestMethod $requestUrl mode=$requestMode',
+        );
+        return handler.reject(
+          cfException(CfChallengeException(autoVerifyDisabled: true)),
+        );
+      }
+
       if (cfService.isInCooldown) {
         debugPrint('[Dio] CF Challenge in cooldown, rejecting request');
         CfChallengeLogger.log(

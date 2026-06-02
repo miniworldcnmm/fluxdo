@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../navigation/nav_action_bus.dart';
 import '../services/network/request_scheduler_config.dart';
+import '../services/cf_challenge_service.dart';
 import '../services/cf_clearance_refresh_service.dart';
 import 'theme_provider.dart';
 
@@ -87,6 +88,9 @@ class AppPreferences {
   /// cf_clearance 自动续期
   final bool cfClearanceRefresh;
 
+  /// 拦截到 CF 盾时自动弹出验证页面
+  final bool autoCfChallenge;
+
   /// 相关链接默认展开
   final bool expandRelatedLinks;
 
@@ -152,6 +156,7 @@ class AppPreferences {
     required this.hideBarOnScroll,
     required this.clearCacheOnExit,
     required this.cfClearanceRefresh,
+    required this.autoCfChallenge,
     required this.expandRelatedLinks,
     required this.aiSwipeEntry,
     this.aiPostReviewEnabled = false,
@@ -187,6 +192,7 @@ class AppPreferences {
     bool? hideBarOnScroll,
     bool? clearCacheOnExit,
     bool? cfClearanceRefresh,
+    bool? autoCfChallenge,
     bool? expandRelatedLinks,
     bool? aiSwipeEntry,
     bool? aiPostReviewEnabled,
@@ -223,6 +229,7 @@ class AppPreferences {
       hideBarOnScroll: hideBarOnScroll ?? this.hideBarOnScroll,
       clearCacheOnExit: clearCacheOnExit ?? this.clearCacheOnExit,
       cfClearanceRefresh: cfClearanceRefresh ?? this.cfClearanceRefresh,
+      autoCfChallenge: autoCfChallenge ?? this.autoCfChallenge,
       expandRelatedLinks: expandRelatedLinks ?? this.expandRelatedLinks,
       aiSwipeEntry: aiSwipeEntry ?? this.aiSwipeEntry,
       aiPostReviewEnabled: aiPostReviewEnabled ?? this.aiPostReviewEnabled,
@@ -268,6 +275,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   static const String _clearCacheOnExitKey = 'pref_clear_cache_on_exit';
   static const String _cfClearanceRefreshKey =
       CfClearanceRefreshService.prefKeyEnabled;
+  static const String _autoCfChallengeKey = 'pref_auto_cf_challenge';
   static const String _expandRelatedLinksKey = 'pref_expand_related_links';
   static const String _aiSwipeEntryKey = 'pref_ai_swipe_entry';
   static const String _aiPostReviewEnabledKey = 'pref_ai_post_review_enabled';
@@ -315,6 +323,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
           hideBarOnScroll: _prefs.getBool(_hideBarOnScrollKey) ?? true,
           clearCacheOnExit: _prefs.getBool(_clearCacheOnExitKey) ?? false,
           cfClearanceRefresh: _prefs.getBool(_cfClearanceRefreshKey) ?? false,
+          autoCfChallenge: _prefs.getBool(_autoCfChallengeKey) ?? true,
           expandRelatedLinks: _prefs.getBool(_expandRelatedLinksKey) ?? false,
           aiSwipeEntry: _prefs.getBool(_aiSwipeEntryKey) ?? false,
           aiPostReviewEnabled: _prefs.getBool(_aiPostReviewEnabledKey) ?? false,
@@ -347,6 +356,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
         ),
       ) {
     isPortraitLocked = state.portraitLock;
+    CfChallengeService().autoVerifyEnabled = state.autoCfChallenge;
     _syncSchedulerConfig();
   }
 
@@ -457,6 +467,12 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
   Future<void> setCfClearanceRefresh(bool enabled) async {
     state = state.copyWith(cfClearanceRefresh: enabled);
     await CfClearanceRefreshService().setEnabled(enabled);
+  }
+
+  Future<void> setAutoCfChallenge(bool enabled) async {
+    state = state.copyWith(autoCfChallenge: enabled);
+    await _prefs.setBool(_autoCfChallengeKey, enabled);
+    CfChallengeService().autoVerifyEnabled = enabled;
   }
 
   Future<void> setExpandRelatedLinks(bool enabled) async {

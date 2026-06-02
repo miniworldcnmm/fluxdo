@@ -34,6 +34,11 @@ class CfChallengeService {
   /// CF 验证是否正在进行中（用于外部判断是否应忽略路由变化）
   bool get isVerifying => _isVerifying;
 
+  /// 是否在拦截到 CF 盾时自动弹出验证 UI（默认 true）
+  /// 关闭后 [CfChallengeInterceptor] 命中 CF 盾时会静默 reject，
+  /// 交给 ErrorView 提供"手动验证"入口。由 PreferencesNotifier 同步维护。
+  bool autoVerifyEnabled = true;
+
   final _verifyCompleter = <Completer<bool>>[];
   BuildContext? _context;
   static DateTime? _lastToastAt;
