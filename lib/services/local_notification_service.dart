@@ -6,6 +6,11 @@ import '../pages/topic_detail_page/topic_detail_page.dart';
 /// 全局 NavigatorKey，用于通知点击时导航
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
+/// APK 更新通知的固定 ID，便于复用/取消同一条进度通知
+const int apkUpdateNotificationId = 99001;
+
+const String _apkUpdateChannelId = 'apk_update';
+
 /// 本地系统通知服务
 class LocalNotificationService {
   static final LocalNotificationService _instance = LocalNotificationService._internal();
@@ -138,5 +143,81 @@ class LocalNotificationService {
     
     await _plugin.show(id: notificationId, title: title, body: body, notificationDetails: details, payload: payload);
     debugPrint('[LocalNotification] 已发送: $title, payload=$payload');
+  }
+
+  /// 显示 APK 下载进度通知（持续更新同一条）。
+  ///
+  /// indeterminate=true 时显示无限循环进度条（用于"连接中/校验中"等阶段）。
+  Future<void> showApkProgress({
+    required String title,
+    String? body,
+    int progress = 0,
+    bool indeterminate = false,
+    int id = apkUpdateNotificationId,
+  }) async {
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_permissionGranted) return;
+
+    final androidDetails = AndroidNotificationDetails(
+      _apkUpdateChannelId,
+      S.current.update_notification_channel,
+      channelDescription: S.current.update_notification_channelDesc,
+      importance: Importance.low,
+      priority: Priority.low,
+      showProgress: true,
+      maxProgress: 100,
+      progress: progress,
+      indeterminate: indeterminate,
+      ongoing: true,
+      onlyAlertOnce: true,
+      channelShowBadge: false,
+      playSound: false,
+      enableVibration: false,
+    );
+
+    final details = NotificationDetails(android: androidDetails);
+    await _plugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: details,
+    );
+  }
+
+  /// 显示 APK 下载完成通知（点击触发安装由 ota_update 自行发起 intent，
+  /// 这里只是给用户一个可点击的入口拉起 App，不需要 payload）。
+  Future<void> showApkComplete({
+    required String title,
+    required String body,
+    int id = apkUpdateNotificationId,
+  }) async {
+    if (!_initialized) {
+      await initialize();
+    }
+    if (!_permissionGranted) return;
+
+    final androidDetails = AndroidNotificationDetails(
+      _apkUpdateChannelId,
+      S.current.update_notification_channel,
+      channelDescription: S.current.update_notification_channelDesc,
+      importance: Importance.high,
+      priority: Priority.high,
+      autoCancel: true,
+    );
+
+    final details = NotificationDetails(android: androidDetails);
+    await _plugin.show(
+      id: id,
+      title: title,
+      body: body,
+      notificationDetails: details,
+    );
+  }
+
+  /// 取消指定通知
+  Future<void> cancelNotification(int id) async {
+    await _plugin.cancel(id: id);
   }
 }

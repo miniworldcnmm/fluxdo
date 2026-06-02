@@ -21,8 +21,13 @@
   "deviceInfo_dohOff": "DOH: Off",
   "deviceInfo_proxyOff": "Proxy: Off",
   "update_changelog": "What's new",
+  "update_continueInBackground": "Download in background",
   "update_dontRemind": "Don't remind",
   "update_newVersionFound": "New version available",
+  "update_notification_channel": "App update",
+  "update_notification_channelDesc": "APK download progress and install reminders",
+  "update_notification_downloading": "Downloading new version",
+  "update_notification_ready": "New version ready, tap to install",
   "update_now": "Update now",
   "update_rateLimited": "GitHub API rate limited, try later"
 }

@@ -1,17 +1,14 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:jovial_svg/jovial_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../services/apk_download_service.dart';
 import '../services/cf_challenge_logger.dart';
 import '../services/toast_service.dart';
+import '../services/update_checker_helper.dart';
 import '../services/update_service.dart';
 import '../l10n/s.dart';
 import '../utils/dialog_utils.dart';
-import '../widgets/download_progress_dialog.dart';
 import '../widgets/update_dialog.dart';
 import 'app_logs_page.dart';
 
@@ -122,7 +119,7 @@ class _AboutPageState extends State<AboutPage> {
             updateInfo: updateInfo,
             onUpdate: () {
               Navigator.of(context).pop();
-              _handleUpdate(updateInfo);
+              UpdateCheckerHelper.handleUpdate(context, updateInfo);
             },
             onCancel: () => Navigator.of(context).pop(),
             onOpenReleasePage: () {
@@ -139,37 +136,6 @@ class _AboutPageState extends State<AboutPage> {
       Navigator.of(context).pop(); // 关闭加载对话框
       _showErrorDialog(e.toString());
     }
-  }
-
-  /// 处理更新逻辑
-  Future<void> _handleUpdate(UpdateInfo updateInfo) async {
-    if (Platform.isAndroid) {
-      await _startInAppDownload(updateInfo);
-    } else {
-      _openInBrowser(updateInfo.releaseUrl);
-    }
-  }
-
-  /// 启动应用内下载
-  Future<void> _startInAppDownload(UpdateInfo updateInfo) async {
-    final apkAsset = await _updateService.getMatchingApkAsset(updateInfo);
-
-    if (apkAsset == null) {
-      // 无法匹配架构，回退到浏览器
-      _openInBrowser(updateInfo.releaseUrl);
-      return;
-    }
-
-    if (!mounted) return;
-
-    showAppDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => DownloadProgressDialog(
-        asset: apkAsset,
-        downloadService: ApkDownloadService(),
-      ),
-    );
   }
 
   /// 在浏览器中打开
