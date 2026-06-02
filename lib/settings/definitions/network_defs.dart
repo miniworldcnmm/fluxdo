@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import '../../l10n/s.dart';
@@ -7,7 +5,6 @@ import '../../pages/network_settings_page/widgets/advanced_settings_card.dart';
 import '../../pages/network_settings_page/widgets/cf_verify_card.dart';
 import '../../pages/network_settings_page/widgets/debug_tools_card.dart';
 import '../../pages/network_settings_page/widgets/doh_settings_card.dart';
-import '../../pages/network_settings_page/widgets/hcaptcha_accessibility_card.dart';
 import '../../pages/network_settings_page/widgets/http_proxy_card.dart';
 import '../../pages/network_settings_page/widgets/rate_limit_card.dart';
 import '../../pages/network_settings_page/widgets/rhttp_engine_card.dart';
@@ -78,15 +75,6 @@ List<SettingsGroup> buildNetworkGroups(BuildContext context) {
           title: l10n.cf_securityVerifyTitle,
           subtitle: l10n.networkSettings_auxiliary,
           builder: (context, ref) => const CfVerifyCard(),
-        ),
-        PlatformConditionalModel(
-          inner: CustomModel(
-            id: 'hcaptchaAccessibility',
-            title: l10n.hcaptcha_title,
-            subtitle: l10n.networkSettings_auxiliary,
-            builder: (context, ref) => const HCaptchaAccessibilityCard(),
-          ),
-          condition: () => Platform.isAndroid || Platform.isWindows,
         ),
       ],
     ),

@@ -70,23 +70,5 @@
         "type": "int"
       }
     }
-  },
-  "hcaptcha_clear": "清除",
-  "hcaptcha_clearConfirm": "确定要清除 hCaptcha 无障碍 Cookie 吗？",
-  "hcaptcha_cookieCleared": "hCaptcha 无障碍 Cookie 已清除",
-  "hcaptcha_cookieNotFound": "未找到 hCaptcha 无障碍 Cookie，请先完成注册",
-  "hcaptcha_cookieNotSet": "Cookie 未设置",
-  "hcaptcha_cookieSaved": "hCaptcha 无障碍 Cookie 已保存",
-  "hcaptcha_cookieSet": "Cookie 已设置 ✓",
-  "hcaptcha_done": "完成",
-  "hcaptcha_pasteCookie": "粘贴 Cookie",
-  "hcaptcha_pasteDialogDesc": "在浏览器中访问 hCaptcha 无障碍页面注册后，从浏览器开发者工具中复制名为 hc_accessibility 的 Cookie 值粘贴到下方。",
-  "hcaptcha_pasteDialogHint": "请输入 hc_accessibility Cookie 值",
-  "hcaptcha_pasteDialogTitle": "粘贴 hCaptcha Cookie",
-  "hcaptcha_pasteLink": "粘贴登录链接",
-  "hcaptcha_pasteLinkInvalid": "剪贴板中没有有效的 hCaptcha 链接",
-  "hcaptcha_subtitle": "视障用户可跳过 hCaptcha 验证",
-  "hcaptcha_title": "hCaptcha 无障碍",
-  "hcaptcha_webviewGet": "WebView 获取",
-  "hcaptcha_webviewTitle": "hCaptcha 无障碍"
+  }
 }
