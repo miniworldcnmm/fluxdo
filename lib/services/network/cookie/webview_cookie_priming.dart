@@ -145,42 +145,90 @@ class WebViewCookiePriming {
       var attempted = 0;
       var skippedEmpty = 0;
       var skippedExpired = 0;
+      var skippedRaceRemoved = 0;
       final mismatched = <String, int>{};
-      for (final cookie in jarCookies) {
-        if (cookie.value.isEmpty) {
+      for (final initialCookie in jarCookies) {
+        if (initialCookie.value.isEmpty) {
           skippedEmpty++;
           continue;
         }
-        if (_isExpired(cookie)) {
+        if (_isExpired(initialCookie)) {
           skippedExpired++;
           continue;
         }
+
+        // Race-safe check: Priming 整体 unawaited 跑, 期间外部 (如
+        // cf_challenge_service.showVerifyForChallenge) 可能并发删/改 jar
+        // 中的 cookie。如果还按 T0 快照 setRawCookie, 会把外部刚删的
+        // cookie 又写回 WV — 这正是 CF 第一次验证失败的根因 (CF 看到
+        // Priming 写回的旧 cf_clearance 直接放行不显示盾, fallback
+        // 找不到 fresh cookie 关闭挑战页)。
+        //
+        // 写入前重新 getCanonicalCookie:
+        // - jar 已删 (返回 null): 跳过, 不再写回 WV
+        // - value 变了: 用最新值 (新值更准)
+        // - value 未变: 用原快照 (最常见)
+        final fresh = await _jar.getCanonicalCookie(initialCookie.name);
+        if (fresh == null || fresh.value.isEmpty) {
+          skippedRaceRemoved++;
+          debugPrint(
+            '[Priming] ${initialCookie.name} 在 priming 期间被外部删除, 跳过',
+          );
+          continue;
+        }
+        if (_isExpired(fresh)) {
+          skippedExpired++;
+          continue;
+        }
+        final cookie = fresh;
+
         attempted++;
 
         // a) nuke 同 name 所有 variant
         await _sentinel.sweep(url, cookie.name, intent: SweepIntent.delete);
 
-        // b) 写入 jar canonical (含 hostOnly/Domain/SameSite)
-        final ok = await _writer.setRawCookie(url, cookie.toSetCookieHeader());
+        // b) 再次 race check: 上面 sweep 是 async, 期间外部又可能删 cookie
+        // 例如 sweep 跑到一半 cf_challenge_service 介入, 我们要尊重那个删除
+        final reFresh = await _jar.getCanonicalCookie(cookie.name);
+        if (reFresh == null || reFresh.value.isEmpty) {
+          skippedRaceRemoved++;
+          attempted--;
+          debugPrint(
+            '[Priming] ${cookie.name} 在 sweep 期间被外部删除, 不写回',
+          );
+          continue;
+        }
+        final writeCookie = reFresh;
+
+        // c) 写入 jar canonical (含 hostOnly/Domain/SameSite)
+        final ok = await _writer.setRawCookie(
+          url,
+          writeCookie.toSetCookieHeader(),
+        );
         if (ok) injected++;
 
-        // c) verify 是否恰好 1 条
-        final postCount = await _writer.countCookiesByName(url, cookie.name);
+        // d) verify 是否恰好 1 条
+        final postCount = await _writer.countCookiesByName(
+          url,
+          writeCookie.name,
+        );
         final isOk = postCount == 1;
-        if (!isOk) mismatched[cookie.name] = postCount;
+        if (!isOk) mismatched[writeCookie.name] = postCount;
         debugPrint(
-          '[Priming] ${cookie.name} '
-          '(hostOnly=${cookie.hostOnly}, domain=${cookie.domain}, '
-          'len=${cookie.value.length}) write=$ok postCount=$postCount '
+          '[Priming] ${writeCookie.name} '
+          '(hostOnly=${writeCookie.hostOnly}, domain=${writeCookie.domain}, '
+          'len=${writeCookie.value.length}) write=$ok postCount=$postCount '
           '${isOk ? "✓" : "⚠️ expected=1"}',
         );
 
-        // c.1) 若 count != 1, dump WV 中该 name 所有 variant 完整字段
+        // d.1) 若 count != 1, dump WV 中该 name 所有 variant 完整字段
         if (!isOk) {
           final all = await _writer.getAllCookieInfos(url);
-          final variants = all.where((c) => c.name == cookie.name).toList();
+          final variants = all
+              .where((c) => c.name == writeCookie.name)
+              .toList();
           debugPrint(
-            '[Priming] ⚠️ ${cookie.name} variants in WV ($postCount):',
+            '[Priming] ⚠️ ${writeCookie.name} variants in WV ($postCount):',
           );
           for (var i = 0; i < variants.length; i++) {
             debugPrint('  [$i] ${variants[i]}');
@@ -189,9 +237,11 @@ class WebViewCookiePriming {
       }
 
       // 4. verify pass (信息汇总, 不影响 _isPrimed)
+      // 用 jar 最新状态 (而非 T0 快照) 避免把"期间被外部删除"误报为 missing
       var verified = 0;
       final missingNames = <String>[];
-      for (final cookie in jarCookies) {
+      final currentJar = await _jar.loadCanonicalCookiesForRequest(uri);
+      for (final cookie in currentJar) {
         if (cookie.value.isEmpty || _isExpired(cookie)) continue;
         final count = await _writer.countCookiesByName(url, cookie.name);
         if (count >= 1) {
@@ -207,7 +257,8 @@ class WebViewCookiePriming {
         '[Priming] WV primed for $url: '
         'injected=$injected/$attempted, verified=$verified/$attempted '
         '(jarTotal=${jarCookies.length}, '
-        'skippedEmpty=$skippedEmpty, skippedExpired=$skippedExpired)'
+        'skippedEmpty=$skippedEmpty, skippedExpired=$skippedExpired, '
+        'skippedRaceRemoved=$skippedRaceRemoved)'
         '${hasMismatch ? ", MISSING=$missingNames, COUNT_MISMATCH=$mismatched" : ""}',
       );
       CookieLogger.priming(
