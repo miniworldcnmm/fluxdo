@@ -408,6 +408,27 @@ import workmanager_apple
   // - WKHTTPCookieStore.delete completion 在 main queue 回调
   // - HTTPCookie.domain 对 host-only cookie 仍返回 host (无前导点)
 
+  /// 把 HTTPCookie.sameSitePolicy 转成 Dart 端可识别的字符串 ("Lax"/"Strict"/"None")。
+  /// iOS 13+/macOS 10.15+ 支持; 早期系统返回 nil。
+  private static func sameSiteString(_ cookie: HTTPCookie) -> String? {
+    if #available(iOS 13.0, *) {
+      guard let policy = cookie.sameSitePolicy else { return nil }
+      switch policy {
+      case .sameSiteLax:
+        return "Lax"
+      case .sameSiteStrict:
+        return "Strict"
+      default:
+        let raw = policy.rawValue.lowercased()
+        if raw.contains("none") { return "None" }
+        if raw.contains("lax") { return "Lax" }
+        if raw.contains("strict") { return "Strict" }
+        return nil
+      }
+    }
+    return nil
+  }
+
   /// domain 匹配规则 (用于 Sentinel 枚举/删除变体)
   ///
   /// - candidate 为 nil 表示 host-only 候选, 要求 cookie.domain == host
@@ -554,6 +575,7 @@ import workmanager_apple
           "isSecure": cookie.isSecure,
           "isHttpOnly": cookie.isHTTPOnly,
           "expiresMillis": cookie.expiresDate.map { Int($0.timeIntervalSince1970 * 1000) },
+          "sameSite": AppDelegate.sameSiteString(cookie),
         ]
       }
 

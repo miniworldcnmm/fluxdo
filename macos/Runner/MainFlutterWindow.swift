@@ -176,6 +176,30 @@ class MainFlutterWindow: NSWindow {
 
   // MARK: - Cookie 引擎 v0.4.0 原语 (Apple 平台共享实现)
 
+  /// 把 HTTPCookie.sameSitePolicy 转成 Dart 端可识别的字符串 ("Lax"/"Strict"/"None")。
+  /// iOS 13+/macOS 10.15+ 支持; 早期系统返回 nil。
+  /// HTTPCookieStringPolicy 的常量原始值是带 "same-site-" 前缀的 raw string,
+  /// 这里规范化成 InAppWebView 的 HTTPCookieSameSitePolicy 一致格式。
+  private static func sameSiteString(_ cookie: HTTPCookie) -> String? {
+    if #available(macOS 10.15, *) {
+      guard let policy = cookie.sameSitePolicy else { return nil }
+      switch policy {
+      case .sameSiteLax:
+        return "Lax"
+      case .sameSiteStrict:
+        return "Strict"
+      default:
+        // sameSiteNone 在某些 SDK 上未定义为常量, 用 rawValue 兜底
+        let raw = policy.rawValue.lowercased()
+        if raw.contains("none") { return "None" }
+        if raw.contains("lax") { return "Lax" }
+        if raw.contains("strict") { return "Strict" }
+        return nil
+      }
+    }
+    return nil
+  }
+
   private static func matchDomain(cookieDomain: String, candidate: String?, host: String) -> Bool {
     let normalizedCookieDomain = (cookieDomain.hasPrefix(".")
       ? String(cookieDomain.dropFirst())
@@ -311,6 +335,7 @@ class MainFlutterWindow: NSWindow {
           "isSecure": cookie.isSecure,
           "isHttpOnly": cookie.isHTTPOnly,
           "expiresMillis": cookie.expiresDate.map { Int($0.timeIntervalSince1970 * 1000) },
+          "sameSite": MainFlutterWindow.sameSiteString(cookie),
         ]
       }
 

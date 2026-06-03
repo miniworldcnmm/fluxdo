@@ -225,6 +225,9 @@ class MainActivity : FlutterActivity() {
                                     "isSecure" to null,
                                     "isHttpOnly" to null,
                                     "expiresMillis" to null,
+                                    // Android WebCookieManager.getCookie 只返回 name=value 字符串,
+                                    // 拿不到 sameSite (需要 newer getCookieInfo API), 这里始终 null
+                                    "sameSite" to null,
                                 )
                             }
                             result.success(infos)

@@ -187,6 +187,7 @@ class RawCookieWriter {
           isSecure: map['isSecure'] as bool?,
           isHttpOnly: map['isHttpOnly'] as bool?,
           expiresMillis: map['expiresMillis'] as int?,
+          sameSite: map['sameSite'] as String?,
         );
       }).toList(growable: false);
     } on PlatformException catch (e) {
