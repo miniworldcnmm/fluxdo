@@ -11,6 +11,11 @@ import '../../../providers/preferences_provider.dart';
 ) {
   final l = context.l10n;
   switch (action) {
+    case ProgressGestureAction.none:
+      return (
+        icon: Icons.do_not_disturb_alt_outlined,
+        label: l.progressGesture_action_none,
+      );
     case ProgressGestureAction.openTimeline:
       return (
         icon: Icons.unfold_more_rounded,

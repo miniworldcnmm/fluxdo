@@ -1317,6 +1317,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     TopicDetailNotifier notifier,
   ) {
     switch (action) {
+      case ProgressGestureAction.none:
+        return;
       case ProgressGestureAction.openTimeline:
         _showTimelineSheet(detail);
       case ProgressGestureAction.scrollToTop:

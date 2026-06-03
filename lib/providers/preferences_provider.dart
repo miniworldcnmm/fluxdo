@@ -39,6 +39,7 @@ enum BookmarksOpenMode {
 
 /// 进度悬浮条手势可绑定的动作
 enum ProgressGestureAction {
+  none, // 仅用于滑动手势，表示该方向不触发任何动作
   openTimeline,
   scrollToTop,
   jumpToUnread,
@@ -193,6 +194,9 @@ class AppPreferences {
   /// 上滑动作
   final ProgressGestureAction progressGestureSwipeUp;
 
+  /// 长按菜单总开关（关闭时长按不弹出菜单）
+  final bool progressGestureLongPressEnabled;
+
   /// 长按菜单候选功能（按顺序展示在半圆菜单中）
   final List<ProgressGestureAction> progressGestureMenuActions;
 
@@ -234,6 +238,7 @@ class AppPreferences {
     this.progressGestureSwipeLeft = ProgressGestureAction.nextPost,
     this.progressGestureSwipeRight = ProgressGestureAction.previousPost,
     this.progressGestureSwipeUp = ProgressGestureAction.jumpToUnread,
+    this.progressGestureLongPressEnabled = true,
     this.progressGestureMenuActions = _defaultProgressGestureMenu,
   });
 
@@ -275,6 +280,7 @@ class AppPreferences {
     ProgressGestureAction? progressGestureSwipeLeft,
     ProgressGestureAction? progressGestureSwipeRight,
     ProgressGestureAction? progressGestureSwipeUp,
+    bool? progressGestureLongPressEnabled,
     List<ProgressGestureAction>? progressGestureMenuActions,
   }) {
     return AppPreferences(
@@ -326,6 +332,8 @@ class AppPreferences {
           progressGestureSwipeRight ?? this.progressGestureSwipeRight,
       progressGestureSwipeUp:
           progressGestureSwipeUp ?? this.progressGestureSwipeUp,
+      progressGestureLongPressEnabled:
+          progressGestureLongPressEnabled ?? this.progressGestureLongPressEnabled,
       progressGestureMenuActions:
           progressGestureMenuActions ?? this.progressGestureMenuActions,
     );
@@ -380,6 +388,8 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
       'pref_progress_gesture_swipe_right';
   static const String _progressGestureSwipeUpKey =
       'pref_progress_gesture_swipe_up';
+  static const String _progressGestureLongPressEnabledKey =
+      'pref_progress_gesture_long_press_enabled';
   static const String _progressGestureMenuActionsKey =
       'pref_progress_gesture_menu_actions';
 
@@ -454,6 +464,8 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
             _prefs.getString(_progressGestureSwipeUpKey),
             ProgressGestureAction.jumpToUnread,
           ),
+          progressGestureLongPressEnabled:
+              _prefs.getBool(_progressGestureLongPressEnabledKey) ?? true,
           progressGestureMenuActions: _readGestureMenuActions(
             _prefs.getStringList(_progressGestureMenuActionsKey),
           ),
@@ -699,6 +711,12 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
     await _prefs.setString(_progressGestureSwipeUpKey, action.name);
   }
 
+  Future<void> setProgressGestureLongPressEnabled(bool enabled) async {
+    if (state.progressGestureLongPressEnabled == enabled) return;
+    state = state.copyWith(progressGestureLongPressEnabled: enabled);
+    await _prefs.setBool(_progressGestureLongPressEnabledKey, enabled);
+  }
+
   Future<void> setProgressGestureMenuActions(
     List<ProgressGestureAction> actions,
   ) async {
@@ -718,6 +736,10 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
       _progressGestureMenuActionsKey,
       deduped.map((e) => e.name).toList(),
     );
+  }
+
+  Future<void> resetProgressGestureMenuActions() async {
+    await setProgressGestureMenuActions(_defaultProgressGestureMenu);
   }
 
   void _syncSchedulerConfig() {

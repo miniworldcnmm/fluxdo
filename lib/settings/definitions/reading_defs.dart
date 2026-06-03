@@ -6,8 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/s.dart';
 import '../../pages/topic_detail_page/widgets/progress_gesture_action_meta.dart';
+import '../../pages/topic_detail_page/widgets/progress_gesture_menu_settings_page.dart';
 import '../../providers/preferences_provider.dart';
-import '../../utils/dialog_utils.dart';
 import '../settings_model.dart';
 
 /// 阅读设置数据声明
@@ -282,7 +282,11 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: enabled
-                  ? () => _showGestureMenuActionsPicker(context, ref, items)
+                  ? () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ProgressGestureMenuSettingsPage(),
+                      ),
+                    )
                   : null,
             );
           },
@@ -543,122 +547,3 @@ void _showGestureActionPicker(
   });
 }
 
-void _showGestureMenuActionsPicker(
-  BuildContext context,
-  WidgetRef ref,
-  List<ProgressGestureAction> current,
-) {
-  final l10n = context.l10n;
-  final initial = List<ProgressGestureAction>.from(current);
-
-  showAppBottomSheet<List<ProgressGestureAction>>(
-    context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    builder: (sheetContext) {
-      final selected = List<ProgressGestureAction>.from(initial);
-      return StatefulBuilder(
-        builder: (context, setState) {
-          final theme = Theme.of(context);
-          final atLimit = selected.length >= kProgressGestureMenuMax;
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
-                    child: Text(
-                      l10n.progressGesture_pickMenuActions,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
-                    child: Text(
-                      '${selected.length}/$kProgressGestureMenuMax'
-                      '${atLimit ? ' · ${l10n.progressGesture_menuCountFull}' : ''}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: atLimit
-                            ? theme.colorScheme.error
-                            : theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  Flexible(
-                    child: SingleChildScrollView(
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final action in ProgressGestureAction.values)
-                            Builder(
-                              builder: (context) {
-                                final meta = progressGestureActionMeta(
-                                  context,
-                                  action,
-                                );
-                                final isSelected = selected.contains(action);
-                                final canSelect = isSelected || !atLimit;
-                                return FilterChip(
-                                  label: Text(meta.label),
-                                  avatar: Icon(meta.icon, size: 18),
-                                  selected: isSelected,
-                                  showCheckmark: false,
-                                  onSelected: canSelect
-                                      ? (v) {
-                                          setState(() {
-                                            if (v) {
-                                              selected.add(action);
-                                            } else {
-                                              selected.remove(action);
-                                            }
-                                          });
-                                        }
-                                      : null,
-                                );
-                              },
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          onPressed: () => Navigator.pop(sheetContext),
-                          child: Text(l10n.common_cancel),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: FilledButton(
-                          onPressed: selected.isEmpty
-                              ? null
-                              : () => Navigator.pop(sheetContext, selected),
-                          child: Text(l10n.common_confirm),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    },
-  ).then((result) {
-    if (result != null) {
-      ref
-          .read(preferencesProvider.notifier)
-          .setProgressGestureMenuActions(result);
-    }
-  });
-}
