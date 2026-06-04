@@ -15,6 +15,10 @@ class LdcUserInfoNotifier extends AsyncNotifier<LdcUserInfo?> {
   static const String _ldcEnabledKey = 'ldc_enabled';
   static const String _cacheUserKey = 'ldc_user_info_username';
 
+  // 防止 build() 与 refresh() 在 notifier 首次创建时并发触发同接口，
+  // 复用同一个 in-flight future
+  Future<LdcUserInfo?>? _inFlightFetch;
+
   @override
   Future<LdcUserInfo?> build() async {
     final prefs = await SharedPreferences.getInstance();
@@ -55,7 +59,12 @@ class LdcUserInfoNotifier extends AsyncNotifier<LdcUserInfo?> {
     }
   }
 
-  Future<LdcUserInfo?> _fetchUserInfo() async {
+  Future<LdcUserInfo?> _fetchUserInfo() {
+    return _inFlightFetch ??=
+        _doFetchUserInfo().whenComplete(() => _inFlightFetch = null);
+  }
+
+  Future<LdcUserInfo?> _doFetchUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
     final enabled = prefs.getBool(_ldcEnabledKey) ?? false;
 

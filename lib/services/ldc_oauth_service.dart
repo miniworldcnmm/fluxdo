@@ -10,6 +10,10 @@ import '../models/ldc_user_info.dart';
 
 class LdcOAuthService {
   static const String baseUrl = 'https://credit.linux.do';
+
+  // OAuth 链相邻步骤之间最小间隔，给服务端 session 写入和限速窗口留出余量
+  static const Duration _stepGap = Duration(milliseconds: 400);
+
   late final Dio _dio;
 
   LdcOAuthService() {
@@ -85,6 +89,8 @@ class LdcOAuthService {
       throw Exception(S.current.oauth_getAuthUrlFailed);
     }
 
+    await Future.delayed(_stepGap);
+
     final Response response;
     try {
       response = await _dio.get(
@@ -112,6 +118,8 @@ class LdcOAuthService {
       barrierDismissible: false,
       builder: (context) => _AuthDialog(
         onApprove: () async {
+          await Future.delayed(_stepGap);
+
           final approveResponse = await _dio.get(
             'https://connect.linux.do$approveLink',
             options: Options(
@@ -137,6 +145,8 @@ class LdcOAuthService {
           if (code == null || state == null) {
             throw Exception(S.current.oauth_missingParams);
           }
+
+          await Future.delayed(_stepGap);
 
           await callback(code, state);
           return true;

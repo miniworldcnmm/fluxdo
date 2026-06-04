@@ -15,6 +15,10 @@ class CdkUserInfoNotifier extends AsyncNotifier<CdkUserInfo?> {
   static const String _cdkEnabledKey = 'cdk_enabled';
   static const String _cacheUserKey = 'cdk_user_info_username';
 
+  // 防止 build() 与 refresh() 在 notifier 首次创建时并发触发同接口，
+  // 复用同一个 in-flight future
+  Future<CdkUserInfo?>? _inFlightFetch;
+
   @override
   Future<CdkUserInfo?> build() async {
     final prefs = await SharedPreferences.getInstance();
@@ -55,7 +59,12 @@ class CdkUserInfoNotifier extends AsyncNotifier<CdkUserInfo?> {
     }
   }
 
-  Future<CdkUserInfo?> _fetchUserInfo() async {
+  Future<CdkUserInfo?> _fetchUserInfo() {
+    return _inFlightFetch ??=
+        _doFetchUserInfo().whenComplete(() => _inFlightFetch = null);
+  }
+
+  Future<CdkUserInfo?> _doFetchUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
     final enabled = prefs.getBool(_cdkEnabledKey) ?? false;
 
