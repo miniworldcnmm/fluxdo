@@ -1,9 +1,11 @@
 import 'dart:collection' show UnmodifiableListView;
 import 'dart:io' show Platform;
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../constants.dart';
+import 'log/log_writer.dart';
 import 'network/doh/network_settings_service.dart';
 
 /// WebView 配置工具类
@@ -98,43 +100,93 @@ class WebViewSettings {
     thirdPartyCookiesEnabled: true,
   );
 
-  /// iOS 15 及以下缺少的现代 JS API polyfill，在页面最早期注入以兼容 Discourse 前端
-  static final _ios15Polyfills = UserScript(
-    source: '''
-(function() {
-  // Object.hasOwn — iOS 15.4 引入，15.3 及以下不存在
-  if (!Object.hasOwn) {
-    Object.hasOwn = function(obj, prop) {
-      return Object.prototype.hasOwnProperty.call(obj, prop);
-    };
-  }
-  // Array.prototype.at — iOS 15.4 引入
-  if (!Array.prototype.at) {
-    Array.prototype.at = function(index) {
-      var n = Math.trunc(index) || 0;
-      if (n < 0) n += this.length;
-      if (n < 0 || n >= this.length) return undefined;
-      return this[n];
-    };
-  }
-  // String.prototype.at — iOS 15.4 引入
-  if (!String.prototype.at) {
-    String.prototype.at = function(index) {
-      var n = Math.trunc(index) || 0;
-      if (n < 0) n += this.length;
-      if (n < 0 || n >= this.length) return undefined;
-      return this[n];
-    };
-  }
-})();
-''',
-    injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
-    forMainFrameOnly: false,
-  );
+  /// 老 WKWebView (主要 iOS 15+) 兼容性脚本：core-js polyfill + JS 错误回传。
+  /// 产物在 `assets/polyfill/compat-polyfill.js`，由 `tools/polyfill-bundle/` 子工程
+  /// 用 @babel/preset-env + core-js + esbuild 按 browserslist (iOS >= 15.0) 自动打包。
+  /// 抬基线 / 升 polyfill 全部去那边改。
+  static const _polyfillAssetPath = 'assets/polyfill/compat-polyfill.js';
+  static UnmodifiableListView<UserScript>? _compatPolyfillScripts;
+  static bool _polyfillLoadAttempted = false;
 
-  /// iOS 15 polyfill 脚本列表，传给 InAppWebView.initialUserScripts
-  static UnmodifiableListView<UserScript> get ios15PolyfillScripts =>
-      UnmodifiableListView([_ios15Polyfills]);
+  /// 启动期调用一次（main.dart 并行初始化阶段），把 asset 内容读入内存。
+  /// 加载失败不抛错，只打日志 —— polyfill 缺失最坏只影响老平台兼容性，
+  /// 不应让整个 app 启动失败。
+  static Future<void> preloadPolyfill() async {
+    if (_polyfillLoadAttempted) return;
+    _polyfillLoadAttempted = true;
+    try {
+      final source = await rootBundle.loadString(_polyfillAssetPath);
+      _compatPolyfillScripts = UnmodifiableListView([
+        UserScript(
+          source: source,
+          injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+          forMainFrameOnly: false,
+        ),
+      ]);
+    } catch (e) {
+      debugPrint(
+        '[WebViewSettings] 加载 compat polyfill asset 失败: $e。'
+        '请确认已运行 `cd tools/polyfill-bundle && pnpm build`。',
+      );
+      _compatPolyfillScripts = UnmodifiableListView<UserScript>([]);
+      LogWriter.instance.write({
+        'timestamp': DateTime.now().toIso8601String(),
+        'level': 'error',
+        'type': 'webview',
+        'event': 'compat_polyfill_load_failed',
+        'message': '加载 compat polyfill asset 失败',
+        'asset': _polyfillAssetPath,
+        'error': e.toString(),
+      });
+    }
+  }
+
+  /// 兼容性脚本列表，传给 `InAppWebView.initialUserScripts`。
+  /// 必须先在启动期调 [preloadPolyfill]；未加载时返回空列表 + 一次性告警。
+  static UnmodifiableListView<UserScript> get compatPolyfillScripts {
+    final cached = _compatPolyfillScripts;
+    if (cached != null) return cached;
+    if (!_polyfillLoadAttempted) {
+      debugPrint(
+        '[WebViewSettings] compatPolyfillScripts 在 preloadPolyfill() 完成前被读取，'
+        '老 WebView 兼容性会缺失。请检查 main.dart 初始化序列。',
+      );
+    }
+    return UnmodifiableListView<UserScript>([]);
+  }
+
+  /// 注册 JS 错误回传 handler，把 WebView 内的错误落到 LogWriter。
+  /// 在 `onWebViewCreated` 拿到 controller 后调用一次。
+  static void registerJsErrorReporter(InAppWebViewController controller) {
+    controller.addJavaScriptHandler(
+      handlerName: 'onWebViewJsError',
+      callback: (args) {
+        if (args.isEmpty) return null;
+        try {
+          final raw = args[0];
+          if (raw is! Map) return null;
+          final data = Map<String, dynamic>.from(raw);
+          LogWriter.instance.write({
+            'timestamp': DateTime.now().toIso8601String(),
+            'level': 'error',
+            'type': 'webview_js',
+            'event': 'js_runtime_error',
+            'message': data['message']?.toString() ?? 'unknown',
+            'jsSource': data['source'],
+            'jsFilename': data['filename'],
+            'jsLineno': data['lineno'],
+            'jsColno': data['colno'],
+            'jsStack': data['stack'],
+            'pageUrl': data['url'],
+            'pageUa': data['ua'],
+            'platform': Platform.operatingSystem,
+            'platformVersion': Platform.operatingSystemVersion,
+          });
+        } catch (_) {}
+        return null;
+      },
+    );
+  }
 
   /// 可见 WebView 配置（登录页、CF 手动验证等，完整功能）
   /// 用于 WebViewLoginPage、CF 手动验证页面等

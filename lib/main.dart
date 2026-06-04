@@ -61,6 +61,7 @@ import 'services/download_service.dart';
 import 'services/migration_service.dart';
 import 'services/navigation/app_route_observer.dart';
 import 'services/window_state_service.dart';
+import 'services/webview_settings.dart';
 import 'services/windows_webview_environment_service.dart';
 import 'models/user.dart';
 import 'constants.dart';
@@ -153,6 +154,9 @@ Future<void> main() async {
     CsrfTokenService().init(),
     BackgroundNotificationService().initialize(),
     TimeUtils.initialize(),
+    // 把 compat polyfill asset 读到内存，让 WebView 同步 getter 直接拿。
+    // 失败不阻塞启动，仅影响老 WebView 兼容性。
+    WebViewSettings.preloadPolyfill(),
   ];
   // 桌面平台初始化 window_manager 和 flutter_acrylic
   if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {

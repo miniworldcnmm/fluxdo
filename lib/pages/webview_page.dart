@@ -240,7 +240,7 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
                             initialSettings: WebViewSettings.visible
                               ..useShouldOverrideUrlLoading = true,
                             initialUserScripts:
-                                WebViewSettings.ios15PolyfillScripts,
+                                WebViewSettings.compatPolyfillScripts,
                             shouldOverrideUrlLoading:
                                 _shouldOverrideUrlLoading,
                             onReceivedServerTrustAuthRequest: (_, challenge) =>
@@ -249,6 +249,8 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
                                 ),
                             onWebViewCreated: (controller) async {
                               _controller = controller;
+                              // 老 WKWebView 的 JS 运行时错误回传到 LogWriter。
+                              WebViewSettings.registerJsErrorReporter(controller);
                               if (widget.url.isNotEmpty) {
                                 // v0.4.0: 取代 RawSetCookieQueue.flush
                                 await WebViewCookiePriming.instance

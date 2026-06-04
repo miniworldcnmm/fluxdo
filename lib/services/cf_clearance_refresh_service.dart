@@ -220,6 +220,7 @@ class CfClearanceRefreshService {
         javaScriptEnabled: true,
         userAgent: AppConstants.webViewUserAgentOverride,
       ),
+      initialUserScripts: WebViewSettings.compatPolyfillScripts,
       onReceivedServerTrustAuthRequest: (_, challenge) =>
           WebViewSettings.handleServerTrustAuthRequest(challenge),
       onWebViewCreated: (controller) {
@@ -230,6 +231,7 @@ class CfClearanceRefreshService {
           return;
         }
         _webViewController = controller;
+        WebViewSettings.registerJsErrorReporter(controller);
 
         // 核心通道：拦截 api.js 内部的 fetch(/rc/) 调用
         controller.addJavaScriptHandler(

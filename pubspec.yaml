@@ -149,6 +149,7 @@ flutter:
     - assets/certs/
     - assets/ai_brands/
     - assets/icons/thinking/
+    - assets/polyfill/
 
   fonts:
     - family: MiSans

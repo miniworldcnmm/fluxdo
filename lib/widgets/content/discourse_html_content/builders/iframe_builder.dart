@@ -279,6 +279,10 @@ class _IframeWidgetState extends State<IframeWidget> with RouteAware {
               headers: {'Referer': AppConstants.baseUrl},
             ),
             initialSettings: _buildSettings(attrs),
+            initialUserScripts: WebViewSettings.compatPolyfillScripts,
+            onWebViewCreated: (controller) {
+              WebViewSettings.registerJsErrorReporter(controller);
+            },
             onReceivedServerTrustAuthRequest: (_, challenge) =>
                 WebViewSettings.handleServerTrustAuthRequest(challenge),
             // 允许 WebView 接收水平滑动手势

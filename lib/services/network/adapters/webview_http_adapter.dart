@@ -90,10 +90,12 @@ class WebViewHttpAdapter implements HttpClientAdapter {
         // 加载主站页面（而非 about:blank），确保 cookie store 已初始化
         initialUrlRequest: URLRequest(url: WebUri(AppConstants.baseUrl)),
         initialSettings: WebViewSettings.headless,
+        initialUserScripts: WebViewSettings.compatPolyfillScripts,
         onReceivedServerTrustAuthRequest: (_, challenge) =>
             WebViewSettings.handleServerTrustAuthRequest(challenge),
         onWebViewCreated: (controller) {
           _controller = controller;
+          WebViewSettings.registerJsErrorReporter(controller);
 
           controller.addJavaScriptHandler(
             handlerName: 'fetchResult',

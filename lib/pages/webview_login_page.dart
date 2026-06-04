@@ -171,7 +171,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
                       webViewEnvironment: windowsWebViewEnvironment,
                       initialSettings: WebViewSettings.visible,
                       initialUserScripts: UnmodifiableListView([
-                        ...WebViewSettings.ios15PolyfillScripts,
+                        ...WebViewSettings.compatPolyfillScripts,
                         UserScript(
                           source: '''
                           new MutationObserver(function(_, obs) {
@@ -197,6 +197,9 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
                           ),
                       onWebViewCreated: (controller) async {
                         _controller = controller;
+                        // 老 WKWebView 的 JS 运行时错误回传到 LogWriter，
+                        // 避免 Discourse 升级用了新 ES API 时出现无声白屏。
+                        WebViewSettings.registerJsErrorReporter(controller);
                         // 注册 JS Handler，用于在登录按钮点击时接收凭证
                         controller.addJavaScriptHandler(
                           handlerName: 'onLoginCredentials',
