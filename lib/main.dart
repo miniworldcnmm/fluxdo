@@ -128,6 +128,17 @@ Future<void> _applyAndroidDisplayMode(SharedPreferences prefs) async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Flutter ImageCache 默认 100 MB / 1000 项。两个上限任一超过就 LRU evict。
+  //
+  // sticker / emoji 场景非常吃缓存:用户订阅 10+ 个表情包 group(每 group
+  // 100-300 张)+ Discourse 自带几千个 emoji + 头像 + 贴内图,加起来很容易
+  // 超过 5000 项,触发 LRU evict 后滚回去就要重新解码,用户感知卡顿。
+  //
+  // 800 MB / 30000 项:一张 160 thumbnail ≈ 100 KB,理论 30000 项 ≈ 3 GB,
+  // 但 size 限 800 MB 兜底,实际占用通常 200-500 MB。对 4 GB+ RAM 手机 OK。
+  PaintingBinding.instance.imageCache.maximumSizeBytes = 800 * 1024 * 1024;
+  PaintingBinding.instance.imageCache.maximumSize = 30000;
+
   // 启用 Edge-to-Edge 模式（小白条沉浸式）
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 

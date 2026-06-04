@@ -3,6 +3,8 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:native_animated_image/native_animated_image.dart'
+    show NativeAnimatedImageProvider;
 import 'avif_image_provider.dart';
 export 'avif_image_provider.dart' show AvifImageProvider;
 import 'dio_http_client.dart';
@@ -133,8 +135,10 @@ class EmojiCacheManager extends CacheManager with ImageCacheManager {
   EmojiCacheManager._() : super(
     Config(
       key,
-      stalePeriod: const Duration(days: 30), // emoji 很少变化，长期缓存
-      maxNrOfCacheObjects: 5000,
+      // emoji 几乎不变,长期缓存 + 大容量。Discourse 全套 emoji 几千个 +
+      // 自定义 emoji,5000 太紧 → 滚回前面的 emoji 频繁 LRU evict。
+      stalePeriod: const Duration(days: 90),
+      maxNrOfCacheObjects: 15000,
       repo: JsonCacheInfoRepository(databaseName: key),
       fileService: HttpFileService(httpClient: DioHttpClient()),
     ),
@@ -180,8 +184,11 @@ class StickerCacheManager extends CacheManager with ImageCacheManager {
   StickerCacheManager._() : super(
     Config(
       key,
-      stalePeriod: const Duration(days: 30),
-      maxNrOfCacheObjects: 2000,
+      // 用户订阅 10+ group(每 group 100-300 张),原图 + thumbnail PNG
+      // 双 entry,2000 上限 = 1000 张 unique sticker 就满,远不够。
+      // 90 天 + 20000 容量,基本覆盖订阅多 group 的实际用量。
+      stalePeriod: const Duration(days: 90),
+      maxNrOfCacheObjects: 20000,
       repo: JsonCacheInfoRepository(databaseName: key),
       fileService: HttpFileService(httpClient: DioHttpClient()),
     ),
@@ -198,10 +205,32 @@ bool _isAvifUrl(String url) {
   }
 }
 
+/// 检查 URL 是否指向需要走 native 解码器的动图(GIF / APNG / 动画 WebP)
+///
+/// 走 native_animated_image 的 Rust pipeline,绕开 Flutter Skia
+/// multi_frame_codec 的 #85831 bug。
+bool isNativeAnimatedUrl(String url) => _isNativeAnimatedUrl(url);
+
+bool _isNativeAnimatedUrl(String url) {
+  try {
+    final path = Uri.parse(url).path.toLowerCase();
+    // .gif 一定走 native(Skia 在某些 disposal 组合下会失败)
+    // .apng / .webp 也走 native(后续 Rust 端补全解码器)
+    return path.endsWith('.gif') ||
+        path.endsWith('.apng') ||
+        path.endsWith('.webp');
+  } catch (_) {
+    return false;
+  }
+}
+
 /// 创建 Discourse 图片 Provider
 ///
 /// 用于需要 ImageProvider 的场景（CircleAvatar、DecorationImage 等）
-/// AVIF URL 自动使用 AvifImageProvider 解码，其他格式使用 CachedNetworkImageProvider
+/// - AVIF URL → AvifImageProvider (flutter_avif libavif + dav1d)
+/// - GIF / APNG / 动画 WebP → NativeAnimatedImageProvider (Rust pipeline,
+///   绕 Skia multi_frame_codec 的 #85831 bug)
+/// - 其他静态格式 → CachedNetworkImageProvider
 ImageProvider discourseImageProvider(
   String url, {
   double scale = 1.0,
@@ -210,6 +239,20 @@ ImageProvider discourseImageProvider(
 }) {
   if (_isAvifUrl(url)) {
     return AvifImageProvider(url, scale: scale);
+  }
+  if (_isNativeAnimatedUrl(url)) {
+    final cache = DiscourseCacheManager();
+    return NativeAnimatedImageProvider.fromBytesProvider(
+      loader: () async {
+        final bytes = await cache.getImageBytes(url);
+        if (bytes == null || bytes.isEmpty) {
+          throw Exception('NativeAnimatedImageProvider: empty bytes for $url');
+        }
+        return bytes;
+      },
+      tag: url,
+      scale: scale,
+    );
   }
   return CachedNetworkImageProvider(
     url,

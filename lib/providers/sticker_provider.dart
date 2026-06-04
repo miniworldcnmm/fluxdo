@@ -1,10 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../models/sticker.dart';
+import '../services/discourse_cache_manager.dart' show StickerCacheManager;
 import '../services/sticker_market_service.dart';
+import '../services/sticker_thumbnail_provider.dart';
 import 'theme_provider.dart'; // sharedPreferencesProvider
 
 /// 表情包市场服务 Provider
@@ -20,11 +24,76 @@ final stickerGroupsProvider = FutureProvider<List<StickerGroup>>((ref) async {
 });
 
 /// 分组详情（按 groupId 懒加载）
+///
+/// 加载完成后,异步批量 precache 第一屏 sticker 的 thumbnail —
+/// 这样用户实际打开 sticker panel / 切到这个 group 时,首屏多数 sticker 已经
+/// 在 PNG cache,只需 Flutter 内置 codec 几 ms 解出,不用等动图解码。
 final stickerGroupDetailProvider =
     FutureProvider.family<StickerGroupDetail, String>((ref, groupId) async {
       final service = ref.watch(stickerMarketServiceProvider);
-      return service.getGroupDetail(groupId);
+      final detail = await service.getGroupDetail(groupId);
+      unawaited(_prefetchFirstScreenThumbnails(groupId, detail.emojis));
+      return detail;
     });
+
+/// 当前活跃 prefetch 的 groupId。每次新组进来就覆盖,旧组 task 通过
+/// `_activePrefetchGroupId != myGroupId` 自我作废,避免用户快速切组后
+/// 老组的 30 张 thumbnail 还在后台占 CPU + ImageCache。
+String? _activePrefetchGroupId;
+
+/// sticker panel 是否处于打开状态(默认 true 乐观允许,只在显式 close 时 false)。
+/// panel 关闭时,正在跑的 prefetch batch 通过 `shouldContinue` 立即停下来,
+/// 避免主 isolate 在 panel 关闭后仍被后台 decode + marshalling 占用,
+/// 造成"关闭面板还掉帧"的现象。
+///
+/// 由 [stickerPanelOpened] / [stickerPanelClosed] 在 StickerPicker
+/// initState / dispose 调用。
+bool _stickerPanelOpen = true;
+
+void stickerPanelOpened() {
+  _stickerPanelOpen = true;
+}
+
+void stickerPanelClosed() {
+  _stickerPanelOpen = false;
+  // 同时主动 "作废" 所有正在跑的 prefetch group(即使 groupId 没变)
+  _activePrefetchGroupId = null;
+}
+
+/// 后台异步批量预解 sticker thumbnail。
+///
+/// **关键优化:用 [StickerThumbnailProvider.precacheBatch] 一次解 30 张,
+/// 把 30 个 `Isolate.run` 摊薄成 ~4 个**(chunked,每 chunk 8 张)。
+/// Isolate spawn 是几十 ms 量级开销,30× 累加起来主线程会感知卡顿;
+/// chunk 化后 spawn 开销可控,且 chunk 间能 cancel(切组 / 关 panel)。
+Future<void> _prefetchFirstScreenThumbnails(
+  String groupId,
+  List<StickerItem> emojis,
+) async {
+  // sticker_picker grid 用 maxCrossAxisExtent=80,8 列 × 4 行 ≈ 32 张同屏。
+  // 预解 30 张覆盖首屏 + 一点滚动 buffer。
+  const prefetchCount = 30;
+  // 与 sticker_picker `_StickerItemWidget` 的 memCacheWidth=160 一致。
+  const targetSize = 160;
+  final cache = StickerCacheManager();
+  final visible = emojis.length <= prefetchCount
+      ? emojis
+      : emojis.sublist(0, prefetchCount);
+
+  _activePrefetchGroupId = groupId;
+
+  try {
+    await StickerThumbnailProvider.precacheBatch(
+      visible.map((s) => s.url).toList(growable: false),
+      targetSize: targetSize,
+      cacheManager: cache,
+      shouldContinue: () =>
+          _stickerPanelOpen && _activePrefetchGroupId == groupId,
+    );
+  } catch (e) {
+    debugPrint('[sticker_prefetch] batch failed (group=$groupId): $e');
+  }
+}
 
 /// 市场分组分页加载（供市场浏览面板使用）
 final marketGroupsProvider =
