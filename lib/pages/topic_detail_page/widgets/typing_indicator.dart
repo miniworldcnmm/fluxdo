@@ -134,13 +134,14 @@ class TypingAvatars extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
           avatarsWidget,
           const SizedBox(width: 8),
-          TypingIndicator(
-            textStyle: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          Expanded(
+            child: TypingIndicator(
+              textStyle: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ],
