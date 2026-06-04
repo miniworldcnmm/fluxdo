@@ -5,6 +5,7 @@ import '../../pages/network_settings_page/widgets/advanced_settings_card.dart';
 import '../../pages/network_settings_page/widgets/cf_verify_card.dart';
 import '../../pages/network_settings_page/widgets/debug_tools_card.dart';
 import '../../pages/network_settings_page/widgets/doh_settings_card.dart';
+import '../../pages/network_settings_page/widgets/eruda_card.dart';
 import '../../pages/network_settings_page/widgets/http_proxy_card.dart';
 import '../../pages/network_settings_page/widgets/rate_limit_card.dart';
 import '../../pages/network_settings_page/widgets/rhttp_engine_card.dart';
@@ -111,6 +112,12 @@ List<SettingsGroup> buildNetworkGroups(BuildContext context) {
           title: l10n.appLogs_title,
           subtitle: l10n.networkSettings_debug,
           builder: (context, ref) => const DebugToolsCard(),
+        ),
+        CustomModel(
+          id: 'erudaConsole',
+          title: 'Eruda 调试控制台',
+          subtitle: l10n.networkSettings_debug,
+          builder: (context, ref) => const ErudaCard(),
         ),
       ],
     ),

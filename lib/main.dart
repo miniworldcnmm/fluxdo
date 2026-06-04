@@ -42,6 +42,7 @@ import 'services/network/doh/network_settings_service.dart';
 import 'services/network/proxy/proxy_settings_service.dart';
 import 'services/network/rhttp/rhttp_settings_service.dart';
 import 'services/network/webview/webview_adapter_settings_service.dart';
+import 'services/eruda_settings_service.dart';
 import 'package:rhttp/rhttp.dart' as rhttp;
 import 'services/network/vpn_auto_toggle_service.dart';
 import 'services/network/doh_proxy/proxy_certificate.dart';
@@ -234,6 +235,8 @@ Future<void> main() async {
   await RhttpSettingsService.instance.initialize(prefs);
   // WebView 适配器设置
   await WebViewAdapterSettingsService.instance.initialize(prefs);
+  // Eruda 调试控制台开关 (默认关)
+  await ErudaSettingsService.instance.initialize(prefs);
   // v0.4.0: 启动时执行 WV cookie 重灌 (取代 RawSetCookieQueue + 启动自检)
   unawaited(
     WebViewCookiePriming.instance.prime(AppConstants.baseUrl).catchError((

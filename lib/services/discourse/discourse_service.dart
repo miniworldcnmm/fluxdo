@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/material.dart' hide Badge;
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:dio/dio.dart';
 import '../../models/topic.dart';
@@ -30,6 +31,7 @@ import '../network/cookie/boundary_sync_service.dart';
 import '../network/cookie/session_snapshot.dart';
 import '../cf_challenge_service.dart';
 import '../message_bus_service.dart';
+import '../login_ready_coordinator.dart';
 import '../network/discourse_dio.dart';
 import '../preloaded_data_service.dart';
 import '../auth_log_service.dart';
@@ -40,6 +42,7 @@ import '../../l10n/s.dart';
 import '../../utils/url_helper.dart';
 
 part '_auth.dart';
+part '_login.dart';
 part '_topics.dart';
 part '_posts.dart';
 part '_users.dart';
@@ -100,6 +103,7 @@ abstract class _DiscourseServiceBase {
 class DiscourseService extends _DiscourseServiceBase
     with
         _AuthMixin,
+        _LoginMixin,
         _TopicsMixin,
         _PostsMixin,
         _UsersMixin,

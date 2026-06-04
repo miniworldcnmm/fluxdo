@@ -8,7 +8,7 @@ import '../providers/shortcut_provider.dart';
 import '../widgets/desktop_refresh_indicator.dart';
 import '../services/discourse_cache_manager.dart';
 import 'webview_page.dart';
-import 'webview_login_page.dart';
+import 'login_page.dart';
 import 'browsing_history_page.dart';
 import 'bookmarks_page.dart';
 import 'my_browser_page.dart';
@@ -169,7 +169,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   Future<void> _goToLogin() async {
     final result = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(builder: (_) => const WebViewLoginPage()),
+      MaterialPageRoute(builder: (_) => const LoginPage()),
     );
     if (result == true && mounted) {
       LoadingDialog.show(context, message: context.l10n.profile_loadingData);

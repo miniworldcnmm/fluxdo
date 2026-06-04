@@ -5,6 +5,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../constants.dart';
+import 'eruda_settings_service.dart';
 import 'log/log_writer.dart';
 import 'network/doh/network_settings_service.dart';
 
@@ -120,7 +121,15 @@ class WebViewSettings {
         UserScript(
           source: source,
           injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
-          forMainFrameOnly: false,
+          // 必须 true: es-module-shims 在 iOS 15 上为每个 module 评估创建
+          // about:blank iframe。实测 Discourse vendor bundle 触发它创建 1100+
+          // 个 iframe (10 秒内, 110/秒)。如果对每个 iframe 都注入这 155KB
+          // polyfill, parse + 跑 + callHandler 把主线程霸占, Discourse 永远
+          // 启动不了 (splash 永驻)。
+          // iframe 不需要 polyfill: es-module-shims 的 stub iframe 只评估
+          // module、不跑业务代码;CF turnstile / Stripe / Google GSI 等真实
+          // 第三方 iframe 用 IIFE 不依赖 importmap, 也不需要我们的 polyfill。
+          forMainFrameOnly: true,
         ),
       ]);
     } catch (e) {
@@ -141,22 +150,45 @@ class WebViewSettings {
     }
   }
 
+  /// Eruda 默认关闭时注入的禁用脚本: 在 polyfill 之前抢先设
+  /// `__fluxdoErudaInited = true`, 让 bundle 内 eruda-init 的 guard 跳过 init。
+  /// 见 [ErudaSettingsService]。纯 dart 控制, 不改 / 不重打包 bundle。
+  static final UserScript _erudaDisableScript = UserScript(
+    source: 'window.__fluxdoErudaInited = true;',
+    injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+    forMainFrameOnly: true,
+  );
+
   /// 兼容性脚本列表，传给 `InAppWebView.initialUserScripts`。
   /// 必须先在启动期调 [preloadPolyfill]；未加载时返回空列表 + 一次性告警。
+  ///
+  /// Eruda 开关关闭时 (默认), 在 polyfill 前追加禁用脚本; 打开时原样返回让
+  /// bundle 内的 eruda 正常初始化。
   static UnmodifiableListView<UserScript> get compatPolyfillScripts {
     final cached = _compatPolyfillScripts;
-    if (cached != null) return cached;
-    if (!_polyfillLoadAttempted) {
-      debugPrint(
-        '[WebViewSettings] compatPolyfillScripts 在 preloadPolyfill() 完成前被读取，'
-        '老 WebView 兼容性会缺失。请检查 main.dart 初始化序列。',
-      );
+    if (cached == null) {
+      if (!_polyfillLoadAttempted) {
+        debugPrint(
+          '[WebViewSettings] compatPolyfillScripts 在 preloadPolyfill() 完成前被读取，'
+          '老 WebView 兼容性会缺失。请检查 main.dart 初始化序列。',
+        );
+      }
+      return UnmodifiableListView<UserScript>([]);
     }
-    return UnmodifiableListView<UserScript>([]);
+    if (!ErudaSettingsService.instance.enabled) {
+      return UnmodifiableListView<UserScript>([_erudaDisableScript, ...cached]);
+    }
+    return cached;
   }
 
-  /// 注册 JS 错误回传 handler，把 WebView 内的错误落到 LogWriter。
+  /// 注册 JS 错误 / lifecycle 回传 handler，把 WebView 内的事件落到 LogWriter。
   /// 在 `onWebViewCreated` 拿到 controller 后调用一次。
+  ///
+  /// JS 侧通过 `flutter_inappwebview.callHandler('onWebViewJsError', payload)` 发，
+  /// 按 `source` 字段路由：
+  /// - `lifecycle` → info 级别 + event=webview_compat_ready，带 polyfill 自检 probes/missing
+  /// - `console.error` → error 级别，能突破跨域 sanitization 拿到 Discourse 自家 stack
+  /// - `window.error` / `unhandledrejection` → error 级别，uncaught 兜底（跨域时 sanitized）
   static void registerJsErrorReporter(InAppWebViewController controller) {
     controller.addJavaScriptHandler(
       handlerName: 'onWebViewJsError',
@@ -166,22 +198,55 @@ class WebViewSettings {
           final raw = args[0];
           if (raw is! Map) return null;
           final data = Map<String, dynamic>.from(raw);
-          LogWriter.instance.write({
-            'timestamp': DateTime.now().toIso8601String(),
-            'level': 'error',
-            'type': 'webview_js',
-            'event': 'js_runtime_error',
-            'message': data['message']?.toString() ?? 'unknown',
-            'jsSource': data['source'],
-            'jsFilename': data['filename'],
-            'jsLineno': data['lineno'],
-            'jsColno': data['colno'],
-            'jsStack': data['stack'],
-            'pageUrl': data['url'],
-            'pageUa': data['ua'],
-            'platform': Platform.operatingSystem,
-            'platformVersion': Platform.operatingSystemVersion,
-          });
+          final source = data['source']?.toString() ?? 'unknown';
+
+          if (source == 'lifecycle') {
+            // 把 message 用作 event 名,日志里能直接看到 boot 阶段:
+            //   compat_bundle_loaded         - polyfill 跑完
+            //   discourse_boot_dom           - DOMContentLoaded
+            //   discourse_boot_load          - window load
+            //   discourse_boot_init          - Discourse dispatchEvent(discourse-init)
+            //   discourse_boot_ready         - Ember ready,#d-splash 被移除
+            //   discourse_boot_status_30s    - 30 秒兜底,看 stages 字段哪一步没到
+            final msg = data['message']?.toString() ?? 'compat_bundle_loaded';
+            LogWriter.instance.write({
+              'timestamp': DateTime.now().toIso8601String(),
+              'level': 'info',
+              'type': 'webview_compat',
+              'event': msg,
+              'message': msg,
+              'probes': data['probes'],
+              'missing': data['missing'],
+              'stage': data['stage'],
+              'stages': data['stages'],
+              'extra': data['extra'],
+              'hasSplash': data['hasSplash'],
+              'pageUrl': data['url'],
+              'pageUa': data['ua'],
+              'platform': Platform.operatingSystem,
+              'platformVersion': Platform.operatingSystemVersion,
+            });
+          } else {
+            LogWriter.instance.write({
+              'timestamp': DateTime.now().toIso8601String(),
+              'level': 'error',
+              'type': 'webview_js',
+              'event': 'js_runtime_error',
+              'message': data['message']?.toString() ?? 'unknown',
+              'jsSource': source,
+              'jsFilename': data['filename'],
+              'jsLineno': data['lineno'],
+              'jsColno': data['colno'],
+              'jsStack': data['stack'],
+              'jsEventType': data['eventType'],
+              'jsTargetTag': data['targetTag'],
+              'jsTargetSrc': data['targetSrc'],
+              'pageUrl': data['url'],
+              'pageUa': data['ua'],
+              'platform': Platform.operatingSystem,
+              'platformVersion': Platform.operatingSystemVersion,
+            });
+          }
         } catch (_) {}
         return null;
       },

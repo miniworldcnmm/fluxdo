@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io' as io;
 import 'dart:math' as math;
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -108,6 +109,36 @@ class CfChallengeService {
         _contextReadyCompleter!.complete(context);
       }
     }
+  }
+
+  /// 综合响应头 + 响应体判断 dio Response 是否是 CF 验证响应。
+  ///
+  /// CF 根据请求的 Accept header 决定 challenge 响应格式:
+  /// - 浏览器请求 (Accept: text/html) → 返 text/html "Just a moment..." 页面
+  /// - API 请求 (Accept: application/json, text/plain) → 返 text/plain 简短挑战
+  /// 但**两者都带 `cf-mitigated: challenge` header**, 这是 CF 官方权威信号。
+  ///
+  /// 历史上这里曾把 content-type 必须 text/html 作为前置条件,导致 dio 这种
+  /// 默认 `Accept: application/json, text/plain, */*` 的客户端拿到 text/plain
+  /// 时被漏掉, CfChallengeInterceptor 不弹手动验证。
+  static bool isCfChallengeResponse(Response? response) {
+    if (response == null) return false;
+    final headers = response.headers;
+
+    // 1. 必须来自 Cloudflare
+    final server = headers.value('server') ?? '';
+    if (!server.toLowerCase().contains('cloudflare')) return false;
+
+    // 2. cf-mitigated: challenge — CF 官方权威信号, 不依赖 content-type
+    final cfMitigated = headers.value('cf-mitigated') ?? '';
+    if (cfMitigated.contains('challenge')) return true;
+
+    // 3. fallback: 老版本 CF 或某些路径不带 cf-mitigated, 用 body 兜底,
+    //    但 body 兜底只对 text/html 走 — 避免误判 Discourse 自己的 plaintext 403。
+    final contentType = headers.value('content-type') ?? '';
+    if (!contentType.contains('text/html')) return false;
+
+    return isCfChallenge(response.data);
   }
 
   /// 检测是否是 CF 验证页面（用于 403 响应体判断）

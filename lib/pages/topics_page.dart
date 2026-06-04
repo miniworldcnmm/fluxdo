@@ -15,7 +15,7 @@ import '../providers/discourse_providers.dart';
 import '../providers/message_bus_providers.dart';
 import '../providers/selected_topic_provider.dart';
 import '../providers/pinned_categories_provider.dart';
-import 'webview_login_page.dart';
+import 'login_page.dart';
 import 'topic_detail_page/topic_detail_page.dart';
 import 'search_page.dart';
 import '../models/search_filter.dart';
@@ -241,7 +241,7 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
   Future<void> _goToLogin() async {
     final result = await Navigator.of(
       context,
-    ).push<bool>(MaterialPageRoute(builder: (_) => const WebViewLoginPage()));
+    ).push<bool>(MaterialPageRoute(builder: (_) => const LoginPage()));
     if (result == true && mounted) {
       LoadingDialog.show(context, message: context.l10n.common_loadingData);
 

@@ -23,7 +23,8 @@ class ErrorInterceptor extends Interceptor {
 
     // CF 盾 403 由 CfChallengeInterceptor 统一决定展示形态：
     // 页面数据走错误态按钮，操作请求走明确提示，静默请求不打扰。
-    if (statusCode == 403 && _isCfChallengeResponse(err.response)) {
+    if (statusCode == 403 &&
+        CfChallengeService.isCfChallengeResponse(err.response)) {
       handler.next(err);
       return;
     }
@@ -91,22 +92,6 @@ class ErrorInterceptor extends Interceptor {
     }
 
     handler.next(err);
-  }
-
-  bool _isCfChallengeResponse(Response? response) {
-    if (response == null) return false;
-
-    final headers = response.headers;
-    final server = headers.value('server') ?? '';
-    if (!server.toLowerCase().contains('cloudflare')) return false;
-
-    final contentType = headers.value('content-type') ?? '';
-    if (!contentType.contains('text/html')) return false;
-
-    final cfMitigated = headers.value('cf-mitigated') ?? '';
-    if (cfMitigated.contains('challenge')) return true;
-
-    return CfChallengeService.isCfChallenge(response.data);
   }
 
   int? _extractRetryAfterSeconds(Response? response) {

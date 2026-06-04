@@ -15,5 +15,9 @@
   },
   "browserslist": [
     "iOS >= 15.0"
-  ]
+  ],
+  "dependencies": {
+    "eruda": "^3.4.3",
+    "es-module-shims": "^2.8.1"
+  }
 }
