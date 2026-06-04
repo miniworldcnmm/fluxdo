@@ -59,7 +59,7 @@ class LogWriter {
     final size = await file.length();
     if (size < _maxFileSize) return;
 
-    final content = await file.readAsString();
+    final content = await readContentSafely(file);
     final lines = content.split('\n');
     // 保留后半部分
     final halfIndex = lines.length ~/ 2;
@@ -83,7 +83,7 @@ class LogWriter {
       await oldFile.rename(newFile.path);
     } else if (oldFile.existsSync() && newFile.existsSync()) {
       // 两个文件都存在时，将旧文件内容追加到新文件，然后删除旧文件
-      final oldContent = await oldFile.readAsString();
+      final oldContent = await readContentSafely(oldFile);
       if (oldContent.trim().isNotEmpty) {
         await newFile.writeAsString(oldContent, mode: FileMode.append);
       }
@@ -91,5 +91,12 @@ class LogWriter {
     }
 
     return newFile;
+  }
+
+  /// 容错读取日志文件：非法 utf-8 字节替换为 U+FFFD，避免一个坏字节让整个页面打不开
+  /// 写入中崩溃留下的半截行、并发截断、外部工具污染都可能产生非法字节
+  static Future<String> readContentSafely(File file) async {
+    final bytes = await file.readAsBytes();
+    return utf8.decode(bytes, allowMalformed: true);
   }
 }

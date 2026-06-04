@@ -26,7 +26,7 @@ class LoggerUtils {
     final header = await _buildShareHeader();
     final logFile = await getLogFile();
     final logContent =
-        logFile.existsSync() ? await logFile.readAsString() : '';
+        logFile.existsSync() ? await LogWriter.readContentSafely(logFile) : '';
 
     final dir = logFile.parent;
     final shareFile = File('${dir.path}/app_log_share.jsonl');
@@ -247,7 +247,7 @@ class LoggerUtils {
     final file = await getLogFile();
     if (!file.existsSync()) return [];
 
-    final content = await file.readAsString();
+    final content = await LogWriter.readContentSafely(file);
     if (content.trim().isEmpty) return [];
 
     final lines = content.trim().split('\n');
@@ -282,7 +282,7 @@ class LoggerUtils {
   static Future<String> readLogContent() async {
     final file = await getLogFile();
     if (!file.existsSync()) return '';
-    return file.readAsString();
+    return LogWriter.readContentSafely(file);
   }
 
   /// 清理 14 天前的过期条目
@@ -290,7 +290,7 @@ class LoggerUtils {
     final file = await getLogFile();
     if (!file.existsSync()) return;
 
-    final content = await file.readAsString();
+    final content = await LogWriter.readContentSafely(file);
     if (content.trim().isEmpty) return;
 
     final lines = content.trim().split('\n');
