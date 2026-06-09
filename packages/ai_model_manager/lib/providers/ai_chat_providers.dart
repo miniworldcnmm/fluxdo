@@ -14,6 +14,7 @@ import '../models/ai_chat_message.dart';
 import '../models/prompt_preset.dart';
 import '../services/ai_chat_service.dart';
 import '../services/ai_chat_storage_service.dart';
+import '../services/ai_stream_http_client.dart';
 import '../services/dio_http_bridge.dart';
 import 'ai_provider_providers.dart';
 
@@ -329,7 +330,12 @@ final aiChatServiceProvider = Provider((ref) {
       enablePartialImages: enablePartialImages,
     );
   }
-  return AiChatService(enablePartialImages: enablePartialImages);
+  // 默认也走 AiStreamHttpClient：原生 http.Client 在 iOS 真机上 idleTimeout
+  // = 15s，模型 thinking 阶段会主动关连接导致「未收到 AI 回复」。
+  return AiChatService(
+    bridgedClient: AiStreamHttpClient(),
+    enablePartialImages: enablePartialImages,
+  );
 });
 
 /// 单条 chat 请求用的 http.Client 工厂。
@@ -337,18 +343,19 @@ final aiChatServiceProvider = Provider((ref) {
 /// sendMessage 每次发请求时调一次 factory 产出可独立 close 的 client：
 /// - 开「跟随应用网络配置」+ 主应用注入了 adapterFactory：返回
 ///   [DioBackedHttpClient]（每次包一份新 adapter，close 不影响其它请求）
-/// - 否则：返回原生 [http.Client]
+/// - 否则：返回 [AiStreamHttpClient]（长 idleTimeout 的 dart:io 流式 client）
 ///
 /// 直接 `http.Client()` 会绕过 [AiChatService.bridgedClient]，
 /// 让走默认 baseUrl 的 provider（如 Gemini 必经 generativelanguage.googleapis.com）
-/// 看不到应用代理设置。
+/// 看不到应用代理设置；且原生 http.Client 在 iOS 真机上 idleTimeout 太短，
+/// 长 thinking 阶段会被主动断开。
 final aiRequestClientFactoryProvider = Provider<http.Client Function()>((ref) {
   final useAppNetwork = ref.watch(aiUseAppNetworkProvider);
   final adapterFactory = ref.watch(aiDioAdapterFactoryProvider);
   if (useAppNetwork && adapterFactory != null) {
     return () => DioBackedHttpClient(adapterFactory());
   }
-  return http.Client.new;
+  return AiStreamHttpClient.new;
 });
 
 /// 标题生成模型 key（providerId:modelId）
@@ -530,7 +537,7 @@ class TopicAiChatNotifier extends StateNotifier<TopicAiChatState> {
     this.titleModel,
     this.imagePromptOptimizerModel,
     http.Client Function()? requestClientFactory,
-  })  : requestClientFactory = requestClientFactory ?? http.Client.new,
+  })  : requestClientFactory = requestClientFactory ?? AiStreamHttpClient.new,
         super(const TopicAiChatState()) {
     _loadFromStorage();
   }
@@ -785,9 +792,20 @@ class TopicAiChatNotifier extends StateNotifier<TopicAiChatState> {
       int? responseTokens;
       int? cachedTokens;
 
+      // 诊断指标：用于 emptyResponseError 时拼到错误消息里，让真机用户截图反馈
+      // 能直接看出是「网络没连上」「连上没收 chunk」还是「收到 chunk 但解析为空」。
+      final streamStartedAt = DateTime.now();
+      DateTime? firstChunkAt;
+      int chunkCount = 0;
+      void recordChunk() {
+        chunkCount++;
+        firstChunkAt ??= DateTime.now();
+      }
+
       _streamSubscription = stream.listen(
         (chunk) {
           if (_cancelled || !mounted) return;
+          recordChunk();
           switch (chunk) {
             case final TextDelta d:
               textBuffer.write(d.text);
@@ -878,7 +896,13 @@ class TopicAiChatNotifier extends StateNotifier<TopicAiChatState> {
               assistantMessage.id,
               content: '',
               status: MessageStatus.error,
-              errorMessage: AiL10n.current.emptyResponseError,
+              errorMessage: _buildEmptyResponseError(
+                provider: selectedModel.provider,
+                model: selectedModel.model.id,
+                startedAt: streamStartedAt,
+                firstChunkAt: firstChunkAt,
+                chunkCount: chunkCount,
+              ),
             );
           } else {
             _updateAssistantMessage(
@@ -1262,6 +1286,41 @@ class TopicAiChatNotifier extends StateNotifier<TopicAiChatState> {
     } catch (_) {
       // 删失败无所谓，最多占点磁盘
     }
+  }
+
+  /// 拼接 emptyResponseError 的诊断后缀。
+  ///
+  /// 出现这个错说明 HTTP 流走到了 onDone 但一个 chunk 都没解析出有效内容。
+  /// 用户截图反馈时这些字段能直接定位到真实根因：
+  /// - `chunks=0 + ttfb=null`：流连第一个字节都没收到（HTTP 层或 client 被截断）
+  /// - `chunks>0 + bufferEmpty`：收到字节但 SSE 解析出来是空（上游格式问题）
+  /// - `duration ≈ 15s ± 1s`：典型 dart:io idleTimeout 触发
+  /// - `duration ≈ 60s`：典型 URLSession requestTimeout
+  /// - `duration < 1s + chunks=0`：服务端立即关流（key/余额/auth 问题）
+  String _buildEmptyResponseError({
+    required AiProvider provider,
+    required String model,
+    required DateTime startedAt,
+    required DateTime? firstChunkAt,
+    required int chunkCount,
+  }) {
+    final base = AiL10n.current.emptyResponseError;
+    final now = DateTime.now();
+    final durationMs = now.difference(startedAt).inMilliseconds;
+    final ttfbMs = firstChunkAt?.difference(startedAt).inMilliseconds;
+    final ttfb = ttfbMs == null ? 'null' : '${ttfbMs}ms';
+    return '$base\n\n[diag] provider=${provider.type.name} model=$model '
+        'duration=${durationMs}ms ttfb=$ttfb chunks=$chunkCount '
+        'platform=${_platformTag()}';
+  }
+
+  String _platformTag() {
+    if (Platform.isIOS) return 'ios';
+    if (Platform.isAndroid) return 'android';
+    if (Platform.isMacOS) return 'macos';
+    if (Platform.isWindows) return 'windows';
+    if (Platform.isLinux) return 'linux';
+    return 'other';
   }
 
   @override

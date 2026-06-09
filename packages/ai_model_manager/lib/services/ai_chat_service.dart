@@ -901,7 +901,12 @@ class AiChatService {
     } catch (e) {
       throw _mapError(e);
     } finally {
-      client.endSession();
+      // 仅当我们没传入外部 client 时才关闭 SDK 内部 client。
+      // anthropic_sdk_dart 的 endSession() 会无脑 close 我们传入的
+      // bridgedClient / requestClient，否则会污染后续请求。
+      if (httpClient == null && bridgedClient == null) {
+        client.endSession();
+      }
     }
 
     if (promptTokens != null || responseTokens != null) {
