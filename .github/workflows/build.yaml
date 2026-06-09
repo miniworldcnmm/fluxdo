@@ -466,17 +466,25 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # stable 把中间所有 beta tag 当不存在，让 release notes 从上一个 stable 起算；
-          # beta 不传 --ignore-tags，每个 beta 只显示自己相对上一个 tag 的增量。
+          # 不能用 --current：在 --ignore-tags 下它仍把范围缩到“上一个 tag”，
+          # 会让 stable 只显示最后一个 beta 的增量（而非从上一个 stable 起算）。
+          # 改为显式算出对比基准 tag + 限定 range。
+          TAG="${{ github.ref_name }}"
           if [[ "${{ env.IS_STABLE }}" == "true" ]]; then
+            # stable：基准 = 拓扑上一个 stable tag（跳过 beta），再用 --ignore-tags 把整个 beta 周期折叠进来
+            PREV=$(git describe --tags --abbrev=0 --exclude='*-*' "${TAG}^" 2>/dev/null || true)
             EXTRA=(--ignore-tags '.*-(alpha|beta|rc).*')
           else
+            # beta：基准 = 拓扑上一个 tag（含 beta），只显示本次相对上次发布的增量
+            PREV=$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)
             EXTRA=()
           fi
+          if [ -n "$PREV" ]; then RANGE="${PREV}..${TAG}"; else RANGE="$TAG"; fi
+          echo "::notice::release notes 范围 = ${RANGE}"
           # GH Release body + TG 文本源（带 markdown 链接、分组、PR、贡献者）
-          git cliff --current --strip header "${EXTRA[@]}" --output release_notes.md
+          git cliff "$RANGE" "${EXTRA[@]}" --strip header --output release_notes.md
           # AltStore localizedDescription 用的 plain 文本（无 markdown 链接）
-          git cliff --current --strip all "${EXTRA[@]}" \
+          git cliff "$RANGE" "${EXTRA[@]}" --strip all \
             --body "$(cat .github/cliff-plain.tera)" \
             --output release_notes.txt
 
@@ -616,7 +624,15 @@ jobs:
         run: |
           mkdir -p gh-pages-deploy
           cp altstore/source.json gh-pages-deploy/
-          cp ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png gh-pages-deploy/icon.png
+          # App Icon 文件名会随图标重构变化（如 #272 把 Icon-App-1024x1024@1x.png
+          # 改成了 AppIcon-Light/Dark-1024x1024.png），这里动态挑一张 1024 的非 dark 图，
+          # 避免硬编码路径失效导致整个发布 job 中断。
+          icon_src=$(ls ios/Runner/Assets.xcassets/AppIcon.appiconset/*1024* 2>/dev/null | grep -iv dark | head -n1)
+          if [ -z "$icon_src" ]; then
+            echo "::error::未找到 1024 App Icon，无法生成 gh-pages icon.png"
+            exit 1
+          fi
+          cp "$icon_src" gh-pages-deploy/icon.png
 
       - name: Deploy to GitHub Pages
         if: env.IS_STABLE == 'true'
