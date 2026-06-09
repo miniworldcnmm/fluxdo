@@ -6,6 +6,7 @@ import '../models/ai_provider.dart';
 import '../providers/ai_provider_providers.dart';
 import '../services/ai_provider_service.dart';
 import '../services/toast_delegate.dart';
+import '../utils/dialog_utils.dart';
 import '../utils/model_capabilities.dart';
 import '../widgets/model_detail_sheet.dart';
 import '../widgets/model_icon.dart';
@@ -162,9 +163,10 @@ class _AiProviderEditPageState extends ConsumerState<AiProviderEditPage> {
       AiToastDelegate.showInfo(AiL10n.current.selectModelToTest);
       return;
     }
-    showModalBottomSheet(
+    showAppBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       builder: (ctx) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -220,9 +222,10 @@ class _AiProviderEditPageState extends ConsumerState<AiProviderEditPage> {
     final fetchFuture =
         service.fetchModels(_selectedType, baseUrl, apiKey);
 
-    await showModalBottomSheet<void>(
+    await showAppBottomSheet<void>(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
