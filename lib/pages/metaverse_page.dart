@@ -206,13 +206,8 @@ class _MetaversePageState extends ConsumerState<MetaversePage> {
     setState(() => _ldcProcessing = true);
     try {
       final service = LdcOAuthService();
-      try {
-        await service.logout();
-      } catch (_) {
-        // 忽略登出错误
-      }
       if (!mounted) return;
-      final result = await service.authorize(context);
+      final result = await service.reauthorize(context);
       if (result && mounted) {
         ref.read(ldcUserInfoProvider.notifier).refresh();
         ToastService.showSuccess(S.current.metaverse_ldcReauthSuccess);
@@ -233,13 +228,8 @@ class _MetaversePageState extends ConsumerState<MetaversePage> {
     setState(() => _cdkProcessing = true);
     try {
       final service = CdkOAuthService();
-      try {
-        await service.logout();
-      } catch (_) {
-        // 忽略登出错误
-      }
       if (!mounted) return;
-      final result = await service.authorize(context);
+      final result = await service.reauthorize(context);
       if (result && mounted) {
         ref.read(cdkUserInfoProvider.notifier).refresh();
         ToastService.showSuccess(S.current.metaverse_cdkReauthSuccess);

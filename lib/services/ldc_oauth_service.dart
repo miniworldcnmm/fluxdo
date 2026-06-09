@@ -5,14 +5,12 @@ import 'network/discourse_dio.dart';
 import 'network/exceptions/oauth_exception.dart';
 import '../l10n/s.dart';
 import '../utils/dialog_utils.dart';
+import 'oauth_flow_helper.dart';
 import 'toast_service.dart';
 import '../models/ldc_user_info.dart';
 
 class LdcOAuthService {
   static const String baseUrl = 'https://credit.linux.do';
-
-  // OAuth 链相邻步骤之间最小间隔，给服务端 session 写入和限速窗口留出余量
-  static const Duration _stepGap = Duration(milliseconds: 400);
 
   late final Dio _dio;
 
@@ -41,6 +39,22 @@ class LdcOAuthService {
       '$baseUrl/api/v1/oauth/logout',
       options: Options(extra: {'skipCsrf': true}),
     );
+  }
+
+  /// 重新授权 = logout + 长间隔 + authorize。
+  ///
+  /// 单独抽出, 是因为 logout + authorize 紧贴在一起会在 ~5 个请求内集中打
+  /// 同一个限速窗口。中间插一个相对长的 gap, 让服务端限速窗口完全 reset,
+  /// 也更像真人"先退出再重新登录"的操作节奏。
+  Future<bool> reauthorize(BuildContext context) async {
+    try {
+      await logout();
+    } catch (_) {
+      // 忽略登出错误, 不阻塞后续重新授权
+    }
+    await OAuthFlowHelper.humanGap(minMs: 1000, maxMs: 1800);
+    if (!context.mounted) return false;
+    return authorize(context);
   }
 
   Future<LdcUserInfo?> getUserInfo({int? gamificationScore}) async {
@@ -89,13 +103,16 @@ class LdcOAuthService {
       throw Exception(S.current.oauth_getAuthUrlFailed);
     }
 
-    await Future.delayed(_stepGap);
+    // step1 → step2: 模拟"业务页加载完成 → 跳转到 OAuth 同意页"的导航延迟
+    await OAuthFlowHelper.humanGap(minMs: 800, maxMs: 1500);
 
     final Response response;
     try {
       response = await _dio.get(
         authUrl,
-        options: Options(
+        options: OAuthFlowHelper.buildNavigationOptions(
+          referer: '$baseUrl/',
+          crossSite: true,
           followRedirects: false,
           validateStatus: (status) => status != null && status < 500,
           extra: {'skipCsrf': true, 'allowRedirectSetCookie': true},
@@ -118,11 +135,14 @@ class LdcOAuthService {
       barrierDismissible: false,
       builder: (context) => _AuthDialog(
         onApprove: () async {
-          await Future.delayed(_stepGap);
+          // 用户点击同意 → 浏览器发起 approve 请求, 模拟手指反应 + 浏览器导航延迟
+          await OAuthFlowHelper.humanGap(minMs: 600, maxMs: 1200);
 
           final approveResponse = await _dio.get(
             'https://connect.linux.do$approveLink',
-            options: Options(
+            options: OAuthFlowHelper.buildNavigationOptions(
+              referer: authUrl,
+              crossSite: false,
               followRedirects: false,
               validateStatus: (status) => status != null && status < 500,
               extra: {
@@ -146,7 +166,8 @@ class LdcOAuthService {
             throw Exception(S.current.oauth_missingParams);
           }
 
-          await Future.delayed(_stepGap);
+          // approve → callback: 浏览器跳回业务方 + 业务方 JS 提交 code 的延迟
+          await OAuthFlowHelper.humanGap(minMs: 400, maxMs: 900);
 
           await callback(code, state);
           return true;

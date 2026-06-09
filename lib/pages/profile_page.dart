@@ -11,6 +11,7 @@ import 'webview_page.dart';
 import 'login_page.dart';
 import 'browsing_history_page.dart';
 import 'bookmarks_page.dart';
+import 'export_history_page.dart';
 import 'my_browser_page.dart';
 import 'my_topics_page.dart';
 import 'my_badges_page.dart';
@@ -229,14 +230,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   Future<void> _reauthorizeLdc() async {
     final service = LdcOAuthService();
-    try {
-      await service.logout();
-    } catch (_) {
-      // 忽略登出错误
-    }
     if (!mounted) return;
     try {
-      final result = await service.authorize(context);
+      final result = await service.reauthorize(context);
       if (result && mounted) {
         ref.read(ldcUserInfoProvider.notifier).refresh();
         ToastService.showSuccess(S.current.profile_ldcReauthSuccess);
@@ -250,14 +246,9 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   Future<void> _reauthorizeCdk() async {
     final service = CdkOAuthService();
-    try {
-      await service.logout();
-    } catch (_) {
-      // 忽略登出错误
-    }
     if (!mounted) return;
     try {
-      final result = await service.authorize(context);
+      final result = await service.reauthorize(context);
       if (result && mounted) {
         ref.read(cdkUserInfoProvider.notifier).refresh();
         ToastService.showSuccess(S.current.profile_cdkReauthSuccess);
@@ -787,6 +778,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 MaterialPageRoute(builder: (_) => const InviteLinksPage()),
               ),
             ),
+          _buildOptionTile(
+            icon: Icons.history_edu_rounded,
+            iconColor: Colors.pink,
+            title: context.l10n.exportHistory_title,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ExportHistoryPage()),
+            ),
+          ),
           _buildOptionTile(
             icon: Icons.explore_rounded,
             iconColor: Colors.deepOrange,
