@@ -22,6 +22,15 @@ extension _PostFooterBookmarkActions on _PostFooterSectionState {
       });
       ToastService.showSuccess(S.current.common_bookmarkAdded);
 
+      // 触发 Notion 自动同步:post 级 -> 只同步这一条,独立 page
+      unawaited(
+        NotionBookmarkAutoSync.tryTriggerPost(
+          ref: ref,
+          topicId: widget.topicId,
+          postId: widget.post.id,
+        ),
+      );
+
       // 弹出编辑 BottomSheet
       _showBookmarkSheet(bookmarkId);
     } on DioException catch (_) {

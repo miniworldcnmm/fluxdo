@@ -66,6 +66,7 @@ dependencies:
   scroll_to_index: ^3.0.1
   visibility_detector: ^0.4.0+2
   markdown: ^7.2.2
+  emoji_extension: ^1.3.0
   image_picker: ^1.2.1
   super_clipboard: ^0.9.1
   gal: ^2.3.2

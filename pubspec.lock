@@ -425,6 +425,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.8.1"
+  emoji_extension:
+    dependency: "direct main"
+    description:
+      name: emoji_extension
+      sha256: ced07af2b24419e9bb8a607dcf337ce9992325536f6e2c413f1cc6aba775a8fd
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.3.0"
   equatable:
     dependency: transitive
     description:

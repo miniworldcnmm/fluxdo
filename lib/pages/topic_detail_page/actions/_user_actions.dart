@@ -301,6 +301,15 @@ extension _UserActions on _TopicDetailPageState {
       final newBookmarkId = await notifier.addTopicBookmark();
       if (!mounted) return;
       ToastService.showSuccess(S.current.common_bookmarkAdded);
+
+      // 触发 Notion 自动同步:话题级 -> 按 syncScope 同步整篇
+      unawaited(
+        NotionBookmarkAutoSync.tryTriggerTopic(
+          ref: ref,
+          topicId: widget.topicId,
+        ),
+      );
+
       writeBookmarkEditTrace(
         phase: 'bookmark_created',
         traceId: resolvedTraceId,
