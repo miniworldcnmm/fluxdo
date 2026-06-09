@@ -26,6 +26,27 @@ enum ExportFormat {
   final String extension;
 }
 
+/// 导出结果。
+///
+/// [postCount] 实际导出的帖子数。
+/// [byteSize] 生成文件的字节数。
+/// [shared] 用户是否完成了分享/保存（移动端 SharePlus 不暴露目的地，
+/// 所以这里只能反映"是否进入分享流程"；桌面端反映"是否选择了保存位置"）。
+/// [finalPath] 桌面端为用户保存的最终路径；移动端为 null。
+class ExportResult {
+  const ExportResult({
+    required this.postCount,
+    required this.byteSize,
+    required this.shared,
+    this.finalPath,
+  });
+
+  final int postCount;
+  final int byteSize;
+  final bool shared;
+  final String? finalPath;
+}
+
 /// 导出工具类
 class ExportUtils {
   ExportUtils._();
@@ -46,8 +67,8 @@ class ExportUtils {
   /// [scope] - 导出范围
   /// [format] - 导出格式
   /// [onProgress] - 进度回调 (current, total)
-  /// 返回实际导出的帖子数量
-  static Future<int> exportTopic({
+  /// 返回 [ExportResult]，包含产物大小、最终路径及是否完成分享。
+  static Future<ExportResult> exportTopic({
     required TopicDetail detail,
     required ExportScope scope,
     required ExportFormat format,
@@ -96,8 +117,43 @@ class ExportUtils {
         break;
     }
 
-    await _shareAsFile(content, detail.title, format.extension);
-    return posts.length;
+    final outcome = await _shareAsFile(content, detail.title, format.extension);
+    return ExportResult(
+      postCount: posts.length,
+      byteSize: outcome.byteSize,
+      shared: outcome.shared,
+      finalPath: outcome.finalPath,
+    );
+  }
+
+  /// 获取主帖列表（供 Notion 同步等其它出口复用，与 [exportTopic] 共享同一批分批/限流逻辑）。
+  static Future<List<Post>> fetchPostsForExport({
+    required TopicDetail detail,
+    required ExportScope scope,
+    void Function(int current, int total)? onProgress,
+  }) async {
+    List<int> postIds;
+    if (scope == ExportScope.firstPostOnly) {
+      if (detail.postStream.stream.isEmpty) return const [];
+      postIds = [detail.postStream.stream.first];
+    } else {
+      postIds = List.from(detail.postStream.stream);
+    }
+    return _fetchPosts(
+      topicId: detail.id,
+      postIds: postIds,
+      onProgress: onProgress,
+    );
+  }
+
+  /// 把已抓到的帖子列表渲染成 Markdown，供 Notion 同步等出口复用。
+  /// 不再受 [maxMarkdownPosts] 限制（该限制只针对单文件 MD 导出）。
+  static Future<String> renderMarkdown({
+    required TopicDetail detail,
+    required List<Post> posts,
+    void Function(int current, int total)? onProgress,
+  }) {
+    return _exportToMarkdown(detail, posts, onProgress);
   }
 
   /// 批量获取帖子数据
@@ -226,12 +282,18 @@ class ExportUtils {
     return buffer.toString();
   }
 
-  /// 分享文件
-  static Future<void> _shareAsFile(String content, String title, String extension) async {
+  /// 写入临时文件并触发分享/保存。返回 [_ShareOutcomeInternal]，
+  /// 其中 [_ShareOutcomeInternal.byteSize] 是产物体积。
+  static Future<_ShareOutcomeInternal> _shareAsFile(
+    String content,
+    String title,
+    String extension,
+  ) async {
     final tempDir = await getTemporaryDirectory();
     final safeName = _sanitizeFilename(title);
     final file = File('${tempDir.path}/$safeName.$extension');
     await file.writeAsString(content);
+    final byteSize = await file.length();
 
     final mimeType = switch (extension) {
       'md' => 'text/markdown',
@@ -240,7 +302,14 @@ class ExportUtils {
     };
 
     final xFile = XFile(file.path, mimeType: mimeType);
-    await ShareUtils.shareOrSaveFile(xFile);
+    final outcome = await ShareUtils.shareOrSaveFile(xFile);
+    return _ShareOutcomeInternal(
+      shared: outcome.shared,
+      // 桌面端拿到用户选的最终路径；移动端 SharePlus 无法回传，
+      // 退而求其次记录临时文件路径——下次点击仍可能命中（temp 目录被系统清空前）。
+      finalPath: outcome.finalPath ?? file.path,
+      byteSize: byteSize,
+    );
   }
 
   /// 移除 HTML 标签
@@ -685,4 +754,16 @@ details[open] summary {
   }
 }
 ''';
+}
+
+class _ShareOutcomeInternal {
+  const _ShareOutcomeInternal({
+    required this.shared,
+    required this.finalPath,
+    required this.byteSize,
+  });
+
+  final bool shared;
+  final String finalPath;
+  final int byteSize;
 }

@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../models/topic.dart';
 import '../../l10n/s.dart';
+import '../../providers/export_history_provider.dart';
 import '../../services/toast_service.dart';
+import '../../storage/export_history_dao.dart';
 import '../../utils/dialog_utils.dart';
 import '../../utils/export_utils.dart';
 
 /// 导出选项 Sheet
-class ExportSheet extends StatefulWidget {
+class ExportSheet extends ConsumerStatefulWidget {
   /// 话题详情
   final TopicDetail detail;
 
@@ -26,10 +30,10 @@ class ExportSheet extends StatefulWidget {
   }
 
   @override
-  State<ExportSheet> createState() => _ExportSheetState();
+  ConsumerState<ExportSheet> createState() => _ExportSheetState();
 }
 
-class _ExportSheetState extends State<ExportSheet> {
+class _ExportSheetState extends ConsumerState<ExportSheet> {
   ExportScope _scope = ExportScope.firstPostOnly;
   ExportFormat _format = ExportFormat.markdown;
   bool _isExporting = false;
@@ -54,7 +58,7 @@ class _ExportSheetState extends State<ExportSheet> {
     });
 
     try {
-      await ExportUtils.exportTopic(
+      final result = await ExportUtils.exportTopic(
         detail: widget.detail,
         scope: _scope,
         format: _format,
@@ -66,6 +70,26 @@ class _ExportSheetState extends State<ExportSheet> {
             });
           }
         },
+      );
+      // 用户在桌面端可能取消"另存为"对话框 / 移动端可能取消分享，
+      // 但 markdown / html 文件已写入临时目录，仍然记录一条历史：
+      // 这样用户回到"导出历史"页能再次分享或在 temp 目录找到文件。
+      await ref.read(exportHistoryProvider.notifier).add(
+        ExportHistoryEntry(
+          id: const Uuid().v4(),
+          sourceType: ExportHistorySource.topic,
+          sourceTopicId: widget.detail.id,
+          sourceTitle: widget.detail.title,
+          format: _format == ExportFormat.markdown
+              ? ExportHistoryFormat.markdown
+              : ExportHistoryFormat.html,
+          targetType: ExportHistoryTarget.localFile,
+          targetRef: result.finalPath ?? '',
+          status: ExportHistoryStatus.success,
+          createdAt: DateTime.now(),
+          size: result.byteSize,
+          postCount: result.postCount,
+        ),
       );
       if (mounted) {
         Navigator.pop(context);

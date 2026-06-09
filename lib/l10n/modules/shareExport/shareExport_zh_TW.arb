@@ -74,6 +74,28 @@
   "export_noPostsToExport": "沒有可匯出的帖子",
   "export_range": "匯出範圍",
   "export_title": "匯出文章",
+  "exportHistory_title": "匯出歷史",
+  "exportHistory_empty": "暫無匯出記錄",
+  "exportHistory_filterAll": "全部",
+  "exportHistory_fileNotFound": "檔案已不存在",
+  "exportHistory_revealInFolder": "開啟所在資料夾",
+  "exportHistory_openFile": "開啟檔案",
+  "exportHistory_openInBrowser": "在瀏覽器中開啟",
+  "exportHistory_shareAgain": "再次分享",
+  "exportHistory_deleteRecord": "刪除記錄",
+  "exportHistory_clearAll": "清空全部",
+  "exportHistory_clearConfirm": "確認清空所有匯出記錄？",
+  "exportHistory_statusFailed": "失敗",
+  "exportHistory_targetLocalFile": "本地檔案",
+  "exportHistory_targetNotion": "Notion",
+  "exportHistory_postCount": "{count} 則帖子",
+  "@exportHistory_postCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "share_aiAssistant": "AI 助手",
   "share_aiQuestion": "提問",
   "share_aiReply": "AI 回覆",

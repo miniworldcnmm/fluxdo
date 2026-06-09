@@ -21,6 +21,7 @@ class AppDatabase {
   AppDatabase._();
 
   static const String _bookmarkBoxPrefix = 'bookmark_cache_';
+  static const String _exportHistoryBoxPrefix = 'export_history_';
 
   static bool _initialized = false;
   static Future<void>? _initializing;
@@ -31,6 +32,11 @@ class AppDatabase {
   /// 测试可注入：替换 box 工厂（内存 box / 自定义临时目录等）。
   @visibleForTesting
   static Future<Box<Map>> Function(String accountId)? debugBoxFactory;
+
+  /// 测试可注入：替换导出历史 box 工厂。
+  @visibleForTesting
+  static Future<Box<Map>> Function(String accountId)?
+  debugExportHistoryBoxFactory;
 
   /// 测试可注入：跳过默认初始化路径，直接走 [debugBoxFactory]。
   @visibleForTesting
@@ -44,6 +50,7 @@ class AppDatabase {
     _initialized = false;
     _initializing = null;
     debugBoxFactory = null;
+    debugExportHistoryBoxFactory = null;
     _openBoxes.clear();
     _openingBoxes.clear();
   }
@@ -55,8 +62,20 @@ class AppDatabase {
     if (factory != null) {
       return factory(accountId);
     }
+    return _openNamedBox(_bookmarkBoxName(accountId));
+  }
+
+  /// 获取某账号对应的导出历史 box。结构同 [bookmarkBox]。
+  static Future<Box<Map>> exportHistoryBox(String accountId) async {
+    final factory = debugExportHistoryBoxFactory;
+    if (factory != null) {
+      return factory(accountId);
+    }
+    return _openNamedBox(_exportHistoryBoxName(accountId));
+  }
+
+  static Future<Box<Map>> _openNamedBox(String name) async {
     await _ensureInitialized();
-    final name = _bookmarkBoxName(accountId);
     final cached = _openBoxes[name];
     if (cached != null && cached.isOpen) return cached;
     final pending = _openingBoxes[name];
@@ -93,16 +112,32 @@ class AppDatabase {
   }
 
   static String _bookmarkBoxName(String accountId) {
+    return '$_bookmarkBoxPrefix${_sanitize(accountId)}';
+  }
+
+  static String _exportHistoryBoxName(String accountId) {
+    return '$_exportHistoryBoxPrefix${_sanitize(accountId)}';
+  }
+
+  static String _sanitize(String accountId) {
     // Hive box 名只允许字母/数字/下划线/连字符；把其它字符（如 @、空格、中文）
     // 替换为 `_`，避免某些平台底层文件系统不接受。
-    final sanitized = accountId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
-    return '$_bookmarkBoxPrefix$sanitized';
+    return accountId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
   }
 
   /// 仅供 [BookmarkCacheDao.clearAccount] 在删除账号后顺手释放句柄。
   static Future<void> closeBookmarkBox(String accountId) async {
     if (debugBoxFactory != null) return; // 测试自行管理生命周期
-    final name = _bookmarkBoxName(accountId);
+    await _closeBox(_bookmarkBoxName(accountId));
+  }
+
+  /// 释放某账号的导出历史 box 句柄。
+  static Future<void> closeExportHistoryBox(String accountId) async {
+    if (debugExportHistoryBoxFactory != null) return;
+    await _closeBox(_exportHistoryBoxName(accountId));
+  }
+
+  static Future<void> _closeBox(String name) async {
     _openBoxes.remove(name);
     if (Hive.isBoxOpen(name)) {
       await Hive.box<Map>(name).close();
