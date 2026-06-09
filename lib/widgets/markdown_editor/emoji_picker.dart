@@ -45,7 +45,12 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
   final ScrollController _tabScrollController = ScrollController();
   final GlobalKey _contentAreaKey = GlobalKey();
   List<GlobalKey> _groupKeys = [];
-  int _activeGroupIndex = 0;
+
+  /// 当前激活的 group index。用 ValueNotifier 不用 setState ——
+  /// 滚动时这个值频繁变,如果走 setState 会 rebuild 整个 emoji panel,
+  /// 几十张 emoji widget 全 build 一遍,卡。改 notifier 后只 TabBar 监听。
+  final ValueNotifier<int> _activeGroupIndex = ValueNotifier<int>(0);
+
   bool _isProgrammaticScroll = false;
   bool _scrollThrottled = false;
 
@@ -61,6 +66,7 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
 
   @override
   void dispose() {
+    _activeGroupIndex.dispose();
     _scrollController.dispose();
     _tabScrollController.dispose();
     super.dispose();
@@ -123,8 +129,8 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
         activeIndex = i;
       }
     }
-    if (_activeGroupIndex != activeIndex) {
-      setState(() => _activeGroupIndex = activeIndex);
+    if (_activeGroupIndex.value != activeIndex) {
+      _activeGroupIndex.value = activeIndex;
       _ensureTabVisible(activeIndex);
     }
   }
@@ -134,7 +140,7 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
     final ctx = _groupKeys[index].currentContext;
     if (ctx == null) return;
     _isProgrammaticScroll = true;
-    setState(() => _activeGroupIndex = index);
+    _activeGroupIndex.value = index;
     _ensureTabVisible(index);
     await Scrollable.ensureVisible(
       ctx,
@@ -262,7 +268,9 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
           key: _contentAreaKey,
           child: CustomScrollView(
             controller: _scrollController,
-            scrollCacheExtent: ScrollCacheExtent.pixels(500),
+            // 500px ≈ 1 屏,off-screen 来不及预 build。1500px 让 ~3 屏 widget
+            // 提前 ready,enter viewport 不卡 + emoji 提前下载好。
+            scrollCacheExtent: ScrollCacheExtent.pixels(1500),
             slivers: _buildSlivers(
                 emojiGroups, groupKeys, hasRecent, recentEmojis),
           ),
@@ -278,9 +286,11 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
     const tabSlotWidth = 40.0;
     const tabWidth = 36.0;
     const tabMargin = 2.0;
-    final activeIndex = _activeGroupIndex.clamp(0, totalTabs - 1);
 
-    return Row(
+    // 整个 TabBar 用 RepaintBoundary 隔离,内部 ValueListenableBuilder 监听
+    // activeIndex 局部更新,滚动时只 TabBar 重绘,不影响下方 emoji grid。
+    return RepaintBoundary(
+      child: Row(
       children: [
         IconButton(
           icon:
@@ -303,32 +313,45 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
                 child: Stack(
                   children: [
                     // 滑动指示器
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      left: activeIndex * tabSlotWidth + tabMargin,
-                      top: 4,
-                      bottom: 4,
-                      width: tabWidth,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primaryContainer
-                              .withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
+                    ValueListenableBuilder<int>(
+                      valueListenable: _activeGroupIndex,
+                      builder: (_, raw, _) {
+                        final activeIndex = raw.clamp(0, totalTabs - 1);
+                        return AnimatedPositioned(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOut,
+                          left: activeIndex * tabSlotWidth + tabMargin,
+                          top: 4,
+                          bottom: 4,
+                          width: tabWidth,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primaryContainer
+                                  .withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                     // Tab 图标
                     Row(
                       children: List.generate(totalTabs, (index) {
                         Widget icon;
                         if (hasRecent && index == 0) {
-                          icon = Icon(
-                            Icons.access_time,
-                            size: 20,
-                            color: activeIndex == index
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.onSurfaceVariant,
+                          icon = ValueListenableBuilder<int>(
+                            valueListenable: _activeGroupIndex,
+                            builder: (_, raw, _) {
+                              final activeIndex =
+                                  raw.clamp(0, totalTabs - 1);
+                              return Icon(
+                                Icons.access_time,
+                                size: 20,
+                                color: activeIndex == index
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.onSurfaceVariant,
+                              );
+                            },
                           );
                         } else {
                           final groupIndex = hasRecent ? index - 1 : index;
@@ -366,6 +389,7 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
           ),
         ),
       ],
+      ),
     );
   }
 
@@ -438,19 +462,23 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
   }
 
   Widget _buildEmojiItem(Emoji emoji) {
-    return InkWell(
-      onTap: () => _onEmojiTap(emoji),
-      borderRadius: BorderRadius.circular(4),
-      child: Tooltip(
-        message: ':${emoji.name}:',
-        child: Padding(
-          padding: const EdgeInsets.all(4.0),
-          child: CachedImage(
-            url: EmojiHandler().getEmojiUrl(emoji.name),
-            fit: BoxFit.contain,
-            memCacheWidth: 64,
-            memCacheHeight: 64,
-            cacheManager: EmojiCacheManager(),
+    // RepaintBoundary 隔离单 cell 重绘 — 一个 emoji 解码完 setImage 时
+    // 只这一格重绘,不连累整个 grid。
+    return RepaintBoundary(
+      child: InkWell(
+        onTap: () => _onEmojiTap(emoji),
+        borderRadius: BorderRadius.circular(4),
+        child: Tooltip(
+          message: ':${emoji.name}:',
+          child: Padding(
+            padding: const EdgeInsets.all(4.0),
+            child: CachedImage(
+              url: EmojiHandler().getEmojiUrl(emoji.name),
+              fit: BoxFit.contain,
+              memCacheWidth: 64,
+              memCacheHeight: 64,
+              cacheManager: EmojiCacheManager(),
+            ),
           ),
         ),
       ),

@@ -54,7 +54,9 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
     final theme = Theme.of(context);
     final mediaQuery = MediaQuery.of(context);
     final groupsAsync = ref.watch(marketGroupsProvider);
-    final subscribedIds = ref.watch(subscribedStickerIdsProvider);
+    // 不再 watch subscribedStickerIdsProvider:每个 _StickerGroupTile 自己
+    // 用 select 监听自己 group.id 的订阅状态变化,避免任意 group 订阅状态
+    // 变化导致整个 ListView rebuild。
 
     return Container(
       height: mediaQuery.size.height * 0.8,
@@ -121,10 +123,10 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
             child: (() {
               final groups = groupsAsync.value;
               if (groups != null) {
-                return _buildGroupList(groups, subscribedIds);
+                return _buildGroupList(groups);
               }
               return groupsAsync.when(
-                data: (groups) => _buildGroupList(groups, subscribedIds),
+                data: (groups) => _buildGroupList(groups),
                 loading: () => const Center(child: LoadingSpinner()),
                 error: (err, stack) => _buildError(),
               );
@@ -154,10 +156,7 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
     );
   }
 
-  Widget _buildGroupList(
-    List<StickerGroup> groups,
-    List<String> subscribedIds,
-  ) {
+  Widget _buildGroupList(List<StickerGroup> groups) {
     if (groups.isEmpty) {
       return Center(
         child: Text(
@@ -169,14 +168,16 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
       );
     }
 
-    final subscribedSet = subscribedIds.toSet();
     final hasMore = ref.read(marketGroupsProvider.notifier).hasMore;
     final itemCount = groups.length + (hasMore ? 1 : 0);
 
     return ListView.builder(
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(vertical: 8),
-      scrollCacheExtent: ScrollCacheExtent.pixels(200),
+      // 200px ≈ 3 个 item,滚动稍快新 item 一进 viewport 才开始 build + load icon
+      // → 滚动时显著掉帧。1200px ≈ 16 个 item,off-screen 预 build,enter
+      // viewport 时已经 ready,滚动丝滑。
+      scrollCacheExtent: ScrollCacheExtent.pixels(1200),
       itemExtent: 72,
       itemCount: itemCount,
       itemBuilder: (context, index) {
@@ -194,19 +195,9 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
           );
         }
         final group = groups[index];
-        final isSubscribed = subscribedSet.contains(group.id);
         return _StickerGroupTile(
           key: ValueKey(group.id),
           group: group,
-          isSubscribed: isSubscribed,
-          onToggle: () async {
-            final notifier = ref.read(subscribedStickerIdsProvider.notifier);
-            if (isSubscribed) {
-              await notifier.unsubscribe(group.id);
-            } else {
-              await notifier.subscribe(group.id);
-            }
-          },
         );
       },
     );
@@ -215,22 +206,32 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
 
 /// 市场中的分组列表项
 ///
-/// 保持纯渲染组件，避免滚动过程中为每个 item 额外触发 setState。
-class _StickerGroupTile extends StatelessWidget {
+/// 用 ConsumerWidget + `ref.watch(provider.select(...))` 让每个 tile 只在
+/// 自己 group.id 的订阅状态变化时 rebuild,其它 group 订阅状态变化不影响。
+/// 配合 [RepaintBoundary],只重绘自身,不连累 list 其它 item。
+class _StickerGroupTile extends ConsumerWidget {
   final StickerGroup group;
-  final bool isSubscribed;
-  final VoidCallback onToggle;
 
   const _StickerGroupTile({
     super.key,
     required this.group,
-    required this.isSubscribed,
-    required this.onToggle,
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final isSubscribed = ref.watch(
+      subscribedStickerIdsProvider.select((ids) => ids.contains(group.id)),
+    );
+
+    void onToggle() async {
+      final notifier = ref.read(subscribedStickerIdsProvider.notifier);
+      if (isSubscribed) {
+        await notifier.unsubscribe(group.id);
+      } else {
+        await notifier.subscribe(group.id);
+      }
+    }
 
     return RepaintBoundary(
       child: ListTile(

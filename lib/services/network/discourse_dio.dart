@@ -30,6 +30,7 @@ class DiscourseDio {
     bool enableRetry = true,
     bool enableCfChallenge = true,
     bool enableCookies = true,
+    bool enableNetworkLog = true,
   }) {
     final dio = Dio(
       BaseOptions(
@@ -112,7 +113,9 @@ class DiscourseDio {
     // 11. 网络日志拦截器（最后一个，记录最终结果）
     // 注意：Gateway URL 改写已移至 HttpClientAdapter 层（_GatewayAdapterWrapper），
     // 所有拦截器始终看到原始 URL，无需额外处理。
-    dio.interceptors.add(NetworkLogInterceptor());
+    if (enableNetworkLog) {
+      dio.interceptors.add(NetworkLogInterceptor());
+    }
 
     return dio;
   }

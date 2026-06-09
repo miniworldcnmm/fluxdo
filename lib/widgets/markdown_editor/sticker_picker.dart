@@ -39,7 +39,12 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
   final ScrollController _tabScrollController = ScrollController();
   final GlobalKey _contentAreaKey = GlobalKey();
   List<GlobalKey> _groupKeys = [];
-  int _activeGroupIndex = 0;
+
+  /// 当前激活的 group index。**用 ValueNotifier 不用 setState** ——
+  /// 滚动时这个值频繁变,如果走 setState 会 rebuild 整个 panel(含 30 张
+  /// sticker grid),开销巨大。改成 notifier 后只让 40px 高的 TabBar
+  /// 重绘,grid 不动 → 滚动丝滑。
+  final ValueNotifier<int> _activeGroupIndex = ValueNotifier<int>(0);
 
   /// 面板打开时快照，避免实时刷新影响体验
   List<StickerItem>? _recentSnapshot;
@@ -67,6 +72,7 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
     stickerPanelClosed();
     _endPreview();
     _previewNotifier.dispose();
+    _activeGroupIndex.dispose();
     _scrollController.dispose();
     _tabScrollController.dispose();
     super.dispose();
@@ -115,8 +121,8 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
         activeIndex = i;
       }
     }
-    if (_activeGroupIndex != activeIndex) {
-      setState(() => _activeGroupIndex = activeIndex);
+    if (_activeGroupIndex.value != activeIndex) {
+      _activeGroupIndex.value = activeIndex; // 只 notify TabBar,不 rebuild panel
       _ensureTabVisible(activeIndex);
     }
   }
@@ -126,7 +132,7 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
     final ctx = _groupKeys[index].currentContext;
     if (ctx == null) return;
     _isProgrammaticScroll = true;
-    setState(() => _activeGroupIndex = index);
+    _activeGroupIndex.value = index;
     _ensureTabVisible(index);
     await Scrollable.ensureVisible(
       ctx,
@@ -316,7 +322,10 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
           key: _contentAreaKey,
           child: CustomScrollView(
             controller: _scrollController,
-            scrollCacheExtent: ScrollCacheExtent.pixels(500),
+            // 500px ≈ 1 屏,滚动时 off-screen widget 来不及预 build,新 sticker
+            // enter viewport 才开始 _loadThumbnail。1500px ≈ 3 屏,提前 build +
+            // 提前进 worker pool 解码,滚动到时 widget tree 已 ready、图也好或在解。
+            scrollCacheExtent: ScrollCacheExtent.pixels(1500),
             slivers: _buildSlivers(groups, hasRecent, recentStickers),
           ),
         ),
@@ -330,84 +339,101 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
     const tabSlotWidth = 40.0;
     const tabWidth = 36.0;
     const tabMargin = 2.0;
-    final activeIndex = _activeGroupIndex.clamp(0, totalTabs - 1);
 
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 40,
-            child: SingleChildScrollView(
-              controller: _tabScrollController,
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              child: SizedBox(
-                width: totalTabs * tabSlotWidth,
-                height: 40,
-                child: Stack(
-                  children: [
-                    // 滑动指示器
-                    AnimatedPositioned(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeOut,
-                      left: activeIndex * tabSlotWidth + tabMargin,
-                      top: 4,
-                      bottom: 4,
-                      width: tabWidth,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primaryContainer
-                              .withValues(alpha: 0.5),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    ),
-                    // Tab 图标
-                    Row(
-                      children: List.generate(totalTabs, (index) {
-                        Widget icon;
-                        if (hasRecent && index == 0) {
-                          icon = Icon(
-                            Icons.access_time,
-                            size: 20,
-                            color: activeIndex == index
-                                ? theme.colorScheme.primary
-                                : theme.colorScheme.onSurfaceVariant,
-                          );
-                        } else {
-                          final group = groups[hasRecent ? index - 1 : index];
-                          icon = _buildGroupTabIcon(group);
-                        }
-                        return GestureDetector(
-                          onTap: () => _scrollToGroup(index),
-                          child: SizedBox(
-                            width: tabSlotWidth,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: tabMargin,
-                                vertical: 4,
+    // 只这一块订阅 _activeGroupIndex 变化,scroll 时只这小条重绘,
+    // 不影响 grid 等 panel 其它部分。
+    return RepaintBoundary(
+      child: Row(
+        children: [
+          Expanded(
+            child: SizedBox(
+              height: 40,
+              child: SingleChildScrollView(
+                controller: _tabScrollController,
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: SizedBox(
+                  width: totalTabs * tabSlotWidth,
+                  height: 40,
+                  child: Stack(
+                    children: [
+                      // 滑动指示器 — 跟随 activeIndex
+                      ValueListenableBuilder<int>(
+                        valueListenable: _activeGroupIndex,
+                        builder: (_, raw, _) {
+                          final activeIndex = raw.clamp(0, totalTabs - 1);
+                          return AnimatedPositioned(
+                            duration: const Duration(milliseconds: 200),
+                            curve: Curves.easeOut,
+                            left: activeIndex * tabSlotWidth + tabMargin,
+                            top: 4,
+                            bottom: 4,
+                            width: tabWidth,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primaryContainer
+                                    .withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Center(child: icon),
                             ),
-                          ),
-                        );
-                      }),
-                    ),
-                  ],
+                          );
+                        },
+                      ),
+                      // Tab 图标 — 整体结构不依赖 activeIndex(各 icon 不变),
+                      // icon 颜色变化用内部 ValueListenableBuilder 局部更新
+                      Row(
+                        children: List.generate(totalTabs, (index) {
+                          Widget icon;
+                          if (hasRecent && index == 0) {
+                            icon = ValueListenableBuilder<int>(
+                              valueListenable: _activeGroupIndex,
+                              builder: (_, raw, _) {
+                                final activeIndex =
+                                    raw.clamp(0, totalTabs - 1);
+                                return Icon(
+                                  Icons.access_time,
+                                  size: 20,
+                                  color: activeIndex == index
+                                      ? theme.colorScheme.primary
+                                      : theme.colorScheme.onSurfaceVariant,
+                                );
+                              },
+                            );
+                          } else {
+                            final group = groups[hasRecent ? index - 1 : index];
+                            icon = _buildGroupTabIcon(group);
+                          }
+                          return GestureDetector(
+                            onTap: () => _scrollToGroup(index),
+                            child: SizedBox(
+                              width: tabSlotWidth,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: tabMargin,
+                                  vertical: 4,
+                                ),
+                                child: Center(child: icon),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-        Container(
-            height: 20, width: 1, color: theme.colorScheme.outlineVariant),
-        IconButton(
-          icon: Icon(Icons.add_circle_outline,
-              size: 20, color: theme.colorScheme.primary),
-          onPressed: _openMarket,
-          tooltip: S.current.sticker_addTooltip,
-        ),
-      ],
+          Container(
+              height: 20, width: 1, color: theme.colorScheme.outlineVariant),
+          IconButton(
+            icon: Icon(Icons.add_circle_outline,
+                size: 20, color: theme.colorScheme.primary),
+            onPressed: _openMarket,
+            tooltip: S.current.sticker_addTooltip,
+          ),
+        ],
+      ),
     );
   }
 
@@ -618,24 +644,27 @@ class _StickerItemWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MetaData(
-      metaData: sticker,
-      behavior: HitTestBehavior.opaque,
-      child: GestureDetector(
-        onTap: onTap,
-        onLongPressStart: (_) {
-          final box = context.findRenderObject() as RenderBox;
-          final rect = box.localToGlobal(Offset.zero) & box.size;
-          onPreviewStart(sticker, rect);
-        },
-        onLongPressMoveUpdate: (details) {
-          onPreviewMove(details.globalPosition);
-        },
-        onLongPressEnd: (_) => onPreviewEnd(),
-        onLongPressCancel: onPreviewEnd,
-        child: Padding(
-          padding: const EdgeInsets.all(4.0),
-          child: CachedImage(
+    // RepaintBoundary 隔离单 cell 的重绘 — 一张 sticker 解码完 setImage 时
+    // 只这一格重绘,不连累整个 grid。30 张同时陆续 setImage 时这是关键优化。
+    return RepaintBoundary(
+      child: MetaData(
+        metaData: sticker,
+        behavior: HitTestBehavior.opaque,
+        child: GestureDetector(
+          onTap: onTap,
+          onLongPressStart: (_) {
+            final box = context.findRenderObject() as RenderBox;
+            final rect = box.localToGlobal(Offset.zero) & box.size;
+            onPreviewStart(sticker, rect);
+          },
+          onLongPressMoveUpdate: (details) {
+            onPreviewMove(details.globalPosition);
+          },
+          onLongPressEnd: (_) => onPreviewEnd(),
+          onLongPressCancel: onPreviewEnd,
+          child: Padding(
+            padding: const EdgeInsets.all(4.0),
+            child: CachedImage(
             url: sticker.url,
             fit: BoxFit.contain,
             memCacheWidth: 160,
@@ -657,6 +686,7 @@ class _StickerItemWidget extends StatelessWidget {
             ),
           ),
         ),
+      ),
       ),
     );
   }

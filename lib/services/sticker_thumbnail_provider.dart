@@ -312,8 +312,19 @@ class StickerThumbnailProvider
 
 // ==================== Internal helpers ====================
 
-/// 并发限制 thumbnail 解码,避免 30 张同屏同时解爆内存。
-final _decodeSemaphore = _Semaphore(8);
+/// AVIF 解码并发(`fa.decodeAvif` 走 method channel,native 解完 marshal 几 MB
+/// RGBA + ui.Image 回主 isolate,**反序列化在主线程串行**)。
+///
+/// 限 2 并发:更高并发实际无意义(主 isolate 反序列化串行,30 个 reply 在
+/// microtask 队列里挨个等),反而让主线程被持续占用造成 UI 掉帧。
+final _avifSemaphore = _Semaphore(2);
+
+/// 非 AVIF (GIF / WebP / APNG) 解码并发。decode 走 `_DecoderWorkerPool`
+/// (long-lived worker isolate)在后台串行,主 isolate 只做轻量 ui.Image
+/// 创建,可以放开并发到 8。
+///
+/// 关键:跟 AVIF 用**独立** semaphore,AVIF 慢不会阻塞 GIF/WebP/APNG 解码。
+final _nonAvifSemaphore = _Semaphore(8);
 
 /// in-flight prefetch task,去重避免重复解
 final _pendingThumbnailTasks = <String, Future<void>>{};
@@ -367,19 +378,29 @@ Future<void> _warmThumbnail({
 }
 
 /// 从 cache 拿 bytes → backend dispatch 解第一帧 → 必要时缩放到 targetSize。
+///
+/// 用 magic bytes 决定走 AVIF semaphore 还是非 AVIF semaphore。两者**独立**
+/// 限流,AVIF 慢不阻塞 GIF/WebP/APNG。
 Future<ui.Image> _decodeFirstFrameImage({
   required BaseCacheManager manager,
   required String url,
   required int targetSize,
 }) async {
-  await _decodeSemaphore.acquire();
+  // 先把 bytes 拉出来,根据 magic 选 semaphore(不能用 URL 后缀 — CDN 可能
+  // 给 `.gif/.webp` 后缀但实际是 AVIF)。bytes 读取本身是 IO async,不占
+  // semaphore 配额。
+  final file = await manager.getSingleFile(url);
+  final bytes = await file.readAsBytes();
+
+  final isAvif = _bytesLookLikeAvif(bytes);
+  final semaphore = isAvif ? _avifSemaphore : _nonAvifSemaphore;
+
+  await semaphore.acquire();
   ui.Image srcImage;
   try {
-    final file = await manager.getSingleFile(url);
-    final bytes = await file.readAsBytes();
     srcImage = await _decodeFirstFrame(url, bytes);
   } finally {
-    _decodeSemaphore.release();
+    semaphore.release();
   }
 
   if (srcImage.width > targetSize || srcImage.height > targetSize) {
