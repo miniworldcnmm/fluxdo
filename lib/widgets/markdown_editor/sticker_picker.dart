@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/sticker.dart';
 import '../../providers/sticker_provider.dart';
 import '../../services/discourse_cache_manager.dart';
+import '../../services/sticker_thumbnail_provider.dart';
 import '../../utils/dialog_utils.dart';
 import '../common/cached_image.dart';
 import '../common/loading_spinner.dart';
@@ -70,6 +71,11 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
     // 关键:让正在跑的 prefetch batch 立即作废,避免 panel 关闭后主 isolate
     // 仍被后台 AVIF 解码 + RGBA marshal 占用,造成"关闭还掉帧"。
     stickerPanelClosed();
+    // 还要 cancel 所有 in-flight 单 URL thumbnail decode(用户点开 panel
+    // 30 张 AVIF widget 触发的 _loadThumbnail 队列,即使 widget unmount,
+    // 内部 future 仍在排队 fa.decodeAvif marshal 占主 isolate)。
+    // bump generation → 所有 await 检查点 throw _ThumbnailCancelled。
+    StickerThumbnailProvider.cancelInflight();
     _endPreview();
     _previewNotifier.dispose();
     _activeGroupIndex.dispose();

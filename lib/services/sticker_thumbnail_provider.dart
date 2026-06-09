@@ -63,6 +63,19 @@ class StickerThumbnailProvider
     this.cacheManager,
   });
 
+  /// 主动 cancel 所有 in-flight thumbnail decode。
+  ///
+  /// sticker panel dispose 时调用。Bumps 一个 generation counter,
+  /// `_decodeFirstFrameImage` 内的多个 await 检查点会发现 mismatch 立即抛
+  /// `_ThumbnailCancelled` 退出,**不再触发 fa.decodeAvif 等主 isolate
+  /// marshal**(关键修复"关闭面板还卡几秒"的最后一公里)。
+  ///
+  /// 已经在跑的 fa.decodeAvif 不可中断(method channel 无 cancel),但不再
+  /// enqueue 新的,1-2 个跑完就停。
+  static void cancelInflight() {
+    _bumpThumbnailGeneration();
+  }
+
   final String url;
 
   /// 缩略图目标像素尺寸(长边)。首次解码后缩放到这个尺寸再存 PNG。
@@ -315,9 +328,11 @@ class StickerThumbnailProvider
 /// AVIF 解码并发(`fa.decodeAvif` 走 method channel,native 解完 marshal 几 MB
 /// RGBA + ui.Image 回主 isolate,**反序列化在主线程串行**)。
 ///
-/// 限 2 并发:更高并发实际无意义(主 isolate 反序列化串行,30 个 reply 在
-/// microtask 队列里挨个等),反而让主线程被持续占用造成 UI 掉帧。
-final _avifSemaphore = _Semaphore(2);
+/// 限 1 并发:method channel reply 反序列化在主 isolate microtask 串行
+/// 跑,>1 同时调 fa.decodeAvif 实际上就是堆 microtask 排队,只是主线程被
+/// 持续占用造成 UI 掉帧。降到 1 让 marshal 之间有间隙让 UI frame 通过。
+/// trade-off: 30 张 AVIF 串行解 ~3-9 s,但单张完成时间不变 + UI 不卡。
+final _avifSemaphore = _Semaphore(1);
 
 /// 非 AVIF (GIF / WebP / APNG) 解码并发。decode 走 `_DecoderWorkerPool`
 /// (long-lived worker isolate)在后台串行,主 isolate 只做轻量 ui.Image
@@ -331,6 +346,29 @@ final _pendingThumbnailTasks = <String, Future<void>>{};
 
 /// 已知 PNG cache 命中(进程级 in-memory 索引,跳过磁盘查询)
 final _knownThumbnailKeys = <String>{};
+
+/// 生成号 — 每次 [StickerThumbnailProvider.cancelInflight] 调用 ++,
+/// `_decodeFirstFrameImage` 内部 await 链的多个检查点都 captures 起始号,
+/// 任意 await 后比对发现 mismatch → throw 立即 abort。
+///
+/// 关键场景:用户打开 sticker panel,30 张 AVIF 同时 enqueue 到
+/// `_avifSemaphore(2)`。用户 0.5s 内关闭 panel,28 个还在排队的 task
+/// 应该立即作废,不再调 `fa.decodeAvif`(主 isolate marshal),否则
+/// "关闭面板还卡几秒"。已经在跑的 1-2 个 fa.decodeAvif 不可中断,但
+/// 至少不再 enqueue 新 marshal。
+int _thumbnailGeneration = 0;
+
+/// 主动 cancel 当前所有 in-flight thumbnail decode。
+/// `_decodeFirstFrameImage` 内部检查 generation,mismatch 即 throw 退出。
+void _bumpThumbnailGeneration() {
+  _thumbnailGeneration++;
+}
+
+class _ThumbnailCancelled implements Exception {
+  const _ThumbnailCancelled();
+  @override
+  String toString() => 'sticker thumbnail decode cancelled';
+}
 
 String _thumbnailCacheKey(String url, int targetSize) {
   return 'sticker_thumb:$targetSize:$url';
@@ -386,22 +424,40 @@ Future<ui.Image> _decodeFirstFrameImage({
   required String url,
   required int targetSize,
 }) async {
+  final startGen = _thumbnailGeneration;
+  void checkCancel() {
+    if (_thumbnailGeneration != startGen) throw const _ThumbnailCancelled();
+  }
+
   // 先把 bytes 拉出来,根据 magic 选 semaphore(不能用 URL 后缀 — CDN 可能
   // 给 `.gif/.webp` 后缀但实际是 AVIF)。bytes 读取本身是 IO async,不占
   // semaphore 配额。
   final file = await manager.getSingleFile(url);
+  checkCancel();
   final bytes = await file.readAsBytes();
+  checkCancel();
 
   final isAvif = _bytesLookLikeAvif(bytes);
   final semaphore = isAvif ? _avifSemaphore : _nonAvifSemaphore;
 
   await semaphore.acquire();
+  // 拿到 semaphore 槽后再检查 — 关 panel 时这是 AVIF 抑制 jank 的关键
+  // 转折点:还没调 fa.decodeAvif,立即 release 槽 + abort,新 enqueue 的
+  // marshal 全部跳过。已经在跑的 1-2 个 fa.decodeAvif 不可中断,但不再
+  // 累加更多。
+  try {
+    checkCancel();
+  } catch (e) {
+    semaphore.release();
+    rethrow;
+  }
   ui.Image srcImage;
   try {
     srcImage = await _decodeFirstFrame(url, bytes);
   } finally {
     semaphore.release();
   }
+  checkCancel();
 
   if (srcImage.width > targetSize || srcImage.height > targetSize) {
     final resized = await _resize(srcImage, targetSize);
