@@ -93,21 +93,38 @@ class _RateLimiter {
   }
 }
 
+/// 单个 host 维度的调度状态
+///
+/// 同一 host 的所有 dio 实例共享同一份 [_HostState], 避免出现:
+/// - 主站 dio + LdcOAuthService 内部 dio + CdkOAuthService 内部 dio 各自一份
+///   窗口, 用户视角的真实速率 = 各 host 之和, 远超用户在设置里配的阈值,
+///   导致服务端按 IP/cookie 维度统计后直接 429。
+class _HostState {
+  int running = 0;
+  int sequence = 0;
+  Timer? pendingTimer;
+  final _PriorityQueue queue = _PriorityQueue();
+  final _RateLimiter rateLimiter = _RateLimiter();
+}
+
 /// 请求调度拦截器
 ///
 /// 替代 ConcurrencyInterceptor，增加：
 /// - 优先级调度：用户操作 > 普通 GET > 后台静默请求
 /// - 取消过时请求：排队中的请求被 cancelToken 取消时自动跳过
 /// - 滑动窗口速率限制：防止密集请求触发服务端 429
+/// - 按 host 共享: 所有 dio 实例同 host 共用同一窗口, 与服务端按 IP/cookie
+///   计速率的视角对齐
 ///
 /// 并发数和速率限制从 [RequestSchedulerConfig] 动态读取。
 class RequestSchedulerInterceptor extends Interceptor {
-  int _running = 0;
-  int _sequence = 0;
-  Timer? _pendingTimer;
+  /// 按 host 共享的状态表。key = uri.host 小写。
+  static final Map<String, _HostState> _states = {};
 
-  late final _PriorityQueue _queue = _PriorityQueue();
-  late final _RateLimiter _rateLimiter = _RateLimiter();
+  static _HostState _stateFor(RequestOptions options) {
+    final host = options.uri.host.toLowerCase();
+    return _states.putIfAbsent(host, _HostState.new);
+  }
 
   /// 推断请求优先级
   _Priority _inferPriority(RequestOptions options) {
@@ -153,6 +170,7 @@ class RequestSchedulerInterceptor extends Interceptor {
       return;
     }
 
+    final state = _stateFor(options);
     final priority = _inferPriority(options);
     final maxConcurrent = RequestSchedulerConfig.maxConcurrent;
 
@@ -169,9 +187,9 @@ class RequestSchedulerInterceptor extends Interceptor {
     }
 
     // 有空闲槽位且速率限制允许 → 直接放行
-    if (_running < maxConcurrent && _rateLimiter.canProceed()) {
-      _running++;
-      _rateLimiter.record();
+    if (state.running < maxConcurrent && state.rateLimiter.canProceed()) {
+      state.running++;
+      state.rateLimiter.record();
       options.extra['_schedulerCounted'] = true;
       handler.next(options);
       return;
@@ -182,9 +200,9 @@ class RequestSchedulerInterceptor extends Interceptor {
       options: options,
       handler: handler,
       priority: priority,
-      sequence: _sequence++,
+      sequence: state.sequence++,
     );
-    _queue.add(entry);
+    state.queue.add(entry);
 
     // 注册 cancelToken 取消回调
     options.cancelToken?.whenCancel.then((_) {
@@ -196,7 +214,8 @@ class RequestSchedulerInterceptor extends Interceptor {
 
     debugPrint(
       '[Scheduler] 排队: ${options.method} ${options.path} '
-      '优先级=${priority.name} 队列长度=${_queue.length} 并发=$_running',
+      'host=${options.uri.host} 优先级=${priority.name} '
+      '队列长度=${state.queue.length} 并发=${state.running}',
     );
 
     await entry.completer.future;
@@ -219,7 +238,7 @@ class RequestSchedulerInterceptor extends Interceptor {
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
     if (response.requestOptions.extra.remove('_schedulerCounted') == true) {
-      _release();
+      _release(response.requestOptions);
     }
     handler.next(response);
   }
@@ -227,20 +246,21 @@ class RequestSchedulerInterceptor extends Interceptor {
   @override
   void onError(DioException err, ErrorInterceptorHandler handler) {
     if (err.requestOptions.extra.remove('_schedulerCounted') == true) {
-      _release();
+      _release(err.requestOptions);
     }
     handler.next(err);
   }
 
-  void _release() {
-    _running--;
-    _scheduleNext();
+  void _release(RequestOptions options) {
+    final state = _stateFor(options);
+    state.running--;
+    _scheduleNext(state);
   }
 
-  void _scheduleNext() {
+  void _scheduleNext(_HostState state) {
     final maxConcurrent = RequestSchedulerConfig.maxConcurrent;
-    while (_queue.isNotEmpty && _running < maxConcurrent) {
-      final entry = _queue.removeFirst();
+    while (state.queue.isNotEmpty && state.running < maxConcurrent) {
+      final entry = state.queue.removeFirst();
 
       // 跳过已取消的 entry
       if (entry.isCancelled || entry.completer.isCompleted) {
@@ -248,31 +268,31 @@ class RequestSchedulerInterceptor extends Interceptor {
       }
 
       // 检查速率限制
-      if (!_rateLimiter.canProceed()) {
+      if (!state.rateLimiter.canProceed()) {
         // 放回队列等速率窗口，设置 Timer 延迟重调度
-        _queue.add(entry);
-        _scheduleDelayed();
+        state.queue.add(entry);
+        _scheduleDelayed(state);
         return;
       }
 
-      _running++;
-      _rateLimiter.record();
+      state.running++;
+      state.rateLimiter.record();
       entry.options.extra['_schedulerCounted'] = true;
       entry.completer.complete();
     }
   }
 
   /// 用 Timer 延迟重调度，避免多个 Timer 同时存在
-  void _scheduleDelayed() {
-    if (_pendingTimer?.isActive ?? false) return;
-    final wait = _rateLimiter.waitDuration;
+  void _scheduleDelayed(_HostState state) {
+    if (state.pendingTimer?.isActive ?? false) return;
+    final wait = state.rateLimiter.waitDuration;
     if (wait <= Duration.zero) {
-      _scheduleNext();
+      _scheduleNext(state);
       return;
     }
-    _pendingTimer = Timer(wait, () {
-      _pendingTimer = null;
-      _scheduleNext();
+    state.pendingTimer = Timer(wait, () {
+      state.pendingTimer = null;
+      _scheduleNext(state);
     });
   }
 }
