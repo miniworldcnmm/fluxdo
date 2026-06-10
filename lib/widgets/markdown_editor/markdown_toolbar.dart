@@ -15,6 +15,7 @@ import '../../services/app_error_handler.dart';
 import '../../services/discourse/discourse_service.dart';
 import '../../services/toast_service.dart';
 import '../common/fading_edge_scroll_view.dart';
+import 'editor_tools.dart';
 import 'image_upload_dialog.dart';
 import 'link_insert_dialog.dart';
 import 'template_insert_dialog.dart';
@@ -51,6 +52,17 @@ class MarkdownToolbar extends StatefulWidget {
   /// 表情面板是否可见（控制表情/键盘按钮图标切换）
   final bool isEmojiPanelVisible;
 
+  /// 「更多工具」按钮点击回调
+  /// 提供时为移动端模式：右侧显示「更多」按钮，全部工具收进网格面板
+  final VoidCallback? onToggleTools;
+
+  /// 工具面板是否可见（控制「更多工具」按钮高亮）
+  final bool isToolsPanelVisible;
+
+  /// 外显工具 id 列表（见 editor_tools.dart）
+  /// null（桌面端）= 显示全部工具；空列表 = 中部不显示任何工具
+  final List<String>? visibleToolIds;
+
   const MarkdownToolbar({
     super.key,
     required this.controller,
@@ -62,6 +74,9 @@ class MarkdownToolbar extends StatefulWidget {
     this.showPanguButton = false,
     this.onToggleEmoji,
     this.isEmojiPanelVisible = false,
+    this.onToggleTools,
+    this.isToolsPanelVisible = false,
+    this.visibleToolIds,
   });
 
   @override
@@ -779,7 +794,8 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
     }
   }
 
-  Future<void> _pickAndUploadImages() async {
+  /// 选择并上传图片（公开方法，供工具面板调用）
+  Future<void> pickAndUploadImages() async {
     try {
       final List<XFile> images = await _picker.pickMultiImage();
       if (images.isEmpty) return;
@@ -850,8 +866,8 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
     }
   }
 
-  /// 选择并上传附件（支持任意文件类型）
-  Future<void> _pickAndUploadFile() async {
+  /// 选择并上传附件（支持任意文件类型，公开方法，供工具面板调用）
+  Future<void> pickAndUploadFile() async {
     try {
       final result = await FilePicker.platform.pickFiles();
       if (result == null || result.files.isEmpty) return;
@@ -885,196 +901,152 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
     }
   }
 
+  /// 构建中部滚动区域的工具按钮
+  ///
+  /// [MarkdownToolbar.visibleToolIds] 为 null（桌面端）时显示全部工具，
+  /// 否则只显示用户自定义的外显工具（默认空，全部收进「更多」面板）。
+  List<Widget> _buildToolButtons() {
+    final ids = widget.visibleToolIds;
+    final tools = ids == null ? editorTools : resolveVisibleTools(ids);
+
+    return [
+      for (final tool in tools) _buildToolButton(tool),
+      // 图片工具未外显时，上传中在中部显示进度指示
+      if (_isUploading && ids != null && !ids.contains(kEditorToolImage))
+        _UploadIndicator(progress: _uploadProgress),
+    ];
+  }
+
+  Widget _buildToolButton(EditorTool tool) {
+    final s = S.current;
+
+    if (tool.hasMenu) {
+      final theme = Theme.of(context);
+      return SwipeDismissiblePopupMenuButton<String>(
+        icon: IconTheme.merge(
+          data: IconThemeData(
+            size: 16,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+          child: tool.icon,
+        ),
+        tooltip: tool.label(s),
+        itemBuilder: (context) => tool.menuItems!(s),
+        onSelected: (value) => tool.onMenuSelected!(this, value),
+        padding: EdgeInsets.zero,
+        iconSize: 20,
+        style: IconButton.styleFrom(visualDensity: VisualDensity.compact),
+      );
+    }
+
+    final isImage = tool.id == kEditorToolImage;
+    final isUpload = isImage || tool.id == 'attachment';
+    return _ToolbarButton(
+      icon: tool.icon,
+      onPressed: _isUploading && isUpload ? null : () => tool.action!(this),
+      isLoading: isImage && _isUploading,
+      label: isImage ? _uploadProgress : null,
+      tooltip: tool.label(s),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final pillColor =
+        theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.45);
+    final isMobile = widget.onToggleTools != null;
 
     return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        border: Border(
-          top: BorderSide(
-            color: theme.colorScheme.outlineVariant.withValues(alpha:0.5),
-            width: 0.5,
-          ),
-        ),
-      ),
+      color: theme.colorScheme.surface,
       child: Focus(
         canRequestFocus: false,
         descendantsAreFocusable: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          padding: const EdgeInsets.fromLTRB(10, 6, 10, 6),
           child: Row(
             children: [
-              // 表情按钮
-              IconButton(
-                icon: FaIcon(
-                  widget.isEmojiPanelVisible
-                      ? FontAwesomeIcons.keyboard
-                      : FontAwesomeIcons.faceSmile,
-                  size: 20,
-                  color: widget.isEmojiPanelVisible
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurfaceVariant,
+              // 左：表情按钮（胶囊背景，固定）
+              _ToolbarPill(
+                color: pillColor,
+                child: IconButton(
+                  visualDensity: VisualDensity.compact,
+                  icon: FaIcon(
+                    widget.isEmojiPanelVisible
+                        ? FontAwesomeIcons.keyboard
+                        : FontAwesomeIcons.faceSmile,
+                    size: 20,
+                    color: widget.isEmojiPanelVisible
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant,
+                  ),
+                  onPressed: widget.onToggleEmoji,
                 ),
-                onPressed: widget.onToggleEmoji,
               ),
-              Container(
-                height: 20,
-                width: 1,
-                color: theme.colorScheme.outlineVariant,
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-              ),
-              // Markdown 工具按钮 (可滚动)
+              // 中：外显工具（可滚动，无背景）
               Expanded(
-                child: FadingEdgeScrollView(
-                  fadeLeft: true,
-                  fadeRight: true,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.image,
-                          onPressed: _isUploading ? null : _pickAndUploadImages,
-                          isLoading: _isUploading,
-                          label: _uploadProgress,
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.paperclip,
-                          onPressed: _isUploading ? null : _pickAndUploadFile,
-                          tooltip: S.current.toolbar_attachFileTooltip,
-                        ),
-                        // 标题按钮（带弹出菜单）
-                        SwipeDismissiblePopupMenuButton<int>(
-                          icon: FaIcon(
-                            FontAwesomeIcons.heading,
-                            size: 16,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          itemBuilder: (context) => [
-                            PopupMenuItem(value: 1, child: Text(S.current.toolbar_h1)),
-                            PopupMenuItem(value: 2, child: Text(S.current.toolbar_h2)),
-                            PopupMenuItem(value: 3, child: Text(S.current.toolbar_h3)),
-                            PopupMenuItem(value: 4, child: Text(S.current.toolbar_h4)),
-                            PopupMenuItem(value: 5, child: Text(S.current.toolbar_h5)),
-                          ],
-                          onSelected: (level) {
-                            applyLinePrefix('${'#' * level} ');
-                          },
-                          padding: EdgeInsets.zero,
-                          iconSize: 20,
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.bold,
-                          onPressed: () => wrapSelection('**', '**', placeholder: S.current.toolbar_boldPlaceholder),
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.italic,
-                          onPressed: () => wrapSelection('*', '*', placeholder: S.current.toolbar_italicPlaceholder),
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.strikethrough,
-                          onPressed: insertStrikethrough,
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.eyeSlash,
-                          onPressed: insertSpoiler,
-                          tooltip: S.current.toolbar_spoilerTooltip,
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.listUl,
-                          onPressed: () => applyLinePrefix('- '),
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.listOl,
-                          onPressed: () => applyLinePrefix('1. '),
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.link,
-                          onPressed: () => insertLink(context),
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.quoteRight,
-                          onPressed: insertQuote,
-                        ),
-                        // Callout 按钮（带弹出菜单）
-                        SwipeDismissiblePopupMenuButton<String>(
-                          icon: FaIcon(
-                            FontAwesomeIcons.noteSticky,
-                            size: 16,
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                          tooltip: S.current.toolbar_calloutTooltip,
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(value: 'note', child: Text('Note')),
-                            const PopupMenuItem(value: 'tip', child: Text('Tip')),
-                            const PopupMenuItem(value: 'info', child: Text('Info')),
-                            const PopupMenuItem(value: 'warning', child: Text('Warning')),
-                            const PopupMenuItem(value: 'danger', child: Text('Danger')),
-                            const PopupMenuItem(value: 'bug', child: Text('Bug')),
-                            const PopupMenuItem(value: 'example', child: Text('Example')),
-                            const PopupMenuItem(value: 'quote', child: Text('Quote')),
-                            const PopupMenuItem(value: 'abstract', child: Text('Abstract')),
-                            const PopupMenuItem(value: 'todo', child: Text('Todo')),
-                            const PopupMenuItem(value: 'success', child: Text('Success')),
-                            const PopupMenuItem(value: 'question', child: Text('Question')),
-                            const PopupMenuItem(value: 'failure', child: Text('Failure')),
-                          ],
-                          onSelected: insertCallout,
-                          padding: EdgeInsets.zero,
-                          iconSize: 20,
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.clipboard,
-                          onPressed: () => insertTemplate(context),
-                          tooltip: S.current.template_tooltip,
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.code,
-                          onPressed: insertInlineCode,
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.fileCode,
-                          onPressed: insertCodeBlock,
-                        ),
-                        _ToolbarButton(
-                          icon: FontAwesomeIcons.tableColumns,
-                          onPressed: wrapImagesInGrid,
-                          tooltip: S.current.toolbar_imageGridTooltip,
-                        ),
-                      ],
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  child: FadingEdgeScrollView(
+                    fadeLeft: true,
+                    fadeRight: true,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: _buildToolButtons()),
                     ),
                   ),
                 ),
               ),
-              Container(
-                height: 20,
-                width: 1,
-                color: theme.colorScheme.outlineVariant,
-                margin: const EdgeInsets.symmetric(horizontal: 4),
+              // 右：预览 +「更多」（移动端）/ 混排 + 预览（桌面端），胶囊背景
+              _ToolbarPill(
+                color: pillColor,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isMobile && widget.showPanguButton)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
+                          Icons.auto_fix_high_rounded,
+                          size: 20,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        onPressed: widget.onApplyPangu,
+                        tooltip: S.current.toolbar_mixOptimize,
+                      ),
+                    if (widget.showPreviewButton)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
+                          widget.isPreview
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined,
+                          size: 20,
+                          color: widget.isPreview
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurfaceVariant,
+                        ),
+                        onPressed: widget.onTogglePreview,
+                        tooltip: widget.isPreview
+                            ? S.current.common_edit
+                            : S.current.common_preview,
+                      ),
+                    if (isMobile)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        icon: FaIcon(
+                          FontAwesomeIcons.circlePlus,
+                          size: 20,
+                          color: widget.isToolsPanelVisible
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurfaceVariant,
+                        ),
+                        onPressed: widget.onToggleTools,
+                        tooltip: S.current.toolbar_moreTools,
+                      ),
+                  ],
+                ),
               ),
-              if (widget.showPanguButton)
-                IconButton(
-                  icon: Icon(
-                    Icons.auto_fix_high_rounded,
-                    size: 20,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  onPressed: widget.onApplyPangu,
-                  tooltip: S.current.toolbar_mixOptimize,
-                ),
-              // 预览按钮（放到最后）
-              if (widget.showPreviewButton)
-                IconButton(
-                  icon: Icon(
-                    widget.isPreview ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                    size: 20,
-                    color: widget.isPreview ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
-                  ),
-                  onPressed: widget.onTogglePreview,
-                  tooltip: widget.isPreview ? S.current.common_edit : S.current.common_preview,
-                ),
             ],
           ),
         ),
@@ -1083,8 +1055,65 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
   }
 }
 
+/// 工具栏两侧的胶囊背景容器
+class _ToolbarPill extends StatelessWidget {
+  final Color color;
+  final Widget child;
+
+  const _ToolbarPill({required this.color, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      padding: const EdgeInsets.all(2),
+      child: child,
+    );
+  }
+}
+
+/// 上传进度指示（图片工具未外显时显示在中部滚动区）
+class _UploadIndicator extends StatelessWidget {
+  final String? progress;
+
+  const _UploadIndicator({this.progress});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          if (progress != null) ...[
+            const SizedBox(width: 6),
+            Text(
+              progress!,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _ToolbarButton extends StatelessWidget {
-  final FaIconData icon;
+  final Widget icon;
   final VoidCallback? onPressed;
   final bool isLoading;
   final String? tooltip;
@@ -1120,10 +1149,14 @@ class _ToolbarButton extends StatelessWidget {
         child: CircularProgressIndicator(strokeWidth: 2),
       );
     } else {
-      child = FaIcon(icon, size: 16);
+      child = IconTheme.merge(
+        data: const IconThemeData(size: 16),
+        child: icon,
+      );
     }
 
     return IconButton(
+      visualDensity: VisualDensity.compact,
       icon: child,
       onPressed: onPressed,
       tooltip: tooltip,

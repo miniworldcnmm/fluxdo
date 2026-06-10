@@ -208,6 +208,9 @@ class AppPreferences {
   /// 长按菜单候选功能（按顺序展示在半圆菜单中）
   final List<ProgressGestureAction> progressGestureMenuActions;
 
+  /// 编辑器工具栏外显工具 id 列表（空 = 全部收进「更多」面板）
+  final List<String> editorToolbarTools;
+
   AppPreferences({
     required this.autoPanguSpacing,
     required this.displayPanguSpacing,
@@ -250,6 +253,7 @@ class AppPreferences {
     this.progressGestureSwipeUp = ProgressGestureAction.jumpToUnread,
     this.progressGestureLongPressEnabled = true,
     this.progressGestureMenuActions = _defaultProgressGestureMenu,
+    this.editorToolbarTools = const [],
   });
 
   AppPreferences copyWith({
@@ -294,6 +298,7 @@ class AppPreferences {
     ProgressGestureAction? progressGestureSwipeUp,
     bool? progressGestureLongPressEnabled,
     List<ProgressGestureAction>? progressGestureMenuActions,
+    List<String>? editorToolbarTools,
   }) {
     return AppPreferences(
       autoPanguSpacing: autoPanguSpacing ?? this.autoPanguSpacing,
@@ -352,6 +357,7 @@ class AppPreferences {
           progressGestureLongPressEnabled ?? this.progressGestureLongPressEnabled,
       progressGestureMenuActions:
           progressGestureMenuActions ?? this.progressGestureMenuActions,
+      editorToolbarTools: editorToolbarTools ?? this.editorToolbarTools,
     );
   }
 }
@@ -410,6 +416,7 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
       'pref_progress_gesture_long_press_enabled';
   static const String _progressGestureMenuActionsKey =
       'pref_progress_gesture_menu_actions';
+  static const String _editorToolbarToolsKey = 'pref_editor_toolbar_tools';
 
   static const _crashlyticsChannel = MethodChannel(
     'com.github.lingyan000.fluxdo/crashlytics',
@@ -489,6 +496,8 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
           progressGestureMenuActions: _readGestureMenuActions(
             _prefs.getStringList(_progressGestureMenuActionsKey),
           ),
+          editorToolbarTools:
+              _prefs.getStringList(_editorToolbarToolsKey) ?? const [],
         ),
       ) {
     isPortraitLocked = state.portraitLock;
@@ -766,6 +775,19 @@ class PreferencesNotifier extends StateNotifier<AppPreferences> {
 
   Future<void> resetProgressGestureMenuActions() async {
     await setProgressGestureMenuActions(_defaultProgressGestureMenu);
+  }
+
+  /// 写入编辑器工具栏外显工具 id 列表（顺序无关，渲染按工具注册表顺序）
+  Future<void> setEditorToolbarTools(List<String> ids) async {
+    final deduped = ids.toSet().toList();
+    if (const ListEquality<String>().equals(
+      state.editorToolbarTools,
+      deduped,
+    )) {
+      return;
+    }
+    state = state.copyWith(editorToolbarTools: deduped);
+    await _prefs.setStringList(_editorToolbarToolsKey, deduped);
   }
 
   void _syncSchedulerConfig() {
