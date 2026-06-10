@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../constants.dart';
+import '../../services/cf_challenge_service.dart';
 import '../../services/discourse/discourse_service.dart';
 import '../../services/network/cookie/boundary_sync_service.dart';
 import '../../services/network/cookie/cookie_jar_service.dart';
+import '../../services/toast_service.dart';
 import '../../services/webview_settings.dart';
 import '../../services/windows_webview_environment_service.dart';
 
@@ -110,6 +112,13 @@ class _WebViewLoginDialogState extends State<_WebViewLoginDialog> {
   bool _processing = false; // hcaptcha 通过后登录请求进行中
   bool _finished = false; // 防止重复 pop / 回调重入
   bool _cookiesPrimed = false; // 方案 A: 是否已从 jar 预灌 cookie
+  bool _cfRetryUsed = false; // CSRF 403 自动重验证只做一次, 避免死循环
+  // 最近一次 _runLogin 的参数, CSRF 403 重新过 CF 后用同样参数重跑。
+  // CSRF 失败发生在 JS __fluxdoLogin 第一步 (fetch /session/csrf), 此时
+  // hcaptchaToken 还没被 hcaptcha/create 消费, 可直接重用; secondFactorToken
+  // 也未用过。
+  String? _lastHcaptchaToken;
+  String? _lastSecondFactorToken;
 
   /// data:url 内嵌页面: hcaptcha widget + 登录全流程 JS。
   /// baseUrl=linux.do 让文档 origin 为 linux.do, JS fetch 相对路径同源,
@@ -331,6 +340,10 @@ class _WebViewLoginDialogState extends State<_WebViewLoginDialog> {
     if (controller == null || _finished) return;
     if (mounted) setState(() => _processing = true);
 
+    // 记录参数, CSRF 403 自动重验证后用同样参数重跑
+    _lastHcaptchaToken = hcaptchaToken;
+    _lastSecondFactorToken = secondFactorToken;
+
     // 方案 A: fetch 发出前确保登录 WebView store 有 cf_clearance (只灌一次)
     await _primeCookiesFromJar();
     if (_finished) return;
@@ -366,11 +379,9 @@ class _WebViewLoginDialogState extends State<_WebViewLoginDialog> {
 
     switch (phase) {
       case 'csrf':
-        // CF 在 fetch 时拦截 (store 里 cf_clearance 失效) 或网络异常
-        _finishFailure(
-          LoginErrorKind.network,
-          'Cloudflare 验证已失效, 请重试 (CSRF $status)',
-        );
+        // CF 在 fetch 时拦截 (store 里 cf_clearance 失效 / IP 漂移 / TLS 指纹
+        // 不一致)。第一次自动重过一次 CF 再试; 仍失败才报错给用户。
+        await _handleCsrfFailure(status);
         return;
       case 'hcaptcha':
         _finishFailure(LoginErrorKind.unknown, '人机验证失败, 请重试 (hcaptcha $status)');
@@ -397,6 +408,63 @@ class _WebViewLoginDialogState extends State<_WebViewLoginDialog> {
       return;
     }
     _finishFailure(failure.kind, failure.message);
+  }
+
+  /// CSRF 阶段 403 处理: 自动重过一次 CF 验证, 再用同样参数重跑登录。
+  ///
+  /// 触发场景:
+  /// - jar 里的 cf_clearance 已被 CF 拒 (IP 漂移 / TLS 指纹不一致 / 自然过期)
+  /// - 普通 toast "请重试" 没用 — cookie 已废, 再点登录还是同样的 403
+  ///
+  /// 策略: 重过一次 CF, 把新 cf_clearance 同步到 jar, 重新灌进 dialog WV
+  /// 的 cookie store, 再调一次 __fluxdoLogin。只重试一次, 仍失败 toast 原错。
+  Future<void> _handleCsrfFailure(int status) async {
+    if (_finished) return;
+    if (_cfRetryUsed) {
+      _finishFailure(
+        LoginErrorKind.network,
+        'Cloudflare 验证已失效, 请重试 (CSRF $status)',
+      );
+      return;
+    }
+    _cfRetryUsed = true;
+
+    if (mounted) {
+      ToastService.showInfo('Cloudflare 验证已失效, 正在重新验证...');
+    }
+
+    // 1. 拉起 CF 手动验证页, 用户过完后 sync cookie 到 jar
+    final ok = await CfChallengeService().showManualVerify(context, true);
+    if (_finished) return;
+    if (ok != true) {
+      _finishFailure(
+        LoginErrorKind.network,
+        'Cloudflare 验证已失效, 请重试 (CSRF $status)',
+      );
+      return;
+    }
+
+    // 2. 等 WV 网络栈把 Set-Cookie 写完, 再同步全部 webview cookies 到 jar
+    //    (对齐 LoginPage._ensureCfClearance 的兜底节奏)
+    await Future<void>.delayed(const Duration(milliseconds: 1500));
+    if (_finished) return;
+    for (var i = 0; i < 3; i++) {
+      await BoundarySyncService.instance.syncFromWebView(cookieNames: null);
+      final clearance = await CookieJarService().getCfClearance();
+      if (clearance != null && clearance.isNotEmpty) break;
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+    }
+    if (_finished) return;
+
+    // 3. 把 jar 里的新 cookie 重新灌进 dialog WV (清掉一次锁, 否则跳过)
+    _cookiesPrimed = false;
+
+    // 4. 重跑登录: hcaptcha token 还没被 hcaptcha/create 消费 (上次卡在
+    //    csrf 阶段, 是 hcaptcha 之前的步骤), 直接复用即可。
+    await _runLogin(
+      hcaptchaToken: _lastHcaptchaToken,
+      secondFactorToken: _lastSecondFactorToken,
+    );
   }
 
   Future<void> _handleSecondFactor(LoginFailure failure) async {
