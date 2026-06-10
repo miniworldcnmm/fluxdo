@@ -1448,50 +1448,50 @@ packages:
     dependency: "direct main"
     description:
       name: native_animated_image
-      sha256: "8b0fc23d5a1a59952142ec7db4e766b455c35fd93ef87ccf97e954b1b9bb36dc"
+      sha256: "33edfc4094a31194d3ce0235f490bbd9ebb0b586888348108aa4015e8a4aad56"
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.0"
+    version: "0.3.1"
   native_animated_image_android:
     dependency: transitive
     description:
       name: native_animated_image_android
-      sha256: "0012cfeeca82b8759c2872f1bbddfe9ef15bd2f9bfb6f934b5f8898f8ffc05c0"
+      sha256: "842409d47e165a9263d87b6a74efee6c2255555030ceca89d8190647d2e977dd"
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.0"
+    version: "0.3.1"
   native_animated_image_ios:
     dependency: transitive
     description:
       name: native_animated_image_ios
-      sha256: c6dcb092670c447706b858f4fe1d9e864a7f1087417153790037ac409b776cb6
+      sha256: f681b31e91218dfdb8c8753b48a102d828625010492dded1e29d2d948fbfa38f
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.0"
+    version: "0.3.1"
   native_animated_image_linux:
     dependency: transitive
     description:
       name: native_animated_image_linux
-      sha256: "1c8e5dec28aaaa52c8f363afb4cf4d436e8c35a0f6d676cd457401b45a1ab30e"
+      sha256: e69cf582db12e337c60f8031a817915084258ccf139b298567708330565584ce
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.0"
+    version: "0.3.1"
   native_animated_image_macos:
     dependency: transitive
     description:
       name: native_animated_image_macos
-      sha256: "44c0846fb2286a8d3192dd3c4b60415cb6bb7e2478e47f015cbb1ad061bf748b"
+      sha256: "5d3406753da264624e1ebfe3579da1491f52f6594624e90e62fa8192427334c4"
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.0"
+    version: "0.3.1"
   native_animated_image_windows:
     dependency: transitive
     description:
       name: native_animated_image_windows
-      sha256: "8b9735315b47a69f12d3ba8e6cc8e9b237c8df2e1bd4fea5739fd6c82a07ab83"
+      sha256: "33f8da08d16f9dae14fdbc2a9f71ec5b447f14d103b269f150269cb98bb5b535"
       url: "https://pub.dev"
     source: hosted
-    version: "0.3.0"
+    version: "0.3.1"
   native_dio_adapter:
     dependency: "direct main"
     description:
