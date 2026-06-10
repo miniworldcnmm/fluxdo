@@ -1010,7 +1010,14 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                   _rememberModel(model);
                   ref
                       .read(topicAiChatProvider(widget.topicId).notifier)
-                      .retryLastMessage(scope, selectedModel: model);
+                      .retryLastMessage(
+                        scope,
+                        selectedModel: model,
+                        // 透传当前 thinking 配置,否则重试会用 ThinkingConfig.off
+                        // 默认值,跟原请求不一致(用户感觉「重试就好」其实是
+                        // thinking 被静默关掉了,不是上游恢复)。
+                        thinkingConfig: ref.read(aiThinkingConfigProvider),
+                      );
                 }
               : null,
           onShareAsImage: message.status == MessageStatus.completed &&

@@ -909,7 +909,7 @@ class TopicAiChatNotifier extends StateNotifier<TopicAiChatState> {
                 startedAt: streamStartedAt,
                 firstChunkAt: firstChunkAt,
                 chunkCount: chunkCount,
-                sdkEvents: stats.sdkEvents,
+                stats: stats,
               ),
             );
           } else {
@@ -994,9 +994,16 @@ class TopicAiChatNotifier extends StateNotifier<TopicAiChatState> {
   }
 
   /// 重试最后一条失败消息
+  ///
+  /// 上层应该把当前的 thinkingConfig / imageAspect 透传进来,否则会用
+  /// `sendMessage` 的默认值(ThinkingConfig.off / null aspect),跟原请求
+  /// 配置不一致,排查起来很迷:用户感觉「点重试就好」其实是 thinking 被
+  /// 静默关掉了,而不是上游恢复了。
   void retryLastMessage(
     ContextScope contextScope, {
     required ({AiProvider provider, AiModel model}) selectedModel,
+    ThinkingConfig thinkingConfig = const ThinkingConfig(),
+    String? imageAspect,
   }) {
     final messages = [...state.messages];
     if (messages.length < 2) return;
@@ -1005,13 +1012,24 @@ class TopicAiChatNotifier extends StateNotifier<TopicAiChatState> {
     final lastMsg = messages.last;
     if (lastMsg.status != MessageStatus.error) return;
 
+    final userMsg = messages[messages.length - 2];
+    final userContent = userMsg.content;
+    final userAttachments = userMsg.attachments;
     // 移除最后两条消息（用户消息 + AI 错误消息）
-    final userContent = messages[messages.length - 2].content;
     messages.removeRange(messages.length - 2, messages.length);
     state = state.copyWith(messages: messages);
 
-    // 重新发送
-    sendMessage(userContent, contextScope, selectedModel: selectedModel);
+    // 重新发送,带上原消息的附件 + 调用方传入的 thinkingConfig / imageAspect。
+    sendMessage(
+      userContent,
+      contextScope,
+      selectedModel: selectedModel,
+      attachments: userAttachments == null || userAttachments.isEmpty
+          ? null
+          : userAttachments,
+      thinkingConfig: thinkingConfig,
+      imageAspect: imageAspect,
+    );
   }
 
   void _updateAssistantMessage(
@@ -1299,15 +1317,14 @@ class TopicAiChatNotifier extends StateNotifier<TopicAiChatState> {
   /// 拼接 emptyResponseError 的诊断后缀。
   ///
   /// 出现这个错说明 HTTP 流走到了 onDone 但一个 chunk 都没解析出有效内容。
-  /// 用户截图反馈时这些字段能直接定位到真实根因：
-  /// - `chunks=0 ttfb=null sdkEvents=0`:服务端真没发任何 SSE event
-  ///   - duration < 1s → key 失效 / auth / 计费 / 上游 ban / 模型不存在
-  ///   - duration ≈ 15s → dart:io idleTimeout 触发
-  ///   - duration ≈ 60s → URLSession requestTimeout
-  /// - `chunks=0 sdkEvents>0`:SDK 收到了 event 但全被解析忽略
-  ///   (上游协议字段不标准 / SDK 版本太老不识别新 event type)
-  /// - `apiKeyLen=0`:apiKey 是空串(Keychain 失效后读空 / 用户没配,
-  ///   anthropic_sdk_dart 此时不带 x-api-key,国内代理返回 200 空流)
+  /// 用户截图反馈时这些字段能直接定位到真实根因:
+  /// - `httpStatus=200 respBytes=0`:上游 200 但 body 立即关流(代理 bug,
+  ///   常见于 model 名不存在 / 上游计费 / auth 失败但代理吞错误)
+  /// - `httpStatus=200 respBytes>0 sdkEvents=0`:SDK SSE 解析器跟上游
+  ///   格式不兼容(上游用了非标准 SSE 格式,如缺 data: 行)
+  /// - `httpStatus>=400`:上游真错,但 SDK 没正确抛(走了 onDone)
+  /// - `chunks=0 sdkEvents>0`:SDK 收到 event 但全被 default: break 吃了
+  /// - `apiKeyLen=0`:apiKey 是空串(Keychain 失效后读空 / 用户没配)
   ///
   /// 诊断信息同时写到应用日志文件,debugPrint 在 release 下看不见,
   /// 必须走 AppLogger 才能让用户提日志反馈时能查。
@@ -1318,17 +1335,20 @@ class TopicAiChatNotifier extends StateNotifier<TopicAiChatState> {
     required DateTime startedAt,
     required DateTime? firstChunkAt,
     required int chunkCount,
-    required int sdkEvents,
+    required ChatStreamStats stats,
   }) {
     final base = AiL10n.current.emptyResponseError;
     final now = DateTime.now();
     final durationMs = now.difference(startedAt).inMilliseconds;
     final ttfbMs = firstChunkAt?.difference(startedAt).inMilliseconds;
     final ttfb = ttfbMs == null ? 'null' : '${ttfbMs}ms';
+    final httpStatus = stats.httpStatus ?? 'null';
+    final ct = stats.respContentType ?? 'null';
     final diag = 'provider=${provider.type.name} model=$model '
-        'duration=${durationMs}ms ttfb=$ttfb chunks=$chunkCount '
-        'sdkEvents=$sdkEvents apiKeyLen=${apiKey.length} '
-        'platform=${_platformTag()}';
+        'duration=${durationMs}ms ttfb=$ttfb '
+        'http=$httpStatus bytes=${stats.respBytes} ct=$ct '
+        'chunks=$chunkCount sdkEvents=${stats.sdkEvents} '
+        'apiKeyLen=${apiKey.length} platform=${_platformTag()}';
     AiPackageLogger.warning('AiChat', 'emptyResponse $diag');
     return '$base\n\n[diag] $diag';
   }

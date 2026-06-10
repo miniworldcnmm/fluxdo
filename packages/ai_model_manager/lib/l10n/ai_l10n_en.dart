@@ -239,6 +239,9 @@ class AiL10nEn extends AiL10n {
   @override
   String get pleaseEnterBaseUrl => 'Please enter Base URL';
   @override
+  String baseUrlPreview(String url) =>
+      'Actual request: $url (append # to skip auto path completion)';
+  @override
   String get pleaseEnterApiKey => 'Please enter API Key';
   @override
   String get pleaseEnterBaseUrlAndApiKeyFirst =>

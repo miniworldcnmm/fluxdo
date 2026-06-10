@@ -6,6 +6,7 @@ import '../models/ai_provider.dart';
 import '../providers/ai_provider_providers.dart';
 import '../services/ai_provider_service.dart';
 import '../services/toast_delegate.dart';
+import '../utils/api_host_formatter.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/model_capabilities.dart';
 import '../widgets/model_detail_sheet.dart';
@@ -518,6 +519,41 @@ class _AiProviderEditPageState extends ConsumerState<AiProviderEditPage> {
         TextField(
           controller: _baseUrlCtrl,
           decoration: inputDeco('Base URL'),
+        ),
+        // 实时预览实际请求路径,让用户看清自己配的 baseUrl 在补 /v1 后
+        // 会拼成什么。借鉴 Cherry Studio 的 host preview。
+        // 跟 SDK 行为一致:OpenAI / Anthropic 走 /v1,Gemini 走 /v1beta。
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: _baseUrlCtrl,
+          builder: (context, value, _) {
+            final raw = value.text.trim();
+            if (raw.isEmpty) return const SizedBox.shrink();
+            final apiVersion = _selectedType == AiProviderType.gemini
+                ? 'v1beta'
+                : 'v1';
+            final formatted = ApiHostFormatter.format(
+              raw,
+              apiVersion: apiVersion,
+            );
+            final endpoint = switch (_selectedType) {
+              AiProviderType.openai => '/chat/completions',
+              AiProviderType.openaiResponse => '/responses',
+              AiProviderType.anthropic => '/messages',
+              AiProviderType.gemini => '/models/{model}:generateContent',
+            };
+            return Padding(
+              padding: const EdgeInsets.only(top: 6, left: 4),
+              child: Text(
+                AiL10n.current.baseUrlPreview('$formatted$endpoint'),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withValues(alpha: 0.6),
+                    ),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 14),
         TextField(

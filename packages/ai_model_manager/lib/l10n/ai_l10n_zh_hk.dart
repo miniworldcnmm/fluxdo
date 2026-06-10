@@ -229,6 +229,8 @@ class AiL10nZhHK extends AiL10n {
   @override
   String get pleaseEnterBaseUrl => '請輸入 Base URL';
   @override
+  String baseUrlPreview(String url) => '實際請求: $url（路徑末尾加 # 可跳過自動補全）';
+  @override
   String get pleaseEnterApiKey => '請輸入 API Key';
   @override
   String get pleaseEnterBaseUrlAndApiKeyFirst => '請先填寫 Base URL 和 API Key';

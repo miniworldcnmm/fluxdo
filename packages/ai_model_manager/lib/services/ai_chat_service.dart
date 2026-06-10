@@ -15,7 +15,9 @@ import 'package:uuid/uuid.dart';
 import '../l10n/ai_l10n.dart';
 import '../models/ai_chat_attachment.dart';
 import '../models/ai_chat_message.dart';
+import '../utils/api_host_formatter.dart';
 import '../utils/model_capabilities.dart';
+import 'ai_package_logger.dart';
 import '../models/ai_provider.dart';
 
 /// 流式响应中的事件类型（统一各 SDK 输出）
@@ -67,12 +69,18 @@ class ImageGenerated extends AiChatChunk {
 
 /// 流式请求的诊断统计,sendChatStream 内部各 _stream 方法会写入。
 ///
-/// 关键用途:emptyResponseError 拼诊断信息时区分「SDK 收到了多少 raw event」
-/// 和「上层收到了多少 yield 出去的 chunk」:
-/// - sdkEvents=0 → 服务端真的没发任何 SSE event
-/// - sdkEvents>0 但上层 chunks=0 → SDK 收到了但都被 default 吃了(协议不匹配)
+/// 关键用途:emptyResponseError 拼诊断信息时区分多个层次:
+/// - `httpStatus` / `respBytes`:HTTP 层真实收到的状态码 / 字节数
+///   - status=200 bytes=0 → 服务端 200 但 body 立即关流(代理 bug)
+///   - status=200 bytes>0 sdkEvents=0 → SDK 解析器跟上游 SSE 格式不兼容
+///   - status!=200 → 上游真的报错了
+/// - `sdkEvents`:SDK 内部 await for 收到的原始 event 数
+/// - 上层 `chunks`:yield 给 UI 的 chunk 数
 class ChatStreamStats {
   int sdkEvents = 0;
+  int? httpStatus;
+  int respBytes = 0;
+  String? respContentType;
 }
 
 /// AI 聊天服务：直接基于各 LLM provider 的 SDK 实现统一流式接口。
@@ -303,6 +311,11 @@ class AiChatService {
     if (e is o.InternalServerException) {
       // 502 / 503 / 504 是典型的上游瞬时问题，500 可能是 OpenAI 真的故障也重试
       return e.statusCode >= 500 && e.statusCode < 600;
+    }
+    if (e is a.AnthropicClientException) {
+      // Anthropic 走代理同样会遇到 5xx 瞬时问题(one-api / 自建反代)
+      final code = e.code;
+      return code != null && code >= 500 && code < 600;
     }
     return false;
   }
@@ -679,7 +692,7 @@ class AiChatService {
     return o.OpenAIClient(
       config: o.OpenAIConfig(
         authProvider: o.ApiKeyProvider(apiKey),
-        baseUrl: _trimTrailingSlash(baseUrl),
+        baseUrl: ApiHostFormatter.format(baseUrl),
       ),
       httpClient: httpClient ?? bridgedClient,
     );
@@ -700,9 +713,14 @@ class AiChatService {
     final client = g.GoogleAIClient(
       config: g.GoogleAIConfig(
         authProvider: g.ApiKeyProvider(apiKey),
+        // googleai_dart 自己拼 /v1beta,baseUrl 不能含版本号。
+        // 先 format(supportApiVersion=false) 处理 # 转义 + 去尾斜杠,
+        // 再 _stripGeminiVersion 去掉用户可能配的 /v1beta。
         baseUrl: baseUrl.isEmpty
             ? 'https://generativelanguage.googleapis.com'
-            : _stripGeminiVersion(baseUrl),
+            : _stripGeminiVersion(
+                ApiHostFormatter.format(baseUrl, supportApiVersion: false),
+              ),
         apiMode: g.ApiMode.googleAI,
       ),
       httpClient: httpClient ?? bridgedClient,
@@ -795,9 +813,14 @@ class AiChatService {
     final client = g.GoogleAIClient(
       config: g.GoogleAIConfig(
         authProvider: g.ApiKeyProvider(apiKey),
+        // googleai_dart 自己拼 /v1beta,baseUrl 不能含版本号。
+        // 先 format(supportApiVersion=false) 处理 # 转义 + 去尾斜杠,
+        // 再 _stripGeminiVersion 去掉用户可能配的 /v1beta。
         baseUrl: baseUrl.isEmpty
             ? 'https://generativelanguage.googleapis.com'
-            : _stripGeminiVersion(baseUrl),
+            : _stripGeminiVersion(
+                ApiHostFormatter.format(baseUrl, supportApiVersion: false),
+              ),
         apiMode: g.ApiMode.googleAI,
       ),
       httpClient: httpClient ?? bridgedClient,
@@ -879,10 +902,19 @@ class AiChatService {
     http.Client? httpClient,
     ChatStreamStats? stats,
   }) async* {
+    final effectiveClient = httpClient ?? bridgedClient;
+    // anthropic_sdk_dart 拼 URL 是 `baseUrl + /messages`,不自动补 /v1,
+    // 所以这里要预先 format 好。formatApiHost 已包含 /v1,SDK 直接拼出
+    // baseUrl/v1/messages。
+    final formattedBaseUrl = ApiHostFormatter.format(baseUrl);
     final client = a.AnthropicClient(
       apiKey: apiKey,
-      baseUrl: baseUrl.isEmpty ? null : _trimTrailingSlash(baseUrl),
-      client: httpClient ?? bridgedClient,
+      baseUrl: formattedBaseUrl.isEmpty ? null : formattedBaseUrl,
+      // 包一层统计 client,把 HTTP 层的真实 status / 字节数记到 stats,
+      // 区分「上游 200 但 body 立即关」vs「SDK 解析器跟上游 SSE 格式不兼容」。
+      client: stats == null
+          ? effectiveClient
+          : _StatsHttpClient(effectiveClient ?? http.Client(), stats),
     );
 
     final budgetTokens = _toAnthropicBudget(thinkingConfig);
@@ -910,35 +942,59 @@ class AiChatService {
     int? responseTokens;
     int? cachedTokens;
     try {
-      await for (final event in client.createMessageStream(request: request)) {
-        stats?.sdkEvents++;
-        switch (event) {
-          case final a.MessageStartEvent e:
-            promptTokens = e.message.usage?.inputTokens;
-            responseTokens = e.message.usage?.outputTokens;
-            cachedTokens = e.message.usage?.cacheReadInputTokens;
-          case final a.ContentBlockDeltaEvent e:
-            switch (e.delta) {
-              case final a.TextBlockDelta d:
-                if (d.text.isNotEmpty) yield TextDelta(d.text);
-              case final a.ThinkingBlockDelta d:
-                if (d.thinking.isNotEmpty) yield ThinkingDelta(d.thinking);
+      // 5xx 自动重试,仅在 yield 任何 chunk 之前重试。一旦上层收到第一个
+      // text/thinking,重试就会让 UI 文本回滚重出,体验差;所以用 hasYielded
+      // 标记,触发 yield 之后再失败就直接抛。
+      var hasYielded = false;
+      Object? lastError;
+      const maxAttempts = 3;
+      for (var i = 1; i <= maxAttempts; i++) {
+        try {
+          await for (final event
+              in client.createMessageStream(request: request)) {
+            stats?.sdkEvents++;
+            switch (event) {
+              case final a.MessageStartEvent e:
+                promptTokens = e.message.usage?.inputTokens;
+                responseTokens = e.message.usage?.outputTokens;
+                cachedTokens = e.message.usage?.cacheReadInputTokens;
+              case final a.ContentBlockDeltaEvent e:
+                switch (e.delta) {
+                  case final a.TextBlockDelta d:
+                    if (d.text.isNotEmpty) {
+                      hasYielded = true;
+                      yield TextDelta(d.text);
+                    }
+                  case final a.ThinkingBlockDelta d:
+                    if (d.thinking.isNotEmpty) {
+                      hasYielded = true;
+                      yield ThinkingDelta(d.thinking);
+                    }
+                  default:
+                    break;
+                }
+              case final a.MessageDeltaEvent e:
+                // MessageDelta 阶段的 usage 是 output 的最终值
+                responseTokens = e.usage.outputTokens;
               default:
                 break;
             }
-          case final a.MessageDeltaEvent e:
-            // MessageDelta 阶段的 usage 是 output 的最终值
-            responseTokens = e.usage.outputTokens;
-          default:
-            break;
+          }
+          lastError = null;
+          break;
+        } catch (e) {
+          lastError = e;
+          final canRetry =
+              !hasYielded && i < maxAttempts && _isTransientServerError(e);
+          if (!canRetry) break;
+          await Future<void>.delayed(Duration(seconds: (1 << i).clamp(2, 8)));
         }
       }
-    } catch (e) {
-      throw _mapError(e);
+      if (lastError != null) throw _mapError(lastError);
     } finally {
       // 仅当我们没传入外部 client 时才关闭 SDK 内部 client。
       // anthropic_sdk_dart 的 endSession() 会无脑 close 我们传入的
-      // bridgedClient / requestClient，否则会污染后续请求。
+      // bridgedClient / requestClient,否则会污染后续请求。
       if (httpClient == null && bridgedClient == null) {
         client.endSession();
       }
@@ -1277,9 +1333,78 @@ class AiChatService {
       return Exception(error.toString());
     }
     if (error is a.AnthropicClientException) {
-      return Exception(error.message);
+      return _mapAnthropicError(error);
     }
     return Exception(error.toString());
+  }
+
+  /// Anthropic SDK 把上游所有非 2xx 都简单包成 `'Unsuccessful response'`,
+  /// 字符串本身没信息。这里按 status code 给出跟 OpenAI 一致的友好提示,
+  /// 并把 body 里的 message 抠出来透传(代理返回的诸如「余额不足」「模型不存在」
+  /// 等具体说明)。
+  Exception _mapAnthropicError(a.AnthropicClientException error) {
+    final l10n = AiL10n.current;
+    final code = error.code;
+    final upstreamMsg = _extractAnthropicErrorMessage(error.body);
+    final suffix = upstreamMsg == null ? '' : ': $upstreamMsg';
+    // 写到应用日志,排查「每次第一次必败重试就好」类问题时能拿到真实 status。
+    // Anthropic SDK 把所有非 2xx 都包成 'Unsuccessful response',
+    // 不打这条日志就看不到 code 到底是几。
+    AiPackageLogger.warning(
+      'AiChat',
+      'anthropicError code=$code msg=${upstreamMsg ?? error.message}',
+    );
+    switch (code) {
+      case 401:
+        return Exception(l10n.apiKeyInvalidError);
+      case 403:
+        return Exception(l10n.noAccessPermissionError);
+      case 404:
+        return Exception(l10n.endpointNotFoundError);
+      case 429:
+        return Exception('${l10n.tooManyRequestsError}$suffix');
+      case 400:
+        return Exception(upstreamMsg ?? error.message);
+      case 500:
+      case 502:
+      case 503:
+      case 504:
+        return Exception(_serverErrorMessage(code!, upstreamMsg));
+      default:
+        if (code != null) {
+          return Exception('HTTP $code$suffix');
+        }
+        return Exception(error.message);
+    }
+  }
+
+  /// 从 Anthropic 错误响应 body 里提取真正的错误说明。
+  /// body 形态因代理而异:
+  /// - 官方 `{"type":"error","error":{"type":"invalid_request_error","message":"..."}}`
+  /// - 部分代理 `{"error":{"message":"..."}}`
+  /// - 部分代理 `{"message":"..."}` / 纯字符串
+  String? _extractAnthropicErrorMessage(Object? body) {
+    if (body == null) return null;
+    try {
+      final decoded = body is String ? jsonDecode(body) : body;
+      if (decoded is Map<String, dynamic>) {
+        final err = decoded['error'];
+        if (err is Map<String, dynamic>) {
+          final msg = err['message'];
+          if (msg is String && msg.isNotEmpty) return msg;
+        }
+        if (err is String && err.isNotEmpty) return err;
+        final topMsg = decoded['message'];
+        if (topMsg is String && topMsg.isNotEmpty) return topMsg;
+      }
+      if (decoded is String && decoded.isNotEmpty) return decoded;
+    } catch (_) {
+      // body 不是合法 JSON,退化用原始字符串(截断防过长)
+      final raw = body.toString();
+      if (raw.isEmpty) return null;
+      return raw.length > 200 ? '${raw.substring(0, 200)}…' : raw;
+    }
+    return null;
   }
 
   /// 5xx 错误细分。代理服务器（one-api / aihubmix / 自建反代）转 OpenAI 时
@@ -1402,5 +1527,47 @@ class AiChatService {
       ThinkingLevel.high => 32000,
       ThinkingLevel.custom => config.customBudget,
     };
+  }
+}
+
+/// HTTP 层字节统计包装,把 status / content-type / 响应字节数写到 [stats]。
+///
+/// 用于诊断「未收到 AI 回复」时区分:
+/// - status=200 respBytes=0       → 上游 200 但 body 立即关流(代理 bug)
+/// - status=200 respBytes>0 sdkEvents=0 → SDK SSE 解析器跟上游格式不兼容
+/// - status>=400                  → 上游真的返回了错误,但 SDK 没正确抛
+///
+/// 字节统计是流式累加,不缓冲响应体。
+class _StatsHttpClient extends http.BaseClient {
+  _StatsHttpClient(this._inner, this._stats);
+
+  final http.Client _inner;
+  final ChatStreamStats _stats;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final response = await _inner.send(request);
+    _stats.httpStatus = response.statusCode;
+    _stats.respContentType = response.headers['content-type'];
+    final countedStream = response.stream.map<List<int>>((chunk) {
+      _stats.respBytes += chunk.length;
+      return chunk;
+    });
+    return http.StreamedResponse(
+      countedStream,
+      response.statusCode,
+      contentLength: response.contentLength,
+      request: response.request,
+      headers: response.headers,
+      isRedirect: response.isRedirect,
+      persistentConnection: response.persistentConnection,
+      reasonPhrase: response.reasonPhrase,
+    );
+  }
+
+  @override
+  void close() {
+    // 不关 _inner:它通常是 sendChatStream 传入的 effectiveClient,
+    // 生命周期归调用方管理(自然结束时不应 close,会截断后续请求)。
   }
 }

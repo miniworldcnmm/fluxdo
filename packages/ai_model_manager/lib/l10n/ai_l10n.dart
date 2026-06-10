@@ -155,6 +155,7 @@ class AiL10n {
   String get modelIdHint => '例如: gpt-4o';
   String get pleaseEnterProviderName => '请输入供应商名称';
   String get pleaseEnterBaseUrl => '请输入 Base URL';
+  String baseUrlPreview(String url) => '实际请求: $url（路径末尾加 # 可跳过自动补全）';
   String get pleaseEnterApiKey => '请输入 API Key';
   String get pleaseEnterBaseUrlAndApiKeyFirst => '请先填写 Base URL 和 API Key';
   String saveFailed(String error) => '保存失败: $error';
