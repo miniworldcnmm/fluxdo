@@ -128,6 +128,11 @@ class CfChallengeService {
   /// - API 请求 (Accept: application/json, text/plain) → 返 text/plain 简短挑战
   /// 但**两者都带 `cf-mitigated: challenge` header**, 这是 CF 官方权威信号。
   ///
+  /// 状态码可能是 403 也可能是 429:
+  /// - 普通 CF 盾(WAF / bot fight 等)→ 403 + cf-mitigated: challenge
+  /// - 速率限制规则 action 配 managed_challenge / js_challenge / challenge → 429 + cf-mitigated: challenge
+  /// 两种情况都应该交由 CfChallengeInterceptor 走验证流程,不能当成普通 403/429 处理。
+  ///
   /// 历史上这里曾把 content-type 必须 text/html 作为前置条件,导致 dio 这种
   /// 默认 `Accept: application/json, text/plain, */*` 的客户端拿到 text/plain
   /// 时被漏掉, CfChallengeInterceptor 不弹手动验证。

@@ -108,7 +108,10 @@ class CfChallengeInterceptor extends Interceptor {
     // 检查是否标记跳过 CF 验证（防止重试后再次触发）
     final skipCfChallenge = err.requestOptions.extra['skipCfChallenge'] == true;
 
-    if (statusCode == 403 &&
+    // CF 速率限制规则的 action 配为 managed_challenge / js_challenge / challenge 时,
+    // 触发后返回 429 + cf-mitigated: challenge + 挑战页,而不是 403。
+    // 因此 403 / 429 都要走 CF 验证流程,由 isCfChallengeResponse 精确判定。
+    if ((statusCode == 403 || statusCode == 429) &&
         !skipCfChallenge &&
         CfChallengeService.isCfChallengeResponse(err.response)) {
       // 备选提取 sitekey（从 403 响应体中）
@@ -236,9 +239,10 @@ class CfChallengeInterceptor extends Interceptor {
               '[Dio] Retry failed: status=${e.response?.statusCode}, '
               'type=${e.type}, url=${e.requestOptions.uri}',
             );
-            if (e.response?.statusCode == 403) {
+            if (e.response?.statusCode == 403 ||
+                e.response?.statusCode == 429) {
               debugPrint(
-                '[Dio] Retry got 403 again — cf_clearance may not have been sent or already expired',
+                '[Dio] Retry got ${e.response?.statusCode} again — cf_clearance may not have been sent or already expired',
               );
             }
           } else {
