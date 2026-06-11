@@ -35,6 +35,22 @@ class MainFlutterWindow: NSWindow {
       }
     }
 
+    // 系统信息 channel：读取本机 Safari 版本号，用于补齐 UA
+    // 真实 Safari UA 形如 "... Version/{x.y} Safari/605.1.15"，
+    // WKWebView 默认 UA 缺这两段，CF 会判为半截 UA。
+    let systemInfoChannel = FlutterMethodChannel(
+      name: "com.fluxdo/system_info",
+      binaryMessenger: flutterViewController.engine.binaryMessenger
+    )
+    systemInfoChannel.setMethodCallHandler { (call, result) in
+      switch call.method {
+      case "getSafariVersion":
+        result(MainFlutterWindow.readSafariVersion())
+      default:
+        result(FlutterMethodNotImplemented)
+      }
+    }
+
     // 注册代理 CA 证书 channel（原生层 SSL challenge 拦截）
     let proxyCertChannel = FlutterMethodChannel(
       name: "com.fluxdo/proxy_cert",
@@ -172,6 +188,28 @@ class MainFlutterWindow: NSWindow {
     }
 
     super.awakeFromNib()
+  }
+
+  // MARK: - 系统信息
+
+  /// 读取本机 Safari 的版本号（CFBundleShortVersionString）。
+  /// 用户可能装在 /Applications 之外，按常见路径依次尝试；都拿不到返回 nil。
+  private static func readSafariVersion() -> String? {
+    let candidates = [
+      "/Applications/Safari.app",
+      "/System/Applications/Safari.app",
+      "/System/Volumes/Preboot/Cryptexes/App/System/Applications/Safari.app",
+    ]
+    for path in candidates {
+      let plistPath = "\(path)/Contents/Info.plist"
+      guard let dict = NSDictionary(contentsOfFile: plistPath),
+            let version = dict["CFBundleShortVersionString"] as? String,
+            !version.isEmpty else {
+        continue
+      }
+      return version
+    }
+    return nil
   }
 
   // MARK: - Cookie 引擎 v0.4.0 原语 (Apple 平台共享实现)
