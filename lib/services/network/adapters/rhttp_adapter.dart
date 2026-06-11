@@ -277,7 +277,11 @@ class RhttpAdapter implements HttpClientAdapter {
 
         timeoutSettings: const rhttp.TimeoutSettings(
           connectTimeout: Duration(seconds: 30),
-          timeout: Duration(seconds: 30),
+          // client 级 timeout 仅作进程兜底,真正的 per-request 超时由 Dio 的
+          // RequestOptions.receiveTimeout / connectTimeout 在上层控制。
+          // 这里若写死成 30s,会硬截断所有需要 >30s 的请求(如 MessageBus 长轮询
+          // 服务端 hold 25s),导致请求被 rhttp 提前 abort 抛 RhttpTimeoutException。
+          timeout: Duration(minutes: 10),
           keepAliveTimeout: Duration(seconds: 60),
         ),
       ),
