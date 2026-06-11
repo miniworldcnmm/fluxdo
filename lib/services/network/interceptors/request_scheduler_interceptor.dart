@@ -5,6 +5,8 @@ import 'package:collection/collection.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../cf_challenge_service.dart';
+import '../exceptions/api_exception.dart';
 import '../request_scheduler_config.dart';
 
 /// 请求优先级
@@ -167,6 +169,25 @@ class RequestSchedulerInterceptor extends Interceptor {
     // 内部请求（如 CSRF 刷新）跳过调度，避免与调用方死锁
     if (options.extra['skipScheduler'] == true) {
       handler.next(options);
+      return;
+    }
+
+    // CF 验证进行中时冻结所有业务请求，模拟"网页 CF 403 直接停滞"的语义，
+    // 避免挑战完成瞬间一次性 flush 心跳/poll/timings 触发服务端 429，
+    // 同时也能防止用户在验证弹窗期间触发的请求带着旧 cf_clearance 又判 403
+    // 进入挑战循环。
+    //
+    // 仅 CfChallengeInterceptor 内部 retry（标记 skipCfBlock=true）能绕过。
+    if (options.extra['skipCfBlock'] != true &&
+        CfChallengeService().isVerifying) {
+      handler.reject(
+        DioException(
+          requestOptions: options,
+          type: DioExceptionType.cancel,
+          error: CfChallengeException(silentBlockedDuringChallenge: true),
+        ),
+        true,
+      );
       return;
     }
 

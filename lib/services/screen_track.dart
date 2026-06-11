@@ -1,4 +1,8 @@
 import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+
+import 'cf_challenge_service.dart';
 import 'discourse/discourse_service.dart';
 
 /// 阅读时间上报成功后的回调
@@ -26,6 +30,7 @@ class ScreenTrack {
   final DiscourseService _service;
   final OnTimingsSent? onTimingsSent;
   final String? debugSourceId;
+  final CfChallengeService _cfService;
 
   int? _topicId;
   Timer? _tickTimer;
@@ -45,7 +50,16 @@ class ScreenTrack {
   bool _inProgress = false;
   bool _hasFocus = true;
 
-  ScreenTrack(this._service, {this.onTimingsSent, this.debugSourceId});
+  /// CF 验证进行中标记。订阅自 [CfChallengeService.inProgressNotifier]。
+  /// 为 true 时:
+  /// - _tick 不再累积 _topicTime 和 _timings（避免一次性堆积几十秒的阅读时间
+  ///   被服务端判定为非人类行为）
+  /// - _flush / _sendNextConsolidatedTiming / _consolidateTimings 全部跳过
+  /// CF 触发的瞬间还会清空已累积但未上报的数据，模拟"用户离开 topic"语义。
+  bool _cfFrozen = false;
+
+  ScreenTrack(this._service, {this.onTimingsSent, this.debugSourceId, CfChallengeService? cfService})
+      : _cfService = cfService ?? CfChallengeService();
 
   void start(int topicId) {
     if (_topicId != null && _topicId != topicId) {
@@ -54,17 +68,46 @@ class ScreenTrack {
     }
     _reset();
     _topicId = topicId;
+    // 监听 CF 验证状态：CF 触发时立即清空累积数据并冻结后续 tick；
+    // CF 完成后从下一个 tick 起从 0 重新累积。
+    _cfFrozen = _cfService.isVerifying;
+    _cfService.inProgressNotifier.addListener(_onCfChange);
     _tickTimer ??= Timer.periodic(_tickInterval, (_) => _tick());
   }
 
   void stop() {
     if (_topicId == null) return;
+    _cfService.inProgressNotifier.removeListener(_onCfChange);
     _tick();
     _flush();
     _reset();
     _topicId = null;
     _tickTimer?.cancel();
     _tickTimer = null;
+  }
+
+  void _onCfChange() {
+    final inProgress = _cfService.inProgressNotifier.value;
+    if (inProgress) {
+      // 进入 CF 验证：丢弃已累积但未上报的 timings/topicTime/退避状态。
+      // _totalTimings 不清——它是"上次发到哪了"的基准，CF 后继续作为去重依据。
+      _timings.clear();
+      _consolidatedTimings.clear();
+      _topicTime = 0;
+      _inProgress = false;
+      _blockSendingUntil = null;
+      _ajaxFailures = 0;
+      _cfFrozen = true;
+      debugPrint('[ScreenTrack] CF 验证开始，冻结采集并丢弃未上报数据 sourceId=$debugSourceId');
+    } else {
+      // CF 完成：重置 _lastTick，下次 tick 用新的时间戳算 diff，
+      // 避免把 CF 期间的真实流逝时间也算进 _topicTime。
+      _lastTick = DateTime.now();
+      _lastScrolled = DateTime.now();
+      _lastFlush = Duration.zero;
+      _cfFrozen = false;
+      debugPrint('[ScreenTrack] CF 验证完成，恢复采集 sourceId=$debugSourceId');
+    }
   }
 
   void setOnscreen(Set<int> postNumbers, {Set<int>? readOnscreen}) {
@@ -98,6 +141,7 @@ class ScreenTrack {
   }
 
   void _tick() {
+    if (_cfFrozen) return;
     final now = DateTime.now();
 
     // 长时间未滚动则暂停追踪
@@ -138,6 +182,7 @@ class ScreenTrack {
   }
 
   void _flush() {
+    if (_cfFrozen) return;
     final topicId = _topicId;
     if (topicId == null) return;
 
@@ -171,6 +216,7 @@ class ScreenTrack {
   }
 
   void _consolidateTimings(Map<int, int> timings, int topicTime, int topicId) {
+    if (_cfFrozen) return;
     final existingIndex = _consolidatedTimings.indexWhere(
       (t) => t.topicId == topicId,
     );
@@ -193,6 +239,7 @@ class ScreenTrack {
   }
 
   Future<void> _sendNextConsolidatedTiming() async {
+    if (_cfFrozen) return;
     if (_consolidatedTimings.isEmpty) return;
     if (_inProgress) return;
     if (!_service.isAuthenticated) return;

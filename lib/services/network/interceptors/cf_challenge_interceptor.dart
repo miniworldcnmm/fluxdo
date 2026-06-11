@@ -202,6 +202,9 @@ class CfChallengeInterceptor extends Interceptor {
         final retryOptions = err.requestOptions;
         try {
           retryOptions.extra['skipCfChallenge'] = true;
+          // 绕过 RequestScheduler 的 CF 冻结判定。retry 时序上 isVerifying 已经
+          // 复位为 false，但加这个标记是双保险，防止未来逻辑变更引入 race。
+          retryOptions.extra['skipCfBlock'] = true;
           // 清除原始请求中残留的 cookie header，并补上最新 Cookie。
           // 这样即使 dio.fetch 不重新经过 CookieManager，也不会继续发送旧值。
           await _refreshCookieHeader(retryOptions);

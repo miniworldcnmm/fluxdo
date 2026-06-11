@@ -35,6 +35,16 @@ class CfChallengeService {
   /// CF 验证是否正在进行中（用于外部判断是否应忽略路由变化）
   bool get isVerifying => _isVerifying;
 
+  /// CF 验证状态变化通知（true=进行中, false=空闲）。
+  /// 拦截器 / ScreenTrack 等订阅它来在 CF 期间冻结业务流量与数据采集。
+  final ValueNotifier<bool> inProgressNotifier = ValueNotifier<bool>(false);
+
+  void _setVerifying(bool value) {
+    if (_isVerifying == value) return;
+    _isVerifying = value;
+    inProgressNotifier.value = value;
+  }
+
   /// 是否在拦截到 CF 盾时自动弹出验证 UI（默认 true）
   /// 关闭后 [CfChallengeInterceptor] 命中 CF 盾时会静默 reject，
   /// 交给 ErrorView 提供"手动验证"入口。由 PreferencesNotifier 同步维护。
@@ -240,7 +250,7 @@ class CfChallengeService {
       return completer.future;
     }
 
-    _isVerifying = true;
+    _setVerifying(true);
 
     // ignore: use_build_context_synchronously
     final overlayState =
@@ -249,7 +259,7 @@ class CfChallengeService {
     if (overlayState == null) {
       debugPrint('[CfChallenge] No overlay available for manual verify');
       CfChallengeLogger.log('[VERIFY] No overlay available');
-      _isVerifying = false;
+      _setVerifying(false);
       _pendingPromoteToForeground = false;
       return null;
     }
@@ -268,7 +278,7 @@ class CfChallengeService {
     if (!overlayState.mounted) {
       debugPrint('[CfChallenge] Overlay no longer mounted');
       CfChallengeLogger.log('[VERIFY] Overlay not mounted');
-      _isVerifying = false;
+      _setVerifying(false);
       _pendingPromoteToForeground = false;
       return null;
     }
@@ -300,7 +310,7 @@ class CfChallengeService {
       }
       _activePromoteToForeground = null;
       _pendingPromoteToForeground = false;
-      _isVerifying = false;
+      _setVerifying(false);
     }
 
     void finish(bool success) {

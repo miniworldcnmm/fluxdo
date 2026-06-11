@@ -35,17 +35,22 @@ class CfChallengeException implements Exception {
   final bool inCooldown;
   /// 用户在设置里关闭了"自动 CF 验证"，拦截器命中 CF 盾时静默 reject
   final bool autoVerifyDisabled;
+  /// CF 验证进行中，业务请求被 RequestScheduler 主动 reject
+  /// （上层应静默处理，不要再叠加 toast，避免和 CF 验证弹窗冲突）
+  final bool silentBlockedDuringChallenge;
   /// 原始错误（用于调试，保留验证/重试失败的实际原因）
   final Object? cause;
   CfChallengeException({
     this.userCancelled = false,
     this.inCooldown = false,
     this.autoVerifyDisabled = false,
+    this.silentBlockedDuringChallenge = false,
     this.cause,
   });
 
   @override
   String toString() {
+    if (silentBlockedDuringChallenge) return S.current.cf_operationBlockedByChallenge;
     if (inCooldown) return S.current.cf_cooldown;
     if (userCancelled) return S.current.cf_userCancelled;
     if (autoVerifyDisabled) return S.current.cf_autoVerifyDisabled;
