@@ -51,6 +51,23 @@ class DioHttpClient extends http.BaseClient {
     'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
   };
 
+  /// 全局图片下载并发上限。
+  ///
+  /// flutter_cache_manager 的 WebHelper 虽然每个 manager 限 10 并发,但
+  /// 内容 / emoji / sticker / 外部 4 个 manager 共享同一条网络:emoji 与
+  /// sticker 面板同时 keep-alive、再叠加贴内图片时,瞬时 30+ 并发会造成
+  /// TLS 握手风暴、带宽互相挤占和 CDN 限流(429→裂图)。这里在 Dio 层做
+  /// 全局兜底。
+  ///
+  /// 实现上 [send] 会把 body **完整读进内存后**才返回并在 finally 释放槽:
+  /// - 并发槽覆盖整个 body 传输阶段,限流不是只限"拿到响应头";
+  /// - WebHelper 对非 200/304 响应直接 throw、从不消费 body 流,如果释放
+  ///   时机挂在"调用方读完流"上,每个失败响应都会泄漏一个槽,8 次 404/429
+  ///   之后全 app 图片下载死锁。读完再返回让释放变成确定性的。
+  /// 经此 client 的都是图片/小文件(cache manager 专用),8 并发 × 几 MB
+  /// 的瞬时内存可控;进度事件本来就没有 UI 在消费,无损失。
+  static final _Semaphore _downloadSemaphore = _Semaphore(8);
+
   /// 提取 [AppConstants.baseUrl] 的 host(例如 `linux.do`),用于判断主域。
   /// 注意是 host 比对而不是 URL prefix 比对 —— 子域(`auth.linux.do` 等)
   /// 也算主域,会走带 cookie 的 dio。
@@ -68,6 +85,7 @@ class DioHttpClient extends http.BaseClient {
 
   @override
   Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    await _downloadSemaphore.acquire();
     try {
       // 转换 headers
       final headers = <String, dynamic>{};
@@ -105,26 +123,22 @@ class DioHttpClient extends http.BaseClient {
         responseHeaders[name] = values.join(', ');
       });
 
-      // 获取 Content-Length
-      final contentLengthStr = responseHeaders['content-length'];
-      final contentLength = contentLengthStr != null ? int.tryParse(contentLengthStr) : null;
-
-      // 获取流式响应体
+      // 在并发槽内读完整个 body(见 _downloadSemaphore 注释)
+      final builder = BytesBuilder(copy: false);
       final responseBody = response.data;
-      final Stream<List<int>> responseStream;
-
       if (responseBody != null) {
-        // 直接使用 Dio 的流式响应
-        responseStream = responseBody.stream;
-      } else {
-        responseStream = Stream.value(<int>[]);
+        await for (final chunk in responseBody.stream) {
+          builder.add(chunk);
+        }
       }
+      final bodyData = builder.takeBytes();
 
       return http.StreamedResponse(
-        responseStream,
+        Stream.value(bodyData),
         response.statusCode ?? 200,
         headers: responseHeaders,
-        contentLength: contentLength,
+        // 用实际字节数而不是 content-length header:gzip 解压后两者可能不一致
+        contentLength: bodyData.length,
         request: request,
         reasonPhrase: response.statusMessage,
       );
@@ -135,11 +149,40 @@ class DioHttpClient extends http.BaseClient {
         throw http.ClientException('Request timeout: ${e.message}', request.url);
       }
       throw http.ClientException('Dio error: ${e.message}', request.url);
+    } finally {
+      _downloadSemaphore.release();
     }
   }
 
   @override
   void close() {
     // 不关闭共享的 Dio 实例
+  }
+}
+
+/// 简单异步信号量,限制全局图片下载并发。
+class _Semaphore {
+  _Semaphore(this.maxCount);
+
+  final int maxCount;
+  int _current = 0;
+  final _queue = <Completer<void>>[];
+
+  Future<void> acquire() {
+    if (_current < maxCount) {
+      _current++;
+      return Future.value();
+    }
+    final c = Completer<void>();
+    _queue.add(c);
+    return c.future;
+  }
+
+  void release() {
+    if (_queue.isNotEmpty) {
+      _queue.removeAt(0).complete();
+    } else {
+      _current--;
+    }
   }
 }

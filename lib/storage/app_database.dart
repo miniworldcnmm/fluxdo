@@ -74,13 +74,29 @@ class AppDatabase {
     return _openNamedBox(_exportHistoryBoxName(accountId));
   }
 
-  static Future<Box<Map>> _openNamedBox(String name) async {
+  /// 通用命名 box 入口，供图片缓存索引等基础设施使用。
+  ///
+  /// [compactionStrategy] 透传给 Hive。高频覆盖写的场景（如缓存 touched
+  /// 时间戳回写）需要放宽默认策略，避免频繁全文件 compaction。
+  static Future<Box<Map>> namedBox(
+    String name, {
+    CompactionStrategy? compactionStrategy,
+  }) {
+    return _openNamedBox(name, compactionStrategy: compactionStrategy);
+  }
+
+  static Future<Box<Map>> _openNamedBox(
+    String name, {
+    CompactionStrategy? compactionStrategy,
+  }) async {
     await _ensureInitialized();
     final cached = _openBoxes[name];
     if (cached != null && cached.isOpen) return cached;
     final pending = _openingBoxes[name];
     if (pending != null) return pending;
-    final opening = Hive.openBox<Map>(name);
+    final opening = compactionStrategy == null
+        ? Hive.openBox<Map>(name)
+        : Hive.openBox<Map>(name, compactionStrategy: compactionStrategy);
     _openingBoxes[name] = opening;
     try {
       final box = await opening;

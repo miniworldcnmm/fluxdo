@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
@@ -93,8 +95,21 @@ class CachedImage extends StatelessWidget {
       fit: fit,
       gaplessPlayback: true,
       frameBuilder: placeholder != null ? _buildFrame : null,
-      errorBuilder: errorBuilder ?? _defaultErrorBuilder,
+      errorBuilder: _wrapErrorBuilder(provider),
     );
+  }
+
+  /// 兜底 evict:部分 provider(如 NativeAnimatedImageProvider)加载失败后,
+  /// 错误 completer 会留在 ImageCache,同 key 的后续 Image 直接复用失败结果,
+  /// 永久裂图直到重启。这里在错误浮出 UI 时把对应 key 从 ImageCache 踢出,
+  /// 下次 rebuild 自动重试。`provider.evict()` 能正确解析 ResizeImage 等
+  /// 包装类型的实际 cache key;幂等,重复调用无副作用。
+  ImageErrorWidgetBuilder _wrapErrorBuilder(ImageProvider provider) {
+    final inner = errorBuilder ?? _defaultErrorBuilder;
+    return (context, error, stackTrace) {
+      scheduleMicrotask(() => provider.evict());
+      return inner(context, error, stackTrace);
+    };
   }
 
   ImageProvider _resolveProvider(bool hasTargetSize, int? targetSize) {
