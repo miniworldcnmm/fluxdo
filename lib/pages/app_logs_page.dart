@@ -74,8 +74,13 @@ class _AppLogsPageState extends State<AppLogsPage> {
       ToastService.showInfo(S.current.appLogs_noLogs);
       return;
     }
-    await Clipboard.setData(ClipboardData(text: content));
-    ToastService.showSuccess(S.current.common_copiedToClipboard);
+    try {
+      await Clipboard.setData(ClipboardData(text: content));
+      ToastService.showSuccess(S.current.common_copiedToClipboard);
+    } on PlatformException {
+      // 日志超过 Binder 事务上限(~1MB)无法复制,回退到分享文件
+      await _shareLog();
+    }
   }
 
   Future<void> _shareLog() async {
