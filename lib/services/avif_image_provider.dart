@@ -11,21 +11,13 @@ import 'discourse_cache_manager.dart';
 ///
 /// 当前调到 8 —— 用户机器 8+ 核常见(M 系列、骁龙 8 Gen 2+),平台 native
 /// ImageIO 内存友好,并发 8 同屏内存峰值可控。完整解码路径(长按预览 /
-/// 大图)已经在 _decodeAvif 内 bypass 这个 semaphore,见 _decodeAvif 注释。
+/// 大图)已经在 loadImage 内 bypass 这个 semaphore。
 final _avifDecodeSemaphore = _Semaphore(8);
 final _pendingThumbnailTasks = <String, Future<void>>{};
 final _knownThumbnailKeys = <String>{};
 
-/// AVIF 解码出的单帧(image + 该帧展示时长)。
-///
-/// 取代了 flutter_avif 的 `AvifFrameInfo` —— 现在 AVIF 解码统一走
-/// [NativeAvifPlatform.decode],它内部已经处理 platform native →
-/// 纯 Rust zenavif 两级回退,无需再引第三方 libavif 兜底。
-class _AvifFrame {
-  const _AvifFrame({required this.image, required this.duration});
-  final ui.Image image;
-  final Duration duration;
-}
+/// MultiFrameAvifCodec 的 key 序列(Rust 端 decoder 注册表按 key 索引)。
+int _avifCodecKeySeq = 0;
 
 /// AVIF 图片 Provider
 ///
@@ -120,12 +112,70 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
   ) {
     // 缩略图快速路径：PNG 缓存 → 内置 codec，不走 AV1
     if (key.singleFrame && key.targetSize != null) {
-      return OneFrameImageStreamCompleter(_loadThumbnail(key));
+      return OneFrameImageStreamCompleter(
+        _loadThumbnail(key).catchError(_evictOnError(key)),
+      );
     }
+    // 完整动画路径:流式逐帧解码(不预解全帧),见 completer 注释
     return _AvifAnimatedImageStreamCompleter(
-      framesLoader: _decodeAvif(key),
+      codecFactory: () => _createCodec(key),
       scale: key.scale,
+      singleFrame: key.singleFrame,
+      onError: () {
+        scheduleMicrotask(() {
+          PaintingBinding.instance.imageCache.evict(key);
+        });
+      },
     );
+  }
+
+  /// 从 cache manager 拉 bytes 并初始化增量解码器。
+  ///
+  /// `MultiFrameAvifCodec` 静态(avif)/ 动画(avis)AVIF 通吃:
+  /// `initMemoryDecoder` 只做容器解析,帧由 `getNextFrame` 增量解出。
+  static Future<fa.AvifCodec> _createCodec(AvifImageProvider key) async {
+    final manager = key.cacheManager ?? DiscourseCacheManager();
+    final file = await manager.getSingleFile(key.url);
+    final bytes = await file.readAsBytes();
+    final codec = fa.MultiFrameAvifCodec(
+      key: _avifCodecKeySeq++,
+      avifBytes: bytes,
+    );
+    await codec.ready();
+    return codec;
+  }
+
+  /// 只解码第一帧并返回 [ui.Image]。
+  ///
+  /// **不要用 `fa.decodeAvif`**:它把全部帧解完才返回 —— 50 帧动图 sticker
+  /// = 50 次 AV1 解码 + 50 次主 isolate RGBA 拷贝 + 50 个 ui.Image,缩略图
+  /// 场景只留第 1 帧,其余全是浪费(这曾是"AVIF 单张 50-150ms"的大头)。
+  /// 这里用 MultiFrameAvifCodec 增量解 1 帧后立即 dispose Rust 端 decoder。
+  static Future<ui.Image> decodeFirstFrame(Uint8List bytes) async {
+    final codec = fa.MultiFrameAvifCodec(
+      key: _avifCodecKeySeq++,
+      avifBytes: bytes,
+    );
+    try {
+      await codec.ready();
+      final frame = await codec.getNextFrame();
+      return frame.image;
+    } finally {
+      codec.dispose();
+    }
+  }
+
+  /// 加载失败时把错误 completer 从 ImageCache 踢出,下次 rebuild 自动重试,
+  /// 避免一次网络抖动 / 解码失败导致同 key 永久裂图(NetworkImage 同款行为)。
+  static Never Function(Object, StackTrace) _evictOnError(
+    AvifImageProvider key,
+  ) {
+    return (Object e, StackTrace st) {
+      scheduleMicrotask(() {
+        PaintingBinding.instance.imageCache.evict(key);
+      });
+      Error.throwWithStackTrace(e, st);
+    };
   }
 
   // ==================== 缩略图路径 ====================
@@ -213,12 +263,8 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
     try {
       final file = await manager.getSingleFile(url);
       final bytes = await file.readAsBytes();
-      // 平台 native 优先 + Rust zenavif 内部回退(均由 NativeAvifPlatform 处理)
-      final frames = await _decodeViaNative(bytes);
-      srcImage = frames.first.image;
-      for (int i = 1; i < frames.length; i++) {
-        frames[i].image.dispose();
-      }
+      // 只解第一帧 —— 缩略图不需要其余帧
+      srcImage = await AvifImageProvider.decodeFirstFrame(bytes);
     } finally {
       _avifDecodeSemaphore.release();
     }
@@ -274,42 +320,12 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
   }
 
   // ==================== 完整解码路径 ====================
-
-  Future<List<_AvifFrame>> _decodeAvif(AvifImageProvider key) async {
-    // 完整解码路径(singleFrame=false): 长按预览、大图查看等单张交互场景。
-    // 这条路不走 [_avifDecodeSemaphore] —— 否则 sticker grid 的 thumbnail 解码
-    // (走 _decodeThumbnailImage,会 acquire semaphore)会把用户长按预览的请求
-    // 挤在队列后面,长按预览感知慢。
-    //
-    // 单张完整解码本来就 1 个任务,不会有 batch 内存爆炸的问题。
-    final manager = key.cacheManager ?? DiscourseCacheManager();
-    final file = await manager.getSingleFile(key.url);
-    final bytes = await file.readAsBytes();
-
-    final frames = await _decodeViaNative(bytes);
-
-    if (key.singleFrame && frames.length > 1) {
-      for (int i = 1; i < frames.length; i++) {
-        frames[i].image.dispose();
-      }
-      return [frames.first];
-    }
-    return frames;
-  }
-
-  /// AVIF 解码走 `flutter_avif`(C 库 libavif + dav1d,工业标准稳定)。
-  ///
-  /// 历史:v0.2.x 一度切到 native_animated_image 的 NativeAvifPlatform
-  /// (iOS/macOS ImageIO + Android ImageDecoder + Rust zenavif 兜底),
-  /// 但 zenavif 的 rav1d-safe 0.5.7 在 ARM SIMD path 有 panic bug
-  /// (`mc_arm.rs:5905` usize underflow),触发即 crash 整个 app。
-  /// 退回 flutter_avif 是保稳定的唯一选择。
-  static Future<List<_AvifFrame>> _decodeViaNative(Uint8List bytes) async {
-    final frames = await fa.decodeAvif(bytes);
-    return frames
-        .map((f) => _AvifFrame(image: f.image, duration: f.duration))
-        .toList(growable: false);
-  }
+  //
+  // 完整动画(长按预览、大图查看)走 [_AvifAnimatedImageStreamCompleter]
+  // 流式逐帧解码,不再用 `fa.decodeAvif` 全帧预解(N 帧 RGBA 全驻内存 +
+  // 首帧延迟 = 全量解码时间)。这条路不走 [_avifDecodeSemaphore] ——
+  // 否则 sticker grid 的 thumbnail 解码会把用户长按预览的请求挤在队列
+  // 后面,长按预览感知慢;单张交互场景也不存在 batch 内存爆炸问题。
 
   @override
   bool operator ==(Object other) {
@@ -328,73 +344,49 @@ class AvifImageProvider extends ImageProvider<AvifImageProvider> {
   String toString() => 'AvifImageProvider("$url", scale: $scale)';
 }
 
-/// AVIF 多帧图片流 Completer
+/// AVIF 流式动画 Completer。
 ///
-/// 单帧 AVIF 直接显示；多帧 AVIF 按帧 duration 循环播放。
-/// 无监听时自动暂停动画，重新添加监听时恢复。
+/// 与旧实现("`fa.decodeAvif` 全帧预解,Timer 轮播内存中的帧列表")的区别:
+///
+/// - **首帧立即显示**:容器解析完解出第 1 帧就 setImage,不等全量解码。
+///   50 帧 512px 的 sticker 首帧延迟从"50 次 AV1 解码"降到 1 次。
+/// - **内存只驻留当前帧**:逐帧 `getNextFrame` 按需解码(Rust 端到尾自动
+///   回绕循环),不再 N 帧 RGBA 全驻内存(50 帧 ≈ 50 MB → ~1 MB)。
+/// - **无监听时彻底释放**:flutter_avif 自带的 AvifImageStreamCompleter
+///   从不调 `codec.dispose()`,Rust 端 decoder 注册表会随预览次数泄漏。
+///   这里在最后一个 listener 移除时 dispose 解码器,重新监听时通过
+///   [codecFactory] 重建(bytes 来自磁盘缓存,重建是毫秒级)。
 class _AvifAnimatedImageStreamCompleter extends ImageStreamCompleter {
   _AvifAnimatedImageStreamCompleter({
-    required Future<List<_AvifFrame>> framesLoader,
+    required Future<fa.AvifCodec> Function() codecFactory,
     required this.scale,
-  }) {
-    framesLoader.then(
-      _handleFrames,
-      onError: (Object error, StackTrace stack) {
-        reportError(
-          context: ErrorDescription(S.current.common_decodeAvif),
-          exception: error,
-          stack: stack,
-        );
-      },
-    );
-  }
+    this.singleFrame = false,
+    VoidCallback? onError,
+  })  : _codecFactory = codecFactory,
+        _onError = onError;
 
+  final Future<fa.AvifCodec> Function() _codecFactory;
   final double scale;
-  List<_AvifFrame>? _frames;
-  int _currentFrameIndex = 0;
+
+  /// 只播第一帧(provider 的 singleFrame 且无 targetSize 的场景)。
+  final bool singleFrame;
+
+  /// 初始化 / 解帧失败时回调(provider 用它做 ImageCache evict)。
+  final VoidCallback? _onError;
+
+  fa.AvifCodec? _codec;
+  bool _starting = false;
   Timer? _timer;
 
-  void _handleFrames(List<_AvifFrame> frames) {
-    if (frames.isEmpty) {
-      reportError(
-        context: ErrorDescription(S.current.error_avifDecodeNoFrames),
-        exception: Exception(S.current.error_avifDecodeNoFrames),
-        stack: StackTrace.current,
-      );
-      return;
-    }
-    _frames = frames;
-    _emitFrame();
-  }
-
-  void _emitFrame() {
-    final frames = _frames;
-    if (frames == null || !hasListeners) return;
-
-    final frame = frames[_currentFrameIndex];
-    setImage(ImageInfo(image: frame.image.clone(), scale: scale));
-
-    // 多帧时调度下一帧
-    if (frames.length > 1) {
-      final delay = frame.duration.inMilliseconds > 0
-          ? frame.duration
-          : const Duration(milliseconds: 100);
-      _currentFrameIndex = (_currentFrameIndex + 1) % frames.length;
-      _timer?.cancel();
-      _timer = Timer(delay, _emitFrame);
-    }
-  }
+  /// 暂停代号:每次 [_pause] 自增,使在途的异步解码结果作废。
+  int _generation = 0;
 
   @override
   void addListener(ImageStreamListener listener) {
     final hadListeners = hasListeners;
     super.addListener(listener);
-    // 恢复已暂停的动画
-    if (!hadListeners &&
-        _frames != null &&
-        _frames!.length > 1 &&
-        _timer == null) {
-      _emitFrame();
+    if (!hadListeners) {
+      _start();
     }
   }
 
@@ -402,9 +394,80 @@ class _AvifAnimatedImageStreamCompleter extends ImageStreamCompleter {
   void removeListener(ImageStreamListener listener) {
     super.removeListener(listener);
     if (!hasListeners) {
-      _timer?.cancel();
-      _timer = null;
+      _pause();
     }
+  }
+
+  Future<void> _start() async {
+    if (_codec != null || _starting) return;
+    _starting = true;
+    final gen = _generation;
+    try {
+      final codec = await _codecFactory();
+      if (gen != _generation || !hasListeners) {
+        // 等待初始化期间监听已撤销(预览关闭)
+        codec.dispose();
+        return;
+      }
+      _codec = codec;
+      await _decodeAndEmitNext();
+    } catch (error, stack) {
+      _onError?.call();
+      reportError(
+        context: ErrorDescription(S.current.common_decodeAvif),
+        exception: error,
+        stack: stack,
+      );
+    } finally {
+      _starting = false;
+    }
+  }
+
+  Future<void> _decodeAndEmitNext() async {
+    final codec = _codec;
+    if (codec == null || !hasListeners) return;
+    final gen = _generation;
+
+    final fa.AvifFrameInfo frame;
+    try {
+      frame = await codec.getNextFrame();
+    } catch (error, stack) {
+      if (gen != _generation) return; // 已暂停,decoder 已释放,静默退出
+      _onError?.call();
+      reportError(
+        context: ErrorDescription(S.current.common_decodeAvif),
+        exception: error,
+        stack: stack,
+      );
+      return;
+    }
+    if (gen != _generation || !hasListeners) {
+      frame.image.dispose();
+      return;
+    }
+
+    // setImage 接管 image 所有权(替换时基类会 dispose 旧帧)
+    setImage(ImageInfo(image: frame.image, scale: scale));
+
+    if (singleFrame || codec.frameCount <= 1) {
+      // 静态图 / 单帧:不会再要帧,立即释放 Rust 端 decoder
+      codec.dispose();
+      _codec = null;
+      return;
+    }
+    final delay = frame.duration.inMilliseconds > 0
+        ? frame.duration
+        : const Duration(milliseconds: 100);
+    _timer?.cancel();
+    _timer = Timer(delay, _decodeAndEmitNext);
+  }
+
+  void _pause() {
+    _timer?.cancel();
+    _timer = null;
+    _generation++;
+    _codec?.dispose();
+    _codec = null;
   }
 }
 

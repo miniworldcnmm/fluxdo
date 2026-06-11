@@ -4,7 +4,6 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
-import 'package:flutter_avif/flutter_avif.dart' as fa;
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:native_animated_image/native_animated_image.dart'
     show NativeAnimatedImageFfi, NativeAnimatedImageException;
@@ -67,11 +66,8 @@ class StickerThumbnailProvider
   ///
   /// sticker panel dispose 时调用。Bumps 一个 generation counter,
   /// `_decodeFirstFrameImage` 内的多个 await 检查点会发现 mismatch 立即抛
-  /// `_ThumbnailCancelled` 退出,**不再触发 fa.decodeAvif 等主 isolate
-  /// marshal**(关键修复"关闭面板还卡几秒"的最后一公里)。
-  ///
-  /// 已经在跑的 fa.decodeAvif 不可中断(method channel 无 cancel),但不再
-  /// enqueue 新的,1-2 个跑完就停。
+  /// `_ThumbnailCancelled` 退出 —— 排队中的解码任务全部作废,panel 关闭后
+  /// 不再占用解码资源。已经在跑的单张解码不可中断,但跑完即停。
   static void cancelInflight() {
     _bumpThumbnailGeneration();
   }
@@ -116,13 +112,13 @@ class StickerThumbnailProvider
     bool Function()? shouldContinue,
   }) async {
     // Phase 1: 过滤掉不支持 / 已 cache / in-flight 的 URL,异步拉 bytes。
-    // AVIF 跟非 AVIF 分开:AVIF 绝对不能进 Rust pipeline(zenavif crash),
-    // 必须走 flutter_avif(下面 Phase 2B)。
+    // AVIF 跟非 AVIF 分开:走不同的解码 backend(AVIF → flutter_avif FFI,
+    // 其余 → Rust worker pool),且各自独立限流。
     //
     // 关键:用**实际 magic bytes** 而不是 URL 后缀分流。CDN 给的 .gif/.webp
     // URL 实际内容可能是 AVIF,只看后缀会让 AVIF bytes 进 Rust → crash。
     final pendingNonAvif = <(String, Uint8List)>[];
-    final pendingAvif = <(String, Uint8List)>[];
+    final pendingAvifUrls = <String>[];
     for (final url in urls) {
       if (shouldContinue != null && !shouldContinue()) return;
       if (!supports(url)) continue;
@@ -137,7 +133,7 @@ class StickerThumbnailProvider
         final file = await cacheManager.getSingleFile(url);
         final bytes = await file.readAsBytes();
         if (_bytesLookLikeAvif(bytes)) {
-          pendingAvif.add((url, bytes));
+          pendingAvifUrls.add(url);
         } else {
           pendingNonAvif.add((url, bytes));
         }
@@ -163,26 +159,26 @@ class StickerThumbnailProvider
       );
     }
 
-    // Phase 2B: AVIF **不在 batch 内 prefetch**。
+    // Phase 2B: AVIF — 经 [precache] 逐张预热(内部 `_pendingThumbnailTasks`
+    // 去重,与 grid widget 触发的现场解码互不重复;`_avifSemaphore(4)` 限流)。
     //
-    // 原因:`flutter_avif.decodeAvif` 走 method channel,native 解码完成后
-    // 把 List<AvifFrameInfo>(含 RGBA 几 MB + ui.Image)marshal 回 dart 主
-    // isolate。这一步在主 isolate 阻塞。30 张连续 prefetch 等于主 isolate
-    // 持续被 marshal 占用,反而让 panel 打开瞬间更卡 — 完全违背 prefetch
-    // "悄悄铺路"的本意。
+    // 历史:这里曾经完全跳过 AVIF prefetch —— 当时 `fa.decodeAvif` 被认为
+    // 走 method channel 全帧 marshal 阻塞主 isolate。现在两个前提都变了:
+    // flutter_avif 3.x 是 FFI + native port 异步(解码在 native 线程),
+    // 且缩略图改为单帧解码([AvifImageProvider.decodeFirstFrame]),主
+    // isolate 每张只剩一次单帧 RGBA 解包,毫秒级 → 放心预热。
     //
-    // 改成:AVIF 不预热,留给 user request 时单张解(`_loadThumbnail` cache
-    // miss path)。失去"第二次打开秒开"的好处,但赢回"第一次打开不卡"。
-    // 实际上 AVIF 单张解 ~50-150ms,grid widget lazy build 首屏只触发可见
-    // cell(8-10 张),分散在多帧上完成,比批量 prefetch 体感好。
-    //
-    // 跟进:long-term 想恢复 AVIF prefetch,需要把 flutter_avif 替换成
-    // 可以走 Isolate 的 AVIF backend(目前没有现成方案)。
-    if (pendingAvif.isNotEmpty) {
-      debugPrint(
-        '[StickerThumbnail] skip prefetch for ${pendingAvif.length} AVIF stickers'
-        ' (avoid main-isolate marshal jank); will decode on-demand',
-      );
+    // shouldContinue 在每张之间检查(切组 / 关 panel 立即停);已在跑的
+    // 单张解码由 generation 检查点兜底取消(见 [cancelInflight])。
+    for (final url in pendingAvifUrls) {
+      if (shouldContinue != null && !shouldContinue()) return;
+      try {
+        await precache(url, targetSize: targetSize, cacheManager: cacheManager);
+      } on _ThumbnailCancelled {
+        return;
+      } catch (e) {
+        debugPrint('[StickerThumbnail] avif prefetch failed $url: $e');
+      }
     }
   }
 
@@ -272,7 +268,18 @@ class StickerThumbnailProvider
     StickerThumbnailProvider key,
     ImageDecoderCallback decode,
   ) {
-    return OneFrameImageStreamCompleter(_loadThumbnail(key));
+    return OneFrameImageStreamCompleter(
+      _loadThumbnail(key).catchError((Object e, StackTrace st) {
+        // 失败的 completer 不能留在 ImageCache —— 否则同 key 的后续 Image
+        // 直接复用错误结果,永久裂图直到重启(NetworkImage 官方实现同款 evict)。
+        // evict 后下次 rebuild 自动重试;面板关闭触发的 _ThumbnailCancelled
+        // 也走这里,重开面板即重解。
+        scheduleMicrotask(() {
+          PaintingBinding.instance.imageCache.evict(key);
+        });
+        Error.throwWithStackTrace(e, st);
+      }),
+    );
   }
 
   Future<ImageInfo> _loadThumbnail(StickerThumbnailProvider key) async {
@@ -325,14 +332,14 @@ class StickerThumbnailProvider
 
 // ==================== Internal helpers ====================
 
-/// AVIF 解码并发(`fa.decodeAvif` 走 method channel,native 解完 marshal 几 MB
-/// RGBA + ui.Image 回主 isolate,**反序列化在主线程串行**)。
+/// AVIF 解码并发。
 ///
-/// 限 1 并发:method channel reply 反序列化在主 isolate microtask 串行
-/// 跑,>1 同时调 fa.decodeAvif 实际上就是堆 microtask 排队,只是主线程被
-/// 持续占用造成 UI 掉帧。降到 1 让 marshal 之间有间隙让 UI frame 通过。
-/// trade-off: 30 张 AVIF 串行解 ~3-9 s,但单张完成时间不变 + UI 不卡。
-final _avifSemaphore = _Semaphore(1);
+/// flutter_avif 3.x 是 **FFI + native port 异步**:AV1 解码跑在 native
+/// 线程,主 isolate 只承担"单帧 RGBA 解包 + decodeImageFromPixels"
+/// (配合 [AvifImageProvider.decodeFirstFrame] 单帧解码,每张就一次,
+/// 毫秒级)。早期"method channel 全帧 marshal 阻塞主线程必须限 1 并发"
+/// 的约束已不存在,放开到 4 让首开 30 张 AVIF 从串行 3-9s 变成秒级。
+final _avifSemaphore = _Semaphore(4);
 
 /// 非 AVIF (GIF / WebP / APNG) 解码并发。decode 走 `_DecoderWorkerPool`
 /// (long-lived worker isolate)在后台串行,主 isolate 只做轻量 ui.Image
@@ -351,11 +358,10 @@ final _knownThumbnailKeys = <String>{};
 /// `_decodeFirstFrameImage` 内部 await 链的多个检查点都 captures 起始号,
 /// 任意 await 后比对发现 mismatch → throw 立即 abort。
 ///
-/// 关键场景:用户打开 sticker panel,30 张 AVIF 同时 enqueue 到
-/// `_avifSemaphore(2)`。用户 0.5s 内关闭 panel,28 个还在排队的 task
-/// 应该立即作废,不再调 `fa.decodeAvif`(主 isolate marshal),否则
-/// "关闭面板还卡几秒"。已经在跑的 1-2 个 fa.decodeAvif 不可中断,但
-/// 至少不再 enqueue 新 marshal。
+/// 关键场景:用户打开 sticker panel,30 张缩略图同时 enqueue 排队解码。
+/// 用户 0.5s 内关闭 panel,还在排队的 task 应该立即作废,不再占用解码
+/// 资源(否则"关闭面板还在后台解码")。已经在跑的单张解码不可中断,
+/// 但跑完即停。
 int _thumbnailGeneration = 0;
 
 /// 主动 cancel 当前所有 in-flight thumbnail decode。
@@ -441,10 +447,8 @@ Future<ui.Image> _decodeFirstFrameImage({
   final semaphore = isAvif ? _avifSemaphore : _nonAvifSemaphore;
 
   await semaphore.acquire();
-  // 拿到 semaphore 槽后再检查 — 关 panel 时这是 AVIF 抑制 jank 的关键
-  // 转折点:还没调 fa.decodeAvif,立即 release 槽 + abort,新 enqueue 的
-  // marshal 全部跳过。已经在跑的 1-2 个 fa.decodeAvif 不可中断,但不再
-  // 累加更多。
+  // 拿到 semaphore 槽后再检查 — 关 panel 后排队中的任务在这里立即
+  // release 槽 + abort,不再发起新的解码;已经在跑的解码跑完即停。
   try {
     checkCancel();
   } catch (e) {
@@ -496,13 +500,8 @@ Future<ui.Image> _decodeFirstFrame(String url, Uint8List bytes) async {
 }
 
 Future<ui.Image> _decodeAvifFirstFrame(Uint8List bytes, String url) async {
-  final frames = await fa.decodeAvif(bytes);
-  if (frames.isEmpty) throw StateError('flutter_avif 0 frames: $url');
-  final first = frames.first.image;
-  for (int i = 1; i < frames.length; i++) {
-    frames[i].image.dispose();
-  }
-  return first;
+  // 增量解码:只解第 1 帧立即 dispose,不像 fa.decodeAvif 全帧解完丢 N-1 帧
+  return AvifImageProvider.decodeFirstFrame(bytes);
 }
 
 /// Flutter 内置 codec fallback:Rust pipeline 不识别的格式走这条
