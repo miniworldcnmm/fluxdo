@@ -1197,6 +1197,10 @@ class _TopicListState extends ConsumerState<_TopicList>
   /// 关键词过滤场景下，loadMore 自动续加载的并发标志
   bool _isAutoContinueLoading = false;
 
+  /// 上一段贴底连续自动续加载已用尽 attempts，等用户滚出底部 200px 区域后再放开。
+  /// 防止"距底部 < 200px"持续成立时 ScrollUpdate 把 _triggerLoadMore 永远再叫起来。
+  bool _autoContinueExhausted = false;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -1313,6 +1317,7 @@ class _TopicListState extends ConsumerState<_TopicList>
   /// 避免用户在话题列表里看到「滑到底但只多了 1-2 条」。
   Future<void> _triggerLoadMore(int? providerKey) async {
     if (_isAutoContinueLoading) return;
+    if (_autoContinueExhausted) return;
     final notifier = ref.read(topicListProvider(providerKey).notifier);
     if (!notifier.hasMore) {
       // 单次仍然交给 notifier，让其内部状态/错误处理生效
@@ -1349,6 +1354,10 @@ class _TopicListState extends ConsumerState<_TopicList>
           hasMore: notifier.hasMore,
           attempts: attempts,
         )) {
+          // 因 attempts 用尽而跳出时，进入"贴底冷却"，等用户滚开再放开
+          if (notifier.hasMore && (after - before) < 5) {
+            _autoContinueExhausted = true;
+          }
           break;
         }
         attempts++;
@@ -1521,10 +1530,16 @@ class _TopicListState extends ConsumerState<_TopicList>
             borderRadius: _topBorderRadius,
             child: NotificationListener<ScrollUpdateNotification>(
               onNotification: (notification) {
-                if (notification.depth == 0 &&
-                    notification.metrics.pixels >=
-                        notification.metrics.maxScrollExtent - 200) {
-                  _triggerLoadMore(providerKey);
+                if (notification.depth == 0) {
+                  final distance =
+                      notification.metrics.maxScrollExtent -
+                      notification.metrics.pixels;
+                  if (distance >= 200) {
+                    // 滚出贴底区域，下次再贴底允许重新触发自动续加载
+                    _autoContinueExhausted = false;
+                  } else {
+                    _triggerLoadMore(providerKey);
+                  }
                 }
                 return false;
               },

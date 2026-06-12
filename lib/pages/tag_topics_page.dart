@@ -69,9 +69,16 @@ class _TagTopicsPageState extends ConsumerState<TagTopicsPage> {
   /// 关键词过滤场景下，loadMore 自动续加载的并发标志
   bool _isAutoContinueLoading = false;
 
+  /// 贴底连续自动续加载已用尽 attempts，需用户滚出底部 200px 区域后再放开。
+  bool _autoContinueExhausted = false;
+
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
+    final distance =
+        _scrollController.position.maxScrollExtent -
+        _scrollController.position.pixels;
+    if (distance >= 200) {
+      _autoContinueExhausted = false;
+    } else {
       _loadMoreWithAutoContinue();
     }
   }
@@ -79,6 +86,7 @@ class _TagTopicsPageState extends ConsumerState<TagTopicsPage> {
   /// 触发 loadMore；若关键词命中率高、可见增量不足，自动续加载至多 3 次。
   Future<void> _loadMoreWithAutoContinue() async {
     if (_isAutoContinueLoading) return;
+    if (_autoContinueExhausted) return;
     _isAutoContinueLoading = true;
     try {
       final prefs = ref.read(preferencesProvider);
@@ -105,6 +113,9 @@ class _TagTopicsPageState extends ConsumerState<TagTopicsPage> {
           hasMore: _hasMore,
           attempts: attempts,
         )) {
+          if (_hasMore && (visAfter.length - visBefore.length) < 5) {
+            _autoContinueExhausted = true;
+          }
           break;
         }
         attempts++;
