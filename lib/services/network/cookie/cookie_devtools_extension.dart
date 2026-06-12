@@ -106,10 +106,12 @@ class CookieDevtoolsExtension {
       final intent = intentStr == 'delete'
           ? SweepIntent.delete
           : SweepIntent.ensureUnique;
+      // DevTools 手动触发的诊断操作，不参与节流
       final result = await SessionCookieSentinel.instance.sweep(
         url,
         name,
         intent: intent,
+        force: true,
       );
       return _okResult({
         'name': result.name,

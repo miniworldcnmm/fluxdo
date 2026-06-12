@@ -559,5 +559,192 @@ void main() {
 
       expect(loaded.any((c) => c.name == '_t'), true, reason: '_t should be loadable');
     });
+
+    // =========================================================================
+    // deleteByName 显式删除
+    // =========================================================================
+
+    group('deleteByName', () {
+      test('删除未过期的持久 cookie（过期写入方式会被新鲜度仲裁跳过的场景）', () async {
+        await jar.saveFromSetCookieHeaders(
+          Uri.parse('https://linux.do'),
+          [
+            'cf_clearance=token; Domain=.linux.do; Path=/; Secure; HttpOnly; Max-Age=31536000',
+          ],
+          trusted: true,
+        );
+
+        final removed =
+            await jar.deleteByName(Uri.parse('https://linux.do'), 'cf_clearance');
+
+        expect(removed, 1);
+        final cookies = await jar.loadForRequest(Uri.parse('https://linux.do'));
+        expect(cookies.map((e) => e.name), isNot(contains('cf_clearance')));
+      });
+
+      test('同站子域上的同名 cookie 一并删除', () async {
+        await jar.saveFromSetCookieHeaders(
+          Uri.parse('https://connect.linux.do'),
+          ['_t=sub; Path=/; Max-Age=3600'],
+        );
+        await jar.saveFromSetCookieHeaders(
+          Uri.parse('https://linux.do'),
+          ['_t=main; Path=/; Max-Age=3600'],
+        );
+
+        final removed =
+            await jar.deleteByName(Uri.parse('https://linux.do'), '_t');
+
+        expect(removed, 2);
+        expect(await jar.readAllCookies(), isEmpty);
+      });
+
+      test('其他名称的 cookie 不受影响', () async {
+        await jar.saveFromSetCookieHeaders(
+          Uri.parse('https://linux.do'),
+          [
+            '_t=keep; Path=/; Max-Age=3600',
+            'cf_clearance=x; Path=/; Max-Age=3600',
+          ],
+        );
+
+        await jar.deleteByName(Uri.parse('https://linux.do'), 'cf_clearance');
+
+        final all = await jar.readAllCookies();
+        expect(all.map((c) => c.name).toList(), ['_t']);
+      });
+    });
+
+    // =========================================================================
+    // 写入一致性
+    // =========================================================================
+
+    group('写入一致性', () {
+      test('同一 tick 并发保存不丢更新（lost update 回归）', () async {
+        final uri = Uri.parse('https://linux.do');
+        await Future.wait([
+          jar.saveFromSetCookieHeaders(uri, ['a=1; Path=/; Max-Age=3600']),
+          jar.saveFromSetCookieHeaders(uri, ['b=2; Path=/; Max-Age=3600']),
+          jar.saveFromSetCookieHeaders(uri, ['c=3; Path=/; Max-Age=3600']),
+        ]);
+
+        final all = await jar.readAllCookies();
+        expect(all.map((c) => c.name).toSet(), {'a', 'b', 'c'});
+
+        // 磁盘内容同样完整（新实例重读验证文件未被互相覆盖/写坏）
+        final jar2 = EnhancedPersistCookieJar(
+          store: FileCookieStore(tempDir.path),
+        );
+        final persisted = await jar2.readAllCookies();
+        expect(persisted.map((c) => c.name).toSet(), {'a', 'b', 'c'});
+      });
+
+      test('替换同 key cookie 时继承 creationTime（RFC 6265 §5.3.11.3）', () async {
+        final uri = Uri.parse('https://linux.do');
+        await jar.saveFromSetCookieHeaders(
+          uri,
+          ['_t=old; Path=/; Max-Age=3600'],
+          trusted: true,
+        );
+        final created = (await jar.readAllCookies()).single.creationTime;
+
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        await jar.saveFromSetCookieHeaders(
+          uri,
+          ['_t=new; Path=/; Max-Age=3600'],
+          trusted: true,
+        );
+
+        final replaced = (await jar.readAllCookies()).single;
+        expect(replaced.value, 'new');
+        expect(replaced.creationTime, created);
+      });
+
+      test('重复下发相同 Set-Cookie 不触发磁盘重写（脏检查）', () async {
+        final uri = Uri.parse('https://linux.do');
+        const header = '_t=tok; Path=/; Expires=Wed, 01 Jan 2098 00:00:00 GMT';
+        await jar.saveFromSetCookieHeaders(uri, [header], trusted: true);
+
+        // 删掉正式文件后重复保存相同内容：脏检查生效则跳过写盘，文件不重建
+        final file = File('${tempDir.path}/cookies.v1.json');
+        expect(await file.exists(), true);
+        await file.delete();
+
+        await jar.saveFromSetCookieHeaders(uri, [header], trusted: true);
+        expect(await file.exists(), false, reason: '内容未变应跳过磁盘写');
+
+        // 值变化时正常写盘
+        await jar.saveFromSetCookieHeaders(
+          uri,
+          ['_t=rotated; Path=/; Expires=Wed, 01 Jan 2098 00:00:00 GMT'],
+          trusted: true,
+        );
+        expect(await file.exists(), true);
+      });
+
+      test('session cookie 刷新不触发磁盘重写', () async {
+        final uri = Uri.parse('https://linux.do');
+        await jar.saveFromSetCookieHeaders(
+          uri,
+          ['_t=tok; Path=/; Max-Age=3600'],
+          trusted: true,
+        );
+
+        final file = File('${tempDir.path}/cookies.v1.json');
+        await file.delete();
+
+        // session cookie（无 expires/max-age）不持久化，
+        // 高频刷新不应导致持久集合全量重写
+        await jar.saveFromSetCookieHeaders(
+          uri,
+          ['_forum_session=abc; Path=/; HttpOnly'],
+          trusted: true,
+        );
+        await jar.saveFromSetCookieHeaders(
+          uri,
+          ['_forum_session=def; Path=/; HttpOnly'],
+          trusted: true,
+        );
+        expect(await file.exists(), false);
+
+        // 内存中仍可读到 session cookie 最新值
+        final loaded = await jar.loadForRequest(uri);
+        final session = loaded.firstWhere((c) => c.name == '_forum_session');
+        expect(session.value, 'def');
+      });
+    });
+
+    // =========================================================================
+    // 跨 isolate 重载
+    // =========================================================================
+
+    group('reloadPersistedCookies', () {
+      test('吸收磁盘新值并保留内存 session cookie', () async {
+        final uri = Uri.parse('https://linux.do');
+        await jar.saveFromSetCookieHeaders(
+          uri,
+          ['_t=old; Path=/; Max-Age=3600', '_forum_session=mem; Path=/'],
+          trusted: true,
+        );
+
+        // 模拟另一个 isolate 写盘：用独立 store 实例改写文件中的 _t
+        final otherJar = EnhancedPersistCookieJar(
+          store: FileCookieStore(tempDir.path),
+        );
+        await otherJar.saveFromSetCookieHeaders(
+          uri,
+          ['_t=rotated-by-bg; Path=/; Max-Age=3600'],
+          trusted: true,
+        );
+
+        await jar.reloadPersistedCookies();
+
+        final loaded = await jar.loadForRequest(uri);
+        final t = loaded.firstWhere((c) => c.name == '_t');
+        final session = loaded.firstWhere((c) => c.name == '_forum_session');
+        expect(t.value, 'rotated-by-bg', reason: '持久 cookie 以磁盘为准');
+        expect(session.value, 'mem', reason: '内存 session cookie 不丢失');
+      });
+    });
   });
 }

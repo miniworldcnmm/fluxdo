@@ -17,6 +17,16 @@ class EnhancedPersistCookieJar implements base.CookieJar {
 
   List<CanonicalCookie>? _cache;
 
+  /// 串行化所有"读-改-写"操作：并发保存会基于同一内存快照各自写回，
+  /// 后者覆盖前者（lost update），且并发写同一临时文件会产生 rename 竞态。
+  Future<void> _serial = Future.value();
+
+  Future<T> _synchronized<T>(Future<T> Function() action) {
+    final result = _serial.then((_) => action());
+    _serial = result.then<void>((_) {}, onError: (_) {});
+    return result;
+  }
+
   Future<List<CanonicalCookie>> readAllCookies() async => List.unmodifiable(await _readAll());
 
   Future<List<CanonicalCookie>> _readAll() async {
@@ -45,14 +55,23 @@ class EnhancedPersistCookieJar implements base.CookieJar {
     Uri uri,
     List<CanonicalCookie> cookies, {
     bool trusted = false,
+  }) {
+    if (cookies.isEmpty) return Future.value();
+    return _synchronized(
+      () => _saveCanonicalCookiesLocked(uri, cookies, trusted: trusted),
+    );
+  }
+
+  Future<void> _saveCanonicalCookiesLocked(
+    Uri uri,
+    List<CanonicalCookie> cookies, {
+    required bool trusted,
   }) async {
-    if (cookies.isEmpty) return;
     final all = [...await _readAll()];
     for (final cookie in cookies) {
       var resolved = cookie.copyWith(
         domain: cookie.domain ?? uri.host.toLowerCase(),
         path: cookie.path.isEmpty ? '/' : cookie.path,
-        lastAccessTime: DateTime.now().toUtc(),
       );
       final idx =
           all.indexWhere((existing) => existing.storageKey == resolved.storageKey);
@@ -68,6 +87,13 @@ class EnhancedPersistCookieJar implements base.CookieJar {
           // 不可信且不更新鲜：保留已有的权威值，跳过本次写入。
           continue;
         }
+        // RFC 6265 §5.3.11.3：替换同 key cookie 时继承 creation-time。
+        // lastAccessTime 无消费方，一并继承使序列化结果稳定——
+        // 服务器重复下发相同 cookie 时配合存储层脏检查跳过全量写盘。
+        resolved = resolved.copyWith(
+          creationTime: existing.creationTime,
+          lastAccessTime: existing.lastAccessTime,
+        );
         all.removeAt(idx);
       }
       if (ignoreExpires || !resolved.isExpired) {
@@ -143,21 +169,79 @@ class EnhancedPersistCookieJar implements base.CookieJar {
   }
 
   @override
-  Future<void> delete(Uri uri, [bool withDomainSharedCookie = false]) async {
-    final all = [...await _readAll()];
-    all.removeWhere((cookie) {
-      final matchDomain = cookie.normalizedDomain ?? _originHost(cookie);
-      if (cookie.hostOnly) return matchDomain == uri.host.toLowerCase();
-      if (!withDomainSharedCookie) return false;
-      return _domainMatches(uri.host, matchDomain);
+  Future<void> delete(Uri uri, [bool withDomainSharedCookie = false]) {
+    return _synchronized(() async {
+      final all = [...await _readAll()];
+      all.removeWhere((cookie) {
+        final matchDomain = cookie.normalizedDomain ?? _originHost(cookie);
+        if (cookie.hostOnly) return matchDomain == uri.host.toLowerCase();
+        if (!withDomainSharedCookie) return false;
+        return _domainMatches(uri.host, matchDomain);
+      });
+      await _writeAll(all);
     });
-    await _writeAll(all);
+  }
+
+  /// 按名称显式删除与 [uri] 站点相关的所有 cookie，返回删除条数。
+  ///
+  /// 与写入"已过期同名 cookie"的删除方式不同，本方法绕过 [CanonicalCookie.isFresherThan]
+  /// 新鲜度仲裁——过期 cookie 永远比未过期的现有条目"旧"，会被仲裁静默跳过，
+  /// 导致对未过期持久 cookie（如 cf_clearance）的删除变成 no-op。
+  /// 显式删除是业务意图，不应被防 WebView 旧值回灌的机制拦截。
+  ///
+  /// 匹配范围：cookie 有效域等于 uri.host、是其子域、或是其父域
+  /// （父域 domain cookie 对 uri.host 可见）。
+  Future<int> deleteByName(Uri uri, String name) {
+    return _synchronized(() async {
+      final host = uri.host.toLowerCase();
+      final all = [...await _readAll()];
+      final before = all.length;
+      all.removeWhere((cookie) {
+        if (cookie.name != name) return false;
+        final matchDomain = cookie.normalizedDomain ?? _originHost(cookie);
+        if (matchDomain == null || matchDomain.isEmpty) return true;
+        return host == matchDomain ||
+            host.endsWith('.$matchDomain') ||
+            matchDomain.endsWith('.$host');
+      });
+      final removed = before - all.length;
+      if (removed > 0) {
+        await _writeAll(all);
+      }
+      return removed;
+    });
   }
 
   @override
-  Future<void> deleteAll() async {
-    _cache = const [];
-    await _store.deleteAll();
+  Future<void> deleteAll() {
+    return _synchronized(() async {
+      _cache = const [];
+      await _store.deleteAll();
+    });
+  }
+
+  /// 丢弃持久 cookie 的内存缓存并从磁盘重新加载。
+  ///
+  /// 用于另一个 isolate（如 iOS 后台轮询任务）写盘之后让本 isolate 看到新值，
+  /// 避免之后用陈旧缓存全量覆盖文件、丢掉对方写入的 token。
+  /// 文件中不存 session cookie，内存中现有的 session cookie 会被保留；
+  /// 持久 cookie 以磁盘为准。
+  Future<void> reloadPersistedCookies() {
+    return _synchronized(() async {
+      final cached = _cache;
+      final fromDisk = await _store.readAll();
+      if (cached == null) {
+        _cache = fromDisk;
+        return;
+      }
+      final diskKeys = fromDisk.map((c) => c.storageKey).toSet();
+      _cache = [
+        ...fromDisk,
+        ...cached.where(
+          (c) => !_shouldPersist(c) && !diskKeys.contains(c.storageKey),
+        ),
+      ];
+    });
   }
 
   /// RFC 6265 §5.3: 有 expires/max-age 的是持久化 cookie，没有的是 session cookie

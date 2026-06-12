@@ -912,6 +912,11 @@ class _MainPageState extends ConsumerState<MainPage>
         // App 回到前台 — 停止后台保活 + 恢复所有频道 + 刷新通知
         BackgroundNotificationService().disable();
         MessageBusService().exitBackgroundMode();
+        if (Platform.isIOS) {
+          // iOS 后台轮询任务在独立 isolate 写 cookie 文件，回前台时重载
+          // 磁盘值，避免主 isolate 用旧缓存覆盖后台轮换的 token
+          CookieJarService().reloadPersistedCookies();
+        }
         ref.invalidate(notificationListProvider);
         // 检查 DOH 代理是否在后台期间失效，若失效则自动重启
         NetworkSettingsService.instance.ensureProxyAlive();

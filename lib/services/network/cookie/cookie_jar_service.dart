@@ -139,9 +139,13 @@ class CookieJarService {
 
       // saveCanonicalCookies 的 storageKey 不含 hostOnly,
       // 同 (name, domain, path) 的旧条目会被替换为 hostOnly=true 版本。
+      // trusted=true: 迁移是对存量数据的权威修正, patched 条目的
+      // version/expires/creationTime 与原条目完全相同, 非 trusted 写入
+      // 会被 isFresherThan 仲裁判定"不更新鲜"而静默跳过, 迁移失效。
       await jar.saveCanonicalCookies(
         Uri.parse(AppConstants.baseUrl),
         patched,
+        trusted: true,
       );
       debugPrint(
         '[CookieJar] Migrated ${patched.length} session cookie(s) back to host-only',
@@ -322,34 +326,59 @@ class CookieJarService {
 
     try {
       final uri = Uri.parse(AppConstants.baseUrl);
-      final expired = DateTime.now().subtract(const Duration(days: 1));
-      final hosts = await getKnownHostsForDomain(uri.host);
+      final jar = _cookieJar;
+      if (jar is EnhancedPersistCookieJar) {
+        // 显式删除走 deleteByName，绕过新鲜度仲裁。
+        // 旧实现写"已过期同名 cookie"，会被 isFresherThan 判定为旧值而
+        // 静默跳过，对未过期的持久 cookie（如 cf_clearance）是 no-op。
+        await jar.deleteByName(uri, name);
+      } else {
+        // 内存 jar fallback：写过期 cookie 让 DefaultCookieJar 自行清除
+        final expired = DateTime.now().subtract(const Duration(days: 1));
+        final hosts = await getKnownHostsForDomain(uri.host);
 
-      for (final host in hosts) {
-        final hostUri = Uri.parse('https://$host');
-        final cookies = await _cookieJar!.loadForRequest(hostUri);
+        for (final host in hosts) {
+          final hostUri = Uri.parse('https://$host');
+          final cookies = await _cookieJar!.loadForRequest(hostUri);
 
-        final expiredCookies = <io.Cookie>[];
-        for (final cookie in cookies) {
-          if (cookie.name == name) {
-            final expired0 = io.Cookie(name, '')
-              ..path = cookie.path ?? '/'
-              ..expires = expired;
-            if (cookie.domain != null) {
-              expired0.domain = cookie.domain;
+          final expiredCookies = <io.Cookie>[];
+          for (final cookie in cookies) {
+            if (cookie.name == name) {
+              final expired0 = io.Cookie(name, '')
+                ..path = cookie.path ?? '/'
+                ..expires = expired;
+              if (cookie.domain != null) {
+                expired0.domain = cookie.domain;
+              }
+              expiredCookies.add(expired0);
             }
-            expiredCookies.add(expired0);
           }
-        }
 
-        if (expiredCookies.isNotEmpty) {
-          await _cookieJar!.saveFromResponse(hostUri, expiredCookies);
+          if (expiredCookies.isNotEmpty) {
+            await _cookieJar!.saveFromResponse(hostUri, expiredCookies);
+          }
         }
       }
 
       CookieLogger.delete(name: name, source: 'deleteCookie');
     } catch (e) {
       debugPrint('[CookieJar] Failed to delete cookie $name: $e');
+    }
+  }
+
+  /// 从磁盘重载持久 cookie（保留内存中的 session cookie）。
+  ///
+  /// iOS 后台轮询任务在独立 isolate 写同一 cookie 文件，主 isolate 的
+  /// 内存缓存不会感知；回前台时调用本方法吸收后台写入的新值，避免之后
+  /// 用旧缓存全量覆盖文件、丢掉后台轮换的 token。
+  Future<void> reloadPersistedCookies() async {
+    if (!_initialized) return;
+    final jar = _cookieJar;
+    if (jar is! EnhancedPersistCookieJar) return;
+    try {
+      await jar.reloadPersistedCookies();
+    } catch (e) {
+      debugPrint('[CookieJar] Failed to reload cookies from disk: $e');
     }
   }
 

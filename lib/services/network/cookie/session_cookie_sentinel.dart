@@ -80,11 +80,29 @@ class SessionCookieSentinel {
   ///
   /// 详见 §5.1 接口契约。接受任意 name —— 不再限定 critical 列表,
   /// 配合 Priming/AppCookieManager 全量同步使用。
+  ///
+  /// [force] 为 false 时, ensureUnique 意图在 [_throttleWindow] 内对同名
+  /// cookie 重复调用会直接返回 noop, 省掉高频响应路径上的重复 WV IPC。
+  /// 权衡: 窗口内 WV 新产生的变体会推迟到下一次该 name 的 sweep 处理
+  /// (sweep 本就是最终一致的兜底)。delete 意图与 [sweepAll]（boundary
+  /// sync / priming 等关键路径）不节流。
   Future<SweepResult> sweep(
     String url,
     String name, {
     SweepIntent intent = SweepIntent.ensureUnique,
+    bool force = false,
   }) async {
+    if (!force &&
+        intent == SweepIntent.ensureUnique &&
+        wasRecentlySwept(name)) {
+      return SweepResult(
+        name: name,
+        status: SweepStatus.noop,
+        variantsBefore: 0,
+        variantsAfter: 0,
+        elapsed: Duration.zero,
+      );
+    }
     final entryGen = _auth.generation;
     final lock = _locks.putIfAbsent(name, () => Lock());
 
@@ -129,7 +147,7 @@ class SessionCookieSentinel {
       debugPrint('[Sentinel] sweepAll wv lookup failed: $e');
     }
     if (names.isEmpty) return const [];
-    final futures = names.map((name) => sweep(url, name));
+    final futures = names.map((name) => sweep(url, name, force: true));
     return await Future.wait(futures);
   }
 

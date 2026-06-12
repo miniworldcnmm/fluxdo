@@ -299,13 +299,15 @@ class AppCookieManager extends Interceptor {
               '${cookie.name}=${CookieValueCodec.decode(cookie.value)}',
         )
         .join('; ');
-    if (tCookies.isNotEmpty) {
+    // 仅多副本（异常态）时记录选优结果；登录后 _t 恒存在，
+    // 单副本场景不值得每个请求落一次盘。
+    if (tCookies.length > 1) {
       final selectedTCookies = selectedCookies
           .where((cookie) => cookie.name == '_t')
           .toList(growable: false);
       LogWriter.instance.write({
         'timestamp': DateTime.now().toIso8601String(),
-        'level': tCookies.length > 1 ? 'warning' : 'info',
+        'level': 'warning',
         'type': 'cookie_conflict',
         'event': 't_cookie_selected_for_request',
         'message': '请求发送前已完成 _t 选优',
