@@ -34,6 +34,7 @@ class DohProxyService {
   bool? _currentPreferIPv6;
   int? _currentPreferredPort;
   String? _currentServerIp;
+  bool? _currentH2Mitm;
   String? _currentUpstreamSignature;
   String? _lastError;
   // ignore: unused_field
@@ -71,6 +72,7 @@ class DohProxyService {
     String? upstreamCipher,
     String? caCertPem,
     String? caKeyPem,
+    bool h2Mitm = false,
   }) async {
     final upstreamSignature = _buildUpstreamSignature(
       protocol: upstreamProtocol,
@@ -88,6 +90,7 @@ class DohProxyService {
           && _currentPreferIPv6 == preferIPv6
           && _currentPreferredPort == preferredPort
           && _currentServerIp == serverIp
+          && _currentH2Mitm == h2Mitm
           && _currentUpstreamSignature == upstreamSignature;
       if (sameConfig) {
         NetworkLogger.log('[DOH] 代理已在运行，端口: $_port');
@@ -117,6 +120,7 @@ class DohProxyService {
         upstreamCipher,
         caCertPem,
         caKeyPem,
+        h2Mitm,
       );
       // 桌面平台 FFI 加载失败时，回退到进程模式
       if (!result && DohProxyFfi.canFallbackToProcess) {
@@ -136,6 +140,7 @@ class DohProxyService {
           upstreamUsername,
           upstreamPassword,
           upstreamCipher,
+          h2Mitm,
         );
       }
       return result;
@@ -154,6 +159,7 @@ class DohProxyService {
         upstreamUsername,
         upstreamPassword,
         upstreamCipher,
+        h2Mitm,
       );
     }
   }
@@ -175,6 +181,7 @@ class DohProxyService {
     String? upstreamCipher,
     String? caCertPem,
     String? caKeyPem,
+    bool h2Mitm,
   ) async {
     try {
       return await _enqueueFfiOp(() async {
@@ -200,6 +207,7 @@ class DohProxyService {
           upstreamCipher: upstreamCipher,
           caCertPem: caCertPem,
           caKeyPem: caKeyPem,
+          h2Mitm: h2Mitm,
         );
         if (resultPort <= 0) {
           // _callFfiStart 已设置更详细的 _lastError，仅在未设置时补充
@@ -217,6 +225,7 @@ class DohProxyService {
         _currentPreferIPv6 = preferIPv6;
         _currentPreferredPort = port;
         _currentServerIp = serverIp;
+        _currentH2Mitm = h2Mitm;
         _currentUpstreamSignature = _buildUpstreamSignature(
           protocol: upstreamProtocol,
           host: upstreamHost,
@@ -250,6 +259,7 @@ class DohProxyService {
     String? upstreamUsername,
     String? upstreamPassword,
     String? upstreamCipher,
+    bool h2Mitm,
   ) async {
     try {
       final executablePath = await _getExecutablePath();
@@ -268,6 +278,7 @@ class DohProxyService {
         preferredPort.toString(),
         if (!enableDoh) '--no-doh',
         if (gatewayMode) '--gateway',
+        if (h2Mitm) '--h2-mitm',
         if (preferIPv6) '--ipv6',
         if (dohServer != null && dohServer.isNotEmpty) ...[
           '--doh',
@@ -330,6 +341,7 @@ class DohProxyService {
           _currentPreferIPv6 = preferIPv6;
           _currentPreferredPort = preferredPort;
           _currentServerIp = serverIp;
+          _currentH2Mitm = h2Mitm;
           _currentUpstreamSignature = _buildUpstreamSignature(
             protocol: upstreamProtocol,
             host: upstreamHost,
@@ -440,6 +452,7 @@ class DohProxyService {
     _currentPreferIPv6 = null;
     _currentPreferredPort = null;
     _currentServerIp = null;
+    _currentH2Mitm = null;
     _currentUpstreamSignature = null;
     // 注意：不清除 _lastError，保留用于 UI 展示
   }
@@ -707,6 +720,7 @@ class DohProxyService {
     required String? upstreamCipher,
     String? caCertPem,
     String? caKeyPem,
+    bool h2Mitm = false,
   }) async {
     final sendPort = await _ensureFfiIsolate();
     final response = ReceivePort();
@@ -715,6 +729,7 @@ class DohProxyService {
       'port': port,
       'enableDoh': enableDoh,
       'gatewayMode': gatewayMode,
+      'h2Mitm': h2Mitm,
       'preferIpv6': preferIpv6,
       'dohServer': dohServer,
       'dohServerEch': dohServerEch,
@@ -977,6 +992,7 @@ void _ffiIsolateEntry(SendPort mainSendPort) {
           final preferredPort = message['preferredPort'] as int? ?? 0;
           final enableDoh = message['enableDoh'] as bool? ?? true;
           final gatewayMode = message['gatewayMode'] as bool? ?? false;
+          final h2Mitm = message['h2Mitm'] as bool? ?? false;
           final preferIpv6 = message['preferIpv6'] as bool? ?? false;
           final dohServer = message['dohServer'] as String?;
           final dohServerEch = message['dohServerEch'] as String?;
@@ -1005,6 +1021,7 @@ void _ffiIsolateEntry(SendPort mainSendPort) {
             upstreamCipher: upstreamCipher,
             caCertPem: caCertPem,
             caKeyPem: caKeyPem,
+            h2Mitm: h2Mitm,
           );
           if (resultPort <= 0 && preferredPort != 0) {
             resultPort = DohProxyFfi.instance.start(
@@ -1023,6 +1040,7 @@ void _ffiIsolateEntry(SendPort mainSendPort) {
               upstreamCipher: upstreamCipher,
               caCertPem: caCertPem,
               caKeyPem: caKeyPem,
+              h2Mitm: h2Mitm,
             );
           }
           if (resultPort <= 0) {

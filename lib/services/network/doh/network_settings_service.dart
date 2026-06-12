@@ -28,6 +28,7 @@ class NetworkSettings {
     this.preferIPv6 = false,
     this.serverIp,
     this.gatewayEnabled = true,
+    this.h2Mitm = false,
   });
 
   final bool dohEnabled;
@@ -44,6 +45,8 @@ class NetworkSettings {
   final String? serverIp;
   /// Gateway（反向代理）模式开关，关闭时回退为 MITM
   final bool gatewayEnabled;
+  /// WebView MITM 是否启用 HTTP/2 多路复用（实验性，默认关闭；需实测 CF 指纹）
+  final bool h2Mitm;
 
   NetworkSettings copyWith({
     bool? dohEnabled,
@@ -54,6 +57,7 @@ class NetworkSettings {
     bool? preferIPv6,
     String? Function()? serverIp,
     bool? gatewayEnabled,
+    bool? h2Mitm,
   }) {
     return NetworkSettings(
       dohEnabled: dohEnabled ?? this.dohEnabled,
@@ -64,6 +68,7 @@ class NetworkSettings {
       preferIPv6: preferIPv6 ?? this.preferIPv6,
       gatewayEnabled: gatewayEnabled ?? this.gatewayEnabled,
       serverIp: serverIp != null ? serverIp() : this.serverIp,
+      h2Mitm: h2Mitm ?? this.h2Mitm,
     );
   }
 }
@@ -177,6 +182,7 @@ class NetworkSettingsService {
   static const _serverIpKey = 'doh_server_ip';
   static const _echServerKey = 'doh_ech_server';
   static const _gatewayEnabledKey = 'doh_gateway_enabled';
+  static const _h2MitmKey = 'doh_h2_mitm';
 
   final ValueNotifier<NetworkSettings> notifier = ValueNotifier(
     NetworkSettings(
@@ -249,6 +255,7 @@ class NetworkSettingsService {
     final serverIp = prefs.getString(_serverIpKey);
     final echServer = prefs.getString(_echServerKey);
     final gatewayEnabled = prefs.getBool(_gatewayEnabledKey) ?? true;
+    final h2Mitm = prefs.getBool(_h2MitmKey) ?? false;
     final resolvedSelected = _resolveSelected(selected, custom);
     notifier.value = NetworkSettings(
       dohEnabled: dohEnabled,
@@ -259,6 +266,7 @@ class NetworkSettingsService {
       preferIPv6: preferIPv6,
       serverIp: serverIp,
       gatewayEnabled: gatewayEnabled,
+      h2Mitm: h2Mitm,
     );
     _resolver = DohResolver(
       serverUrl: notifier.value.selectedServerUrl,
@@ -410,6 +418,16 @@ class NetworkSettingsService {
     _touch();
   }
 
+  /// 切换 WebView h2 MITM（实验性）。切换后重启代理生效，需实测 CF 指纹。
+  Future<void> setH2Mitm(bool enabled) async {
+    final prefs = _prefs;
+    if (prefs == null) return;
+    notifier.value = notifier.value.copyWith(h2Mitm: enabled);
+    await prefs.setBool(_h2MitmKey, enabled);
+    _scheduleApplyProxyState();
+    _touch();
+  }
+
   Future<void> _applyProxyState() async {
     final startedAt = DateTime.now();
     _applyDepth++;
@@ -504,6 +522,7 @@ class NetworkSettingsService {
         upstreamCipher: upstream.isValid ? upstream.cipher : null,
         caCertPem: caCertPem,
         caKeyPem: caKeyPem,
+        h2Mitm: current.h2Mitm,
       );
 
       if (!success) {

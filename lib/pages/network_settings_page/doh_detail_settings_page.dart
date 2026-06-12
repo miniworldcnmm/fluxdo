@@ -61,6 +61,21 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
                       color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
                     ),
                     SwitchListTile(
+                      title: Text(context.l10n.dohDetail_h2Mitm),
+                      subtitle: Text(
+                        settings.h2Mitm
+                            ? context.l10n.dohDetail_h2MitmEnabledDesc
+                            : context.l10n.dohDetail_h2MitmDisabledDesc,
+                      ),
+                      secondary: const Icon(Icons.bolt),
+                      value: settings.h2Mitm,
+                      onChanged: (value) => _service.setH2Mitm(value),
+                    ),
+                    Divider(
+                      height: 1,
+                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
+                    ),
+                    SwitchListTile(
                       title: Text(context.l10n.dohDetail_ipv6Prefer),
                       subtitle: Text(context.l10n.dohDetail_ipv6PreferDesc),
                       secondary: const Icon(Icons.language),
