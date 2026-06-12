@@ -167,83 +167,80 @@ class _TopicPreviewDialogState extends ConsumerState<TopicPreviewDialog> {
           maxWidth: maxWidth.clamp(300, 500),
           maxHeight: maxHeight,
         ),
-        child: SizedBox(
+        child: Column(
           key: const ValueKey('topic-preview-root'),
-          height: maxHeight,
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              Expanded(
-                child: Material(
-                  color: theme.colorScheme.surface,
-                  borderRadius: BorderRadius.circular(20),
-                  clipBehavior: Clip.antiAlias,
-                  elevation: 8,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        height: 4,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              theme.colorScheme.primaryContainer,
-                              theme.colorScheme.tertiaryContainer,
-                            ],
-                          ),
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Material(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(20),
+                clipBehavior: Clip.antiAlias,
+                elevation: 8,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 4,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            theme.colorScheme.primaryContainer,
+                            theme.colorScheme.tertiaryContainer,
+                          ],
                         ),
                       ),
-                      if (hasCustomActionPanel)
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                          child: widget.customActionPanelBuilder!(context),
+                    ),
+                    if (hasCustomActionPanel)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        child: widget.customActionPanelBuilder!(context),
+                      ),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: EdgeInsets.fromLTRB(
+                          20,
+                          hasCustomActionPanel ? 16 : 20,
+                          20,
+                          20,
                         ),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          padding: EdgeInsets.fromLTRB(
-                            20,
-                            hasCustomActionPanel ? 16 : 20,
-                            20,
-                            20,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildTitle(context, theme),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildTitle(context, theme),
+                            const SizedBox(height: 12),
+                            _buildAuthorInfo(context, theme),
+                            if (category != null || topic.tags.isNotEmpty) ...[
                               const SizedBox(height: 12),
-                              _buildAuthorInfo(context, theme),
-                              if (category != null ||
-                                  topic.tags.isNotEmpty) ...[
-                                const SizedBox(height: 12),
-                                _buildCategoryAndTags(
-                                  context,
-                                  theme,
-                                  category,
-                                  faIcon,
-                                  logoUrl,
-                                ),
-                              ],
-                              const SizedBox(height: 16),
-                              _buildPostContent(context, theme),
-                              const SizedBox(height: 16),
-                              if (topic.posters.length > 1)
-                                _buildParticipants(context, theme),
-                              _buildStats(context, theme),
+                              _buildCategoryAndTags(
+                                context,
+                                theme,
+                                category,
+                                faIcon,
+                                logoUrl,
+                              ),
                             ],
-                          ),
+                            const SizedBox(height: 16),
+                            _buildPostContent(context, theme),
+                            const SizedBox(height: 16),
+                            if (topic.posters.length > 1)
+                              _buildParticipants(context, theme),
+                            _buildStats(context, theme),
+                          ],
                         ),
                       ),
-                      _buildActions(context, theme),
-                    ],
-                  ),
+                    ),
+                    _buildActions(context, theme),
+                  ],
                 ),
               ),
-              if (hasActions) ...[
-                const SizedBox(height: 8),
-                _buildCustomActions(context, theme),
-              ],
+            ),
+            if (hasActions) ...[
+              const SizedBox(height: 8),
+              _buildCustomActions(context, theme),
             ],
-          ),
+          ],
         ),
       ),
     );

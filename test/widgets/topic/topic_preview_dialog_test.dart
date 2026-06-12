@@ -13,10 +13,10 @@ import 'package:fluxdo/services/local_notification_service.dart';
 import 'package:fluxdo/widgets/topic/topic_preview_dialog.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-Topic _topic() {
+Topic _topic({String title = 'Preview Topic'}) {
   return Topic(
     id: 1,
-    title: 'Preview Topic',
+    title: title,
     slug: 'preview-topic',
     postsCount: 10,
     replyCount: 9,
@@ -28,10 +28,9 @@ Topic _topic() {
 }
 
 void main() {
-  testWidgets('加载前后预览卡片高度保持不变', (tester) async {
+  testWidgets('短内容预览卡片按内容自适应高度', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    final loader = Completer<String?>();
 
     await tester.pumpWidget(
       ProviderScope(
@@ -54,7 +53,7 @@ void main() {
             home: Scaffold(
               body: TopicPreviewDialog(
                 topic: _topic(),
-                firstPostLoader: () => loader.future,
+                firstPostLoader: () async => '<p>Loaded content</p>',
               ),
             ),
           ),
@@ -62,18 +61,54 @@ void main() {
       ),
     );
 
-    await tester.pump();
-    final before = tester.getSize(
+    await tester.pumpAndSettle();
+    final previewSize = tester.getSize(
       find.byKey(const ValueKey('topic-preview-root')),
     );
 
-    loader.complete('<p>Loaded content</p>');
+    expect(previewSize.height, lessThan(600 * 0.7));
+  });
+
+  testWidgets('长内容预览卡片高度不超过屏幕上限', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final longTitle = List.filled(80, 'Long preview title').join(' ');
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          categoryMapProvider.overrideWith(
+            (ref) => const AsyncValue.data(<int, Category>{}),
+          ),
+        ],
+        child: TranslationProvider(
+          child: MaterialApp(
+            locale: const Locale('zh'),
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            navigatorKey: navigatorKey,
+            supportedLocales: AppLocaleUtils.supportedLocales,
+            home: Scaffold(
+              body: TopicPreviewDialog(
+                topic: _topic(title: longTitle),
+                firstPostLoader: () async => '<p>Loaded content</p>',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
     await tester.pumpAndSettle();
 
-    final after = tester.getSize(
+    final previewSize = tester.getSize(
       find.byKey(const ValueKey('topic-preview-root')),
     );
-    expect(after.height, before.height);
+    expect(previewSize.height, lessThanOrEqualTo(600 * 0.7));
   });
 
   testWidgets('正文未加载完时底部自定义面板也能立即显示', (tester) async {
