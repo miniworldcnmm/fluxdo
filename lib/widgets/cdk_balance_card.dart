@@ -7,6 +7,8 @@ import 'common/loading_spinner.dart';
 import '../../../../l10n/s.dart';
 
 class CdkBalanceCard extends ConsumerWidget {
+  static const String _dashboardUrl = 'https://cdk.linux.do/dashboard';
+
   final bool compact;
   final bool inline;
   final bool showDivider;
@@ -49,7 +51,7 @@ class CdkBalanceCard extends ConsumerWidget {
         child: InkWell(
           onTap: () => WebViewPage.open(
             context,
-            'https://cdk.linux.do',
+            _dashboardUrl,
             title: 'LINUX DO CDK',
           ),
           child: Column(
@@ -124,7 +126,7 @@ class CdkBalanceCard extends ConsumerWidget {
       return GestureDetector(
         onTap: () => WebViewPage.open(
           context,
-          'https://cdk.linux.do',
+          _dashboardUrl,
           title: 'LINUX DO CDK',
         ),
         child: Card(
@@ -187,7 +189,7 @@ class CdkBalanceCard extends ConsumerWidget {
     return GestureDetector(
       onTap: () => WebViewPage.open(
         context,
-        'https://cdk.linux.do',
+        _dashboardUrl,
         title: 'LINUX DO CDK',
       ),
       child: Card(

@@ -8,6 +8,8 @@ import 'common/loading_spinner.dart';
 import '../../../../l10n/s.dart';
 
 class LdcBalanceCard extends ConsumerWidget {
+  static const String _homeUrl = 'https://credit.linux.do/home';
+
   final bool compact;
   final bool inline;
   final bool showDivider;
@@ -57,7 +59,7 @@ class LdcBalanceCard extends ConsumerWidget {
         child: InkWell(
           onTap: () => WebViewPage.open(
             context,
-            'https://credit.linux.do/home',
+            _homeUrl,
             title: 'LINUX DO Credits',
           ),
           child: Column(
@@ -159,7 +161,7 @@ class LdcBalanceCard extends ConsumerWidget {
       return GestureDetector(
         onTap: () => WebViewPage.open(
           context,
-          'https://credit.linux.do/home',
+          _homeUrl,
           title: 'LINUX DO Credits',
         ),
         child: Card(
@@ -249,7 +251,7 @@ class LdcBalanceCard extends ConsumerWidget {
     return GestureDetector(
       onTap: () => WebViewPage.open(
         context,
-        'https://credit.linux.do/home',
+        _homeUrl,
         title: 'LINUX DO Credits',
       ),
       child: Card(
