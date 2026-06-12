@@ -146,8 +146,8 @@ final topicDetailProvider = AsyncNotifierProvider.family.autoDispose<TopicDetail
 );
 
 /// 话题 AI 摘要 Provider
-final topicSummaryProvider = FutureProvider.autoDispose
-    .family<TopicSummary?, int>((ref, topicId) async {
+final topicSummaryProvider = StreamProvider.autoDispose
+    .family<TopicSummary?, int>((ref, topicId) {
   final service = ref.read(discourseServiceProvider);
-  return service.getTopicSummary(topicId);
+  return service.watchTopicSummary(topicId);
 });

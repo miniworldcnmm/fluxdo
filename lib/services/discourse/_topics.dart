@@ -365,31 +365,97 @@ mixin _TopicsMixin on _DiscourseServiceBase {
     }
   }
 
-  /// 获取话题 AI 摘要
-  Future<TopicSummary?> getTopicSummary(int topicId, {bool skipAgeCheck = false}) async {
+  /// 获取话题 AI 摘要。
+  ///
+  /// Discourse v2026.5.0 起，生成摘要改为 POST（aa3e44b32cf），传入
+  /// `stream=true` 后通过 MessageBus 频道推送增量结果。
+  Stream<TopicSummary?> watchTopicSummary(
+    int topicId, {
+    bool skipAgeCheck = false,
+  }) async* {
+    final messageBus = MessageBusService();
+    final channel = '/discourse-ai/summaries/topic/$topicId';
+    final updates = StreamController<Map<String, dynamic>>();
+
+    void onMessage(MessageBusMessage message) {
+      final data = message.data;
+      if (!updates.isClosed && data is Map) {
+        updates.add(Map<String, dynamic>.from(data));
+      }
+    }
+
+    messageBus.subscribe(channel, onMessage);
+
     try {
-      final queryParams = <String, dynamic>{};
+      final requestData = <String, dynamic>{'stream': 'true'};
       if (skipAgeCheck) {
-        queryParams['skip_age_check'] = 'true';
+        requestData['skip_age_check'] = 'true';
       }
 
-      final response = await _dio.get(
-        '/discourse-ai/summarization/t/$topicId',
-        queryParameters: queryParams.isNotEmpty ? queryParams : null,
-      );
+      late Response<dynamic> response;
+      try {
+        response = await _dio.post(
+          '/discourse-ai/summarization/t/$topicId',
+          data: requestData,
+          options: Options(contentType: Headers.formUrlEncodedContentType),
+        );
+      } on DioException catch (e) {
+        final statusCode = e.response?.statusCode;
+        if (statusCode != 404 && statusCode != 405) {
+          rethrow;
+        }
 
-      final data = response.data;
-      if (data is Map && data['ai_topic_summary'] != null) {
-        return TopicSummary.fromJson(data['ai_topic_summary'] as Map<String, dynamic>);
+        // 兼容 v2026.5.0 之前仅支持 GET 的 Discourse。
+        response = await _dio.get(
+          '/discourse-ai/summarization/t/$topicId',
+          queryParameters: requestData,
+        );
       }
-      return null;
+
+      final responseData = response.data;
+      if (responseData is Map && responseData['ai_topic_summary'] is Map) {
+        yield TopicSummary.fromJson(
+          Map<String, dynamic>.from(responseData['ai_topic_summary'] as Map),
+        );
+        return;
+      }
+
+      await for (final update in updates.stream) {
+        if (update['error'] == true) {
+          throw StateError(
+            update['message'] as String? ?? 'Topic summary generation failed',
+          );
+        }
+
+        final summaryData = update['ai_topic_summary'];
+        if (summaryData is Map) {
+          final summaryJson = Map<String, dynamic>.from(summaryData);
+          summaryJson['done'] = update['done'];
+          yield TopicSummary.fromJson(summaryJson);
+        }
+
+        if (update['done'] == true) {
+          return;
+        }
+      }
     } on DioException catch (e) {
       if (e.response?.statusCode == 404 || e.response?.statusCode == 403) {
-        return null;
+        yield null;
+        return;
       }
-      debugPrint('[DiscourseService] getTopicSummary failed: $e');
+      debugPrint('[DiscourseService] watchTopicSummary failed: $e');
       rethrow;
+    } finally {
+      messageBus.unsubscribe(channel, onMessage);
+      await updates.close();
     }
+  }
+
+  Future<TopicSummary?> getTopicSummary(
+    int topicId, {
+    bool skipAgeCheck = false,
+  }) {
+    return watchTopicSummary(topicId, skipAgeCheck: skipAgeCheck).last;
   }
 
   /// 获取话题主贴的 HTML 内容（轻量请求，只解析第一楼）

@@ -1746,6 +1746,7 @@ class TopicSummary {
   final bool canRegenerate;
   final int newPostsSinceSummary;
   final DateTime? updatedAt;
+  final bool isStreaming;
 
   TopicSummary({
     required this.summarizedText,
@@ -1754,6 +1755,7 @@ class TopicSummary {
     required this.canRegenerate,
     required this.newPostsSinceSummary,
     this.updatedAt,
+    this.isStreaming = false,
   });
 
   factory TopicSummary.fromJson(Map<String, dynamic> json) {
@@ -1764,6 +1766,7 @@ class TopicSummary {
       canRegenerate: json['can_regenerate'] as bool? ?? false,
       newPostsSinceSummary: json['new_posts_since_summary'] as int? ?? 0,
       updatedAt: TimeUtils.parseUtcTime(json['updated_at'] as String?),
+      isStreaming: json['done'] == false,
     );
   }
 }
