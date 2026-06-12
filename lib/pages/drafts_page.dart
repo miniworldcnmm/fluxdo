@@ -162,13 +162,14 @@ class _DraftsPageState extends ConsumerState<DraftsPage> {
           builder: (_) => CreateTopicPage(draftKey: draft.draftKey),
         ),
       );
-    } else if (draftKey == Draft.newPrivateMessageKey) {
-      // 私信草稿：直接弹出回复框
+    } else if (Draft.isNewPrivateMessageKey(draftKey)) {
+      // 私信草稿：沿用原草稿 key 弹出回复框恢复（网页端 key 带时间戳后缀）
       final recipients = draft.data.recipients;
       if (recipients != null && recipients.isNotEmpty) {
         await showReplySheet(
           context: context,
           targetUsername: recipients.first,
+          draftKey: draftKey,
         );
       } else {
         ToastService.showInfo(S.current.drafts_pmIncomplete);
@@ -302,7 +303,7 @@ class _DraftCard extends StatelessWidget {
     if (draft.isNewTopicDraft) {
       typeLabel = context.l10n.drafts_newTopic;
       typeIcon = Icons.add_circle_outline;
-    } else if (draft.draftKey == Draft.newPrivateMessageKey) {
+    } else if (Draft.isNewPrivateMessageKey(draft.draftKey)) {
       typeLabel = context.l10n.drafts_privateMessage;
       typeIcon = Icons.mail_outline;
     } else if (draft.draftKey.startsWith('topic_')) {

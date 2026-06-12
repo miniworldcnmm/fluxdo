@@ -26,6 +26,7 @@ import '../common/loading_spinner.dart';
 /// [categoryId] 分类 ID（可选，用于用户搜索）
 /// [replyToPost] 可选，被回复的帖子
 /// [targetUsername] 可选，私信目标用户名 (创建私信时必需)
+/// [draftKey] 可选，恢复已有草稿时传入原草稿 key（草稿列表入口使用）
 /// [preloadedDraftFuture] 预加载的草稿 Future（在点击回复按钮时就发起请求）
 /// [initialContent] 可选，预填内容（划词引用时使用）
 /// [initialTitle] 可选，预填标题（私信模式时使用）
@@ -36,6 +37,7 @@ Future<Post?> showReplySheet({
   int? categoryId,
   Post? replyToPost,
   String? targetUsername,
+  String? draftKey,
   Future<Draft?>? preloadedDraftFuture,
   String? initialContent,
   String? initialTitle,
@@ -54,6 +56,7 @@ Future<Post?> showReplySheet({
       categoryId: categoryId,
       replyToPost: replyToPost,
       targetUsername: targetUsername,
+      draftKey: draftKey,
       preloadedDraftFuture: preloadedDraftFuture,
       initialContent: initialContent,
       initialTitle: initialTitle,
@@ -93,6 +96,7 @@ class ReplySheet extends ConsumerStatefulWidget {
   final int? categoryId;
   final Post? replyToPost;
   final String? targetUsername;
+  final String? draftKey; // 恢复已有草稿时传入的原草稿 key
   final Post? editPost; // 编辑模式：要编辑的帖子
   final Future<Draft?>? preloadedDraftFuture; // 预加载的草稿
   final String? initialContent; // 预填内容（划词引用时使用）
@@ -106,6 +110,7 @@ class ReplySheet extends ConsumerStatefulWidget {
     this.categoryId,
     this.replyToPost,
     this.targetUsername,
+    this.draftKey,
     this.editPost,
     this.preloadedDraftFuture,
     this.initialContent,
@@ -138,6 +143,11 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
 
   // Presence 服务（正在输入状态）
   PresenceService? _presenceService;
+
+  // 私信收件人（初始为目标用户，从草稿恢复时还原草稿中的完整收件人列表）
+  late List<String> _recipients = [
+    if (widget.targetUsername != null) widget.targetUsername!,
+  ];
 
   bool get _isPrivateMessage => widget.targetUsername != null;
 
@@ -199,8 +209,16 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
   /// 初始化草稿控制器
   void _initDraftController() {
     String draftKey;
-    if (_isPrivateMessage) {
-      draftKey = Draft.newPrivateMessageKey;
+    var shouldLoadDraft = true;
+    if (widget.draftKey != null) {
+      // 草稿列表入口：沿用原草稿 key 恢复
+      draftKey = widget.draftKey!;
+    } else if (_isPrivateMessage) {
+      // 对齐 Discourse（services/composer.js privateMessageDraftKey）：
+      // 新私信用带时间戳的唯一 key，不自动带回其他私信的草稿，
+      // 避免给 A 写一半的草稿被带进给 B 的私信窗口造成串发
+      draftKey = Draft.generateNewPrivateMessageKey();
+      shouldLoadDraft = false; // 全新 key 服务端必无草稿，跳过加载
     } else if (widget.topicId != null) {
       // 区分回复话题和回复帖子
       draftKey = Draft.replyKey(
@@ -212,7 +230,9 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
     }
 
     _draftController = DraftController(draftKey: draftKey);
-    _loadExistingDraft();
+    if (shouldLoadDraft) {
+      _loadExistingDraft();
+    }
   }
 
   /// 加载现有草稿
@@ -281,8 +301,15 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
         _contentController.text = draft.data.reply!;
       }
     }
-    if (_isPrivateMessage && draft.data.title != null) {
-      _titleController.text = draft.data.title!;
+    if (_isPrivateMessage) {
+      if (draft.data.title != null) {
+        _titleController.text = draft.data.title!;
+      }
+      // 对齐 Discourse loadDraft：收件人以草稿数据为准（支持多收件人）
+      final recipients = draft.data.recipients;
+      if (recipients != null && recipients.isNotEmpty) {
+        setState(() => _recipients = List.of(recipients));
+      }
     }
   }
 
@@ -295,9 +322,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
       title: _isPrivateMessage ? _titleController.text : null,
       action: _isPrivateMessage ? 'privateMessage' : 'reply',
       replyToPostNumber: widget.replyToPost?.postNumber,
-      recipients: _isPrivateMessage && widget.targetUsername != null
-          ? [widget.targetUsername!]
-          : null,
+      recipients: _isPrivateMessage ? _recipients : null,
       archetypeId: _isPrivateMessage ? 'private_message' : 'regular',
     );
 
@@ -349,9 +374,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
           title: _isPrivateMessage ? _titleController.text : null,
           action: _isPrivateMessage ? 'privateMessage' : 'reply',
           replyToPostNumber: widget.replyToPost?.postNumber,
-          recipients: _isPrivateMessage && widget.targetUsername != null
-              ? [widget.targetUsername!]
-              : null,
+          recipients: _isPrivateMessage ? _recipients : null,
           archetypeId: _isPrivateMessage ? 'private_message' : 'regular',
         );
         // 异步保存，不阻塞 dispose
@@ -426,7 +449,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
         Navigator.of(context).pop(updatedPost);
       } else if (_isPrivateMessage) {
         await DiscourseService().createPrivateMessage(
-          targetUsernames: [widget.targetUsername!],
+          targetUsernames: _recipients,
           title: _titleController.text.trim(),
           raw: content,
           draftKey: _draftController?.draftKey,
@@ -581,7 +604,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                                   Expanded(
                                     child: Text(
                                       context.l10n.post_sendPmTitle(
-                                        widget.targetUsername!,
+                                        _recipients.join(', '),
                                       ),
                                       style: theme.textTheme.titleSmall,
                                       overflow: TextOverflow.ellipsis,

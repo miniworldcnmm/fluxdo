@@ -243,13 +243,27 @@ class Draft {
     return draftKey == newTopicKey || draftKey.startsWith('${newTopicKey}_');
   }
 
+  /// 判断是否是新私信草稿 Key。
+  ///
+  /// Discourse 为每个新私信生成带时间戳的 key（`new_private_message_xxxxx`，
+  /// 见 services/composer.js 的 privateMessageDraftKey），需按前缀判断。
+  static bool isNewPrivateMessageKey(String draftKey) {
+    return draftKey == newPrivateMessageKey ||
+        draftKey.startsWith('${newPrivateMessageKey}_');
+  }
+
+  /// 生成新私信草稿 Key（对齐 Discourse：带时间戳的唯一 key，
+  /// 保证每次新建私信不会带回其他私信的草稿）
+  static String generateNewPrivateMessageKey() =>
+      '${newPrivateMessageKey}_${DateTime.now().millisecondsSinceEpoch}';
+
   /// 是否是新话题草稿。
   bool get isNewTopicDraft {
     if (isNewTopicKey(draftKey)) return true;
 
     final action = data.action;
     return draftKey.isNotEmpty &&
-        draftKey != newPrivateMessageKey &&
+        !isNewPrivateMessageKey(draftKey) &&
         !draftKey.startsWith('topic_') &&
         (action == 'createTopic' || action == DraftAction.createTopic.value);
   }

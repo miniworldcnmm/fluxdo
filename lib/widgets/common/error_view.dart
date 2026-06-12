@@ -197,6 +197,7 @@ class ErrorView extends StatelessWidget {
     showAppBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) => ErrorDetailsSheet(details: details),
     );
