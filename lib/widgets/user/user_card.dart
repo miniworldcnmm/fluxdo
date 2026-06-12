@@ -491,10 +491,6 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
     final card = Container(
       decoration: BoxDecoration(
         color: surface,
-        // 背景图整卡铺底（在内容下面），走项目图片层以支持 DoH/CF/缓存
-        image: hasBg
-            ? DecorationImage(image: discourseImageProvider(bg), fit: BoxFit.cover)
-            : null,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           // 桌面端无遮罩，靠更重的投影把卡片从背景中托起来
@@ -516,20 +512,27 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
         ),
       ),
       clipBehavior: Clip.antiAlias,
-      // 内容蒙版：顶部较透出背景，向下过渡到接近不透明以保证可读（对齐 .card-content 半透明）
+      // 背景图与内容蒙版放在同一层（child 内嵌套），保证两者矩形完全重合：
+      // border 会让 Container 给 child 加内边距，若图放在外层 decoration 会比蒙版多出一圈露边。
+      // 背景图走项目图片层以支持 DoH/CF/缓存；蒙版顶部较透出背景，向下过渡到接近不透明保证可读（对齐 .card-content 半透明）。
       child: hasBg
           ? DecoratedBox(
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    surface.withValues(alpha: 0.45),
-                    surface.withValues(alpha: 0.92),
-                  ],
-                ),
+                image: DecorationImage(image: discourseImageProvider(bg), fit: BoxFit.cover),
               ),
-              child: body,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      surface.withValues(alpha: 0.45),
+                      surface.withValues(alpha: 0.92),
+                    ],
+                  ),
+                ),
+                child: body,
+              ),
             )
           : body,
     );
