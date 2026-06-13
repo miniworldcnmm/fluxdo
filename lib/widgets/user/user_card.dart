@@ -11,6 +11,7 @@ import '../../providers/preferences_provider.dart';
 import '../../pages/user_profile_page.dart';
 import '../../services/app_error_handler.dart';
 import '../../services/discourse_cache_manager.dart';
+import '../../services/preloaded_data_service.dart';
 import '../../services/toast_service.dart';
 import '../../utils/dialog_utils.dart';
 import '../../utils/number_utils.dart';
@@ -64,6 +65,16 @@ void showUserCard({
   String? flairBgColor,
   String? flairColor,
 }) {
+  final preloaded = PreloadedDataService();
+  final hideProfilesFromPublic =
+      preloaded.siteSettingsSync?['hide_user_profiles_from_public'] == true;
+  if (hideProfilesFromPublic) {
+    final currentUser = ProviderScope.containerOf(context, listen: false)
+        .read(currentUserProvider)
+        .value;
+    if (currentUser == null && preloaded.currentUserSync == null) return;
+  }
+
   final anchorContext = context;
 
   Widget buildCard(VoidCallback onClose) => _UserCardContent(
@@ -835,10 +846,13 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
   }
 
   Widget _buildActions(ThemeData theme, User? user) {
-    final canMessage = user?.canSendPrivateMessageToUser == true;
-    final canFollow = user?.canFollow == true;
-    final canMute = user?.canMuteUser == true;
-    final canIgnore = user?.canIgnoreUser == true;
+    final isLoggedIn = ref.watch(
+      currentUserProvider.select((value) => value.value != null),
+    );
+    final canMessage = isLoggedIn && user?.canSendPrivateMessageToUser == true;
+    final canFollow = isLoggedIn && user?.canFollow == true;
+    final canMute = isLoggedIn && user?.canMuteUser == true;
+    final canIgnore = isLoggedIn && user?.canIgnoreUser == true;
 
     final primary = <Widget>[];
     if (canMessage) {

@@ -309,11 +309,11 @@ class _LoginPageState extends State<LoginPage>
                           _entry(
                             1,
                             Text(
-                              'Linux.do',
+                              'LINUX.DO',
                               textAlign: TextAlign.center,
                               style: theme.textTheme.headlineMedium?.copyWith(
                                 fontWeight: FontWeight.w700,
-                                letterSpacing: -0.5,
+                                letterSpacing: 1.5,
                                 color: scheme.onSurface,
                               ),
                             ),
