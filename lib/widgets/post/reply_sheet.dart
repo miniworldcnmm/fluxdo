@@ -131,6 +131,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
 
   bool _isSubmitting = false;
   bool _submitted = false; // 提交成功标志，防止 dispose 重新保存草稿
+  bool _discarded = false; // 用户明确舍弃，防止 dispose 重新保存草稿
   bool _showEmojiPanel = false;
   bool _isLoadingRaw = false; // 编辑模式：加载原始内容中
   bool _isLoadingDraft = false; // 加载草稿中
@@ -239,18 +240,9 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
   Future<void> _loadExistingDraft() async {
     setState(() => _isLoadingDraft = true);
     try {
-      Draft? draft;
-      if (widget.preloadedDraftFuture != null) {
-        // 使用预加载的草稿（在点击回复按钮时就已发起请求）
-        draft = await widget.preloadedDraftFuture;
-        if (draft != null) {
-          // 同步 DraftController 的序列号等状态
-          _draftController?.syncFromPreloadedDraft(draft);
-        }
-      } else {
-        // 没有预加载，正常加载
-        draft = await _draftController?.loadDraft();
-      }
+      final draft = await _draftController?.loadDraft(
+        preloadedDraftFuture: widget.preloadedDraftFuture,
+      );
       if (!mounted) return;
 
       if (draft != null && draft.hasContent) {
@@ -286,6 +278,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
     );
 
     if (confirm == true && mounted) {
+      _discarded = true;
       await _draftController?.deleteDraft();
       if (mounted) Navigator.of(context).pop();
     }
@@ -364,7 +357,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
     _titleController.removeListener(_onContentChanged);
 
     // 关闭时处理草稿：已提交则跳过，有内容则保存，无内容则删除
-    if (_draftController != null && !_submitted) {
+    if (_draftController != null && !_submitted && !_discarded) {
       final hasContent =
           _contentController.text.trim().isNotEmpty ||
           (_isPrivateMessage && _titleController.text.trim().isNotEmpty);

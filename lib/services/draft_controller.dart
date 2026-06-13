@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../models/draft.dart';
 import 'discourse/discourse_service.dart';
+import 'local_draft_store.dart';
 
 /// 草稿保存状态
 enum DraftSaveStatus {
@@ -17,20 +18,26 @@ enum DraftSaveStatus {
 class DraftController {
   final String draftKey;
   final DiscourseService _service;
+  final LocalDraftStore _localStore;
+  final Future<String?> Function() _accountIdResolver;
 
   /// 防抖延迟时间
   static const _debounceDelay = Duration(seconds: 2);
+  static const _localDebounceDelay = Duration(milliseconds: 400);
 
   /// 当前序列号
   int _sequence = 0;
   int get sequence => _sequence;
 
   /// 上次保存的内容快照（用于检测变化）
-  String? _lastSavedContent;
-  String? _lastSavedTitle;
+  String? _lastSavedData;
 
   /// 防抖定时器
   Timer? _debounceTimer;
+  Timer? _localDebounceTimer;
+  DraftData? _pendingLocalData;
+  Future<void> _localOperationFuture = Future.value();
+  Future<String?>? _accountIdFuture;
 
   /// 保存状态
   final _statusNotifier = ValueNotifier<DraftSaveStatus>(DraftSaveStatus.idle);
@@ -53,42 +60,83 @@ class DraftController {
   DraftController({
     required this.draftKey,
     DiscourseService? service,
-  }) : _service = service ?? DiscourseService();
+    LocalDraftStore? localStore,
+    Future<String?> Function()? accountIdResolver,
+  }) : _service = service ?? DiscourseService(),
+       _localStore = localStore ?? LocalDraftStore(),
+       _accountIdResolver =
+           accountIdResolver ??
+           (() => (service ?? DiscourseService()).getUsername());
 
   /// 加载现有草稿
   /// 返回草稿数据，如果不存在返回 null
-  Future<Draft?> loadDraft() async {
+  Future<Draft?> loadDraft({Future<Draft?>? preloadedDraftFuture}) async {
+    Draft? serverDraft;
     try {
-      final draft = await _service.getDraft(draftKey);
-      if (draft != null) {
-        _sequence = draft.sequence;
-        _lastSavedContent = draft.data.reply;
-        _lastSavedTitle = draft.data.title;
-      }
-      return draft;
+      serverDraft = await (preloadedDraftFuture ?? _service.getDraft(draftKey));
     } catch (e) {
-      debugPrint('[DraftController] loadDraft failed: $e');
-      return null;
+      debugPrint('[DraftController] load server draft failed: $e');
     }
+
+    if (serverDraft != null) {
+      _sequence = serverDraft.sequence;
+      _lastSavedData = serverDraft.data.toJsonString();
+    }
+
+    final localDraft = await _readLocalDraft();
+    if (localDraft == null) return serverDraft;
+
+    if (serverDraft != null &&
+        serverDraft.data.toJsonString() == localDraft.data.toJsonString()) {
+      await _deleteLocalIfMatches(localDraft.data);
+      return serverDraft;
+    }
+
+    _sequence = serverDraft?.sequence ?? localDraft.sequence;
+    return (serverDraft ??
+            Draft(
+              draftKey: draftKey,
+              data: localDraft.data,
+              sequence: _sequence,
+              updatedAt: localDraft.updatedAt,
+            ))
+        .copyWith(
+          data: localDraft.data,
+          sequence: _sequence,
+          updatedAt: localDraft.updatedAt,
+        );
   }
 
-  /// 从预加载的草稿同步状态
-  /// 用于预加载场景：点击按钮时发起请求，打开编辑器后同步状态
-  void syncFromPreloadedDraft(Draft draft) {
-    _sequence = draft.sequence;
-    _lastSavedContent = draft.data.reply;
-    _lastSavedTitle = draft.data.title;
+  Future<LocalDraftEntry?> _readLocalDraft() async {
+    if (kIsWeb) return null;
+    try {
+      final accountId = await _resolveAccountId();
+      if (accountId == null) return null;
+      return _localStore.read(accountId, draftKey);
+    } catch (e) {
+      debugPrint('[DraftController] load local draft failed: $e');
+      return null;
+    }
   }
 
   /// 触发自动保存（带防抖）
   void scheduleSave(DraftData data) {
     if (_disposed || _disabled) return;
 
-    // 没有内容时不保存
-    if (!data.hasContent) return;
+    // 清空内容时取消尚未执行的保存，并清掉本地兜底。
+    if (!data.hasContent) {
+      _debounceTimer?.cancel();
+      _localDebounceTimer?.cancel();
+      _pendingLocalData = null;
+      unawaited(_deleteLocal());
+      _statusNotifier.value = DraftSaveStatus.idle;
+      return;
+    }
 
     // 检查内容是否有变化
     if (!_hasContentChanged(data)) return;
+
+    _scheduleLocalSave(data);
 
     _debounceTimer?.cancel();
     _statusNotifier.value = DraftSaveStatus.pending;
@@ -109,6 +157,8 @@ class DraftController {
     if (_disposed || _disabled) return;
 
     _debounceTimer?.cancel();
+    await _saveLocalNow(data);
+    if (_disposed || _disabled) return;
 
     // 没有内容时不保存
     if (!data.hasContent) return;
@@ -127,6 +177,9 @@ class DraftController {
   /// 执行保存
   Future<void> _save(DraftData data) async {
     if (_disposed) return;
+
+    await _saveLocalNow(data);
+    if (_disposed || _disabled) return;
 
     // 添加编辑时长信息
     final composerTime = DateTime.now().difference(_openedAt).inMilliseconds;
@@ -151,8 +204,8 @@ class DraftController {
         sequence: sentSequence,
       );
       _sequence = newSequence;
-      _lastSavedContent = data.reply;
-      _lastSavedTitle = data.title;
+      _lastSavedData = data.toJsonString();
+      await _deleteLocalIfMatches(data);
       if (!_disposed) {
         _statusNotifier.value = DraftSaveStatus.saved;
       }
@@ -167,8 +220,8 @@ class DraftController {
           forceSave: true,
         );
         _sequence = newSequence;
-        _lastSavedContent = data.reply;
-        _lastSavedTitle = data.title;
+        _lastSavedData = data.toJsonString();
+        await _deleteLocalIfMatches(data);
         if (!_disposed) {
           _statusNotifier.value = DraftSaveStatus.saved;
         }
@@ -194,6 +247,8 @@ class DraftController {
   /// 会等待正在进行的保存操作完成后再删除，避免并发竞态
   Future<void> deleteDraft() async {
     _debounceTimer?.cancel();
+    _localDebounceTimer?.cancel();
+    _pendingLocalData = null;
 
     // 等待正在进行的保存完成，确保拿到最新的 sequence
     if (_saveFuture != null) {
@@ -204,12 +259,97 @@ class DraftController {
       await _service.deleteDraft(draftKey, sequence: _sequence);
     } catch (e) {
       debugPrint('[DraftController] deleteDraft failed: $e');
+    } finally {
+      await _deleteLocal();
     }
+  }
+
+  void _scheduleLocalSave(DraftData data) {
+    if (kIsWeb) return;
+    _localDebounceTimer?.cancel();
+    _pendingLocalData = data;
+    _localDebounceTimer = Timer(_localDebounceDelay, () {
+      unawaited(_flushPendingLocalWrite());
+    });
+  }
+
+  Future<void> _saveLocalNow(DraftData data) async {
+    if (kIsWeb) return;
+    _localDebounceTimer?.cancel();
+    if (!data.hasContent) return;
+    _pendingLocalData = null;
+    await _enqueueLocalWrite(data);
+  }
+
+  Future<void> _flushPendingLocalWrite() async {
+    final data = _pendingLocalData;
+    _pendingLocalData = null;
+    if (data == null || !data.hasContent) return;
+    await _enqueueLocalWrite(data);
+  }
+
+  Future<void> _enqueueLocalWrite(DraftData data) {
+    return _enqueueLocalOperation(() async {
+      final accountId = await _resolveAccountId();
+      if (accountId == null) return;
+      await _localStore.write(
+        accountId: accountId,
+        draftKey: draftKey,
+        data: data,
+        sequence: _sequence,
+      );
+    }, 'save local draft');
+  }
+
+  Future<void> _deleteLocalIfMatches(DraftData data) async {
+    if (kIsWeb) return;
+    _localDebounceTimer?.cancel();
+    await _flushPendingLocalWrite();
+    await _enqueueLocalOperation(() async {
+      final accountId = await _resolveAccountId();
+      if (accountId == null) return;
+      await _localStore.deleteIfMatches(
+        accountId: accountId,
+        draftKey: draftKey,
+        data: data,
+      );
+    }, 'clear synced local draft');
+  }
+
+  Future<void> _deleteLocal() {
+    if (kIsWeb) return Future.value();
+    return _enqueueLocalOperation(() async {
+      final accountId = await _resolveAccountId();
+      if (accountId == null) return;
+      await _localStore.delete(accountId, draftKey);
+    }, 'delete local draft');
+  }
+
+  Future<void> _enqueueLocalOperation(
+    Future<void> Function() operation,
+    String operationName,
+  ) {
+    final previous = _localOperationFuture;
+    final next = () async {
+      try {
+        await previous;
+        await operation();
+      } catch (e) {
+        debugPrint('[DraftController] $operationName failed: $e');
+      }
+    }();
+    _localOperationFuture = next;
+    return next;
+  }
+
+  Future<String?> _resolveAccountId() async {
+    final accountId = await (_accountIdFuture ??= _accountIdResolver());
+    return accountId == null || accountId.isEmpty ? null : accountId;
   }
 
   /// 检查内容是否有变化
   bool _hasContentChanged(DraftData data) {
-    return data.reply != _lastSavedContent || data.title != _lastSavedTitle;
+    return data.toJsonString() != _lastSavedData;
   }
 
   /// 永久禁用本控制器的草稿保存
@@ -237,6 +377,8 @@ class DraftController {
   void dispose() {
     _disposed = true;
     _debounceTimer?.cancel();
+    _localDebounceTimer?.cancel();
+    _pendingLocalData = null;
     _statusNotifier.dispose();
   }
 }

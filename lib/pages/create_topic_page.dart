@@ -59,6 +59,7 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
   List<String> _selectedTags = [];
   bool _isSubmitting = false;
   bool _submitted = false; // 提交成功标志，防止 dispose 重新保存草稿
+  bool _discarded = false; // 用户明确舍弃，防止 dispose 重新保存草稿
   bool _showPreview = false;
   String? _templateContent;
   bool _isLoadingDraft = false;
@@ -225,6 +226,7 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
     );
 
     if (confirm == true && mounted) {
+      _discarded = true;
       await _draftController.deleteDraft();
       if (mounted) Navigator.of(context).pop();
     }
@@ -269,7 +271,7 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
     _contentController.removeListener(_onDraftContentChanged);
 
     // 关闭时处理草稿：已提交则跳过，有内容则保存，无内容则删除
-    if (!_submitted) {
+    if (!_submitted && !_discarded) {
       if (_titleController.text.trim().isNotEmpty ||
           _contentController.text.trim().isNotEmpty) {
         final data = DraftData(
