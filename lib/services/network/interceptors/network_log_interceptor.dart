@@ -16,10 +16,13 @@ class NetworkLogInterceptor extends Interceptor {
   @override
   void onResponse(Response response, ResponseInterceptorHandler handler) {
     if (response.requestOptions.extra['skipNetworkLog'] != true) {
+      // isSilent（MessageBus 长轮询等后台请求）成功属于常态，
+      // 记为 debug 避免高频条目淹没日志
+      final isSilent = response.requestOptions.extra['isSilent'] == true;
       _logRequest(
         options: response.requestOptions,
         statusCode: response.statusCode,
-        level: 'info',
+        level: isSilent ? 'debug' : 'info',
       );
     }
     handler.next(response);

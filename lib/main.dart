@@ -57,7 +57,6 @@ import 'services/message_bus_service.dart';
 import 'services/connectivity_service.dart';
 import 'services/log/json_file_handler.dart';
 import 'services/log/log_writer.dart';
-import 'services/log/logger_utils.dart';
 import 'services/download_service.dart';
 import 'services/migration_service.dart';
 import 'services/navigation/app_route_observer.dart';
@@ -129,6 +128,13 @@ Future<void> _applyAndroidDisplayMode(SharedPreferences prefs) async {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Release 模式下禁用 debugPrint 输出：全项目有数百处 debugPrint 调试输出，
+  // 它们在 release 下默认仍会写 logcat/console，徒增 I/O 开销。
+  // 需要持久化的日志统一走 AppLogger（落盘到统一 JSONL）。
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
 
   // Flutter ImageCache 默认 100 MB / 1000 项。两个上限任一超过就 LRU evict。
   //
@@ -235,8 +241,11 @@ Future<void> main() async {
 
   // 阶段 2：依赖 prefs 的步骤并行
   final crashlyticsEnabled = prefs.getBool('pref_crashlytics') ?? true;
+  final developerMode = prefs.getBool('developer_mode') ?? false;
+  CfChallengeLogger.setEnabled(developerMode);
+  // 开发者模式下 debug 级日志落盘（高频追踪信息）
+  AppLogger.setVerbose(developerMode);
   await Future.wait([
-    CfChallengeLogger.setEnabled(prefs.getBool('developer_mode') ?? false),
     CronetFallbackService.instance.initialize(prefs),
     ProxySettingsService.instance.initialize(prefs),
     if (Platform.isAndroid)
@@ -325,9 +334,6 @@ Future<void> main() async {
     'event': 'app_start',
     'message': '应用启动',
   });
-
-  // 清理过期日志（14 天前）
-  LoggerUtils.cleanExpiredLogs().ignore();
 
   // 注入 AI 模型管理包的消息提示实现
   AiToastDelegate.configure((message, {type = AiToastType.info}) {

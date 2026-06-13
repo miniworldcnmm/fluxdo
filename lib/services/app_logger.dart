@@ -1,12 +1,13 @@
-import 'package:catcher_2/catcher_2.dart';
 import 'package:flutter/foundation.dart';
 
 import 'log/log_writer.dart';
 
 /// 统一日志入口
 ///
-/// - `info()` / `warning()` 在 Debug 模式输出到控制台，同时写入文件
-/// - `error()` 在 Debug 模式输出到控制台，同时桥接到 Catcher2 写入日志文件
+/// - `debug()` 控制台总是输出（Debug 模式），仅开发者模式落盘，用于高频追踪
+/// - `info()` / `warning()` / `error()` 控制台输出（Debug 模式）+ 写入文件
+/// - 所有级别支持 `fields` 附加结构化字段（可覆盖 type 等内置字段），
+///   方便在日志页按字段筛选和展示
 class AppLogger {
   AppLogger._();
 
@@ -17,48 +18,45 @@ class AppLogger {
     _enabled = enabled;
   }
 
+  /// 设置详细日志（debug 级落盘），跟随开发者模式
+  static void setVerbose(bool verbose) {
+    LogWriter.verboseEnabled = verbose;
+  }
+
+  /// 调试级别日志：高频追踪信息，仅开发者模式落盘
+  static void debug(
+    String message, {
+    String? tag,
+    Map<String, dynamic>? fields,
+  }) {
+    _log('debug', message, tag: tag, fields: fields);
+  }
+
   /// 信息级别日志（控制台 + 文件）
-  static void info(String message, {String? tag}) {
-    if (!_enabled) return;
-
-    if (kDebugMode) {
-      debugPrint(_format('INFO', tag, message));
-    }
-
-    // 写入文件（fire-and-forget）
-    LogWriter.instance.write({
-      'timestamp': DateTime.now().toIso8601String(),
-      'level': 'info',
-      'type': 'general',
-      'message': message,
-      if (tag != null) 'tag': tag,
-    });
+  static void info(
+    String message, {
+    String? tag,
+    Map<String, dynamic>? fields,
+  }) {
+    _log('info', message, tag: tag, fields: fields);
   }
 
   /// 警告级别日志（控制台 + 文件）
-  static void warning(String message, {String? tag}) {
-    if (!_enabled) return;
-
-    if (kDebugMode) {
-      debugPrint(_format('WARN', tag, message));
-    }
-
-    // 写入文件（fire-and-forget）
-    LogWriter.instance.write({
-      'timestamp': DateTime.now().toIso8601String(),
-      'level': 'warning',
-      'type': 'general',
-      'message': message,
-      if (tag != null) 'tag': tag,
-    });
+  static void warning(
+    String message, {
+    String? tag,
+    Map<String, dynamic>? fields,
+  }) {
+    _log('warning', message, tag: tag, fields: fields);
   }
 
-  /// 错误级别日志（控制台 + 写入文件）
+  /// 错误级别日志（控制台 + 文件，立即落盘）
   static void error(
     String message, {
     String? tag,
     Object? error,
     StackTrace? stackTrace,
+    Map<String, dynamic>? fields,
   }) {
     if (!_enabled) return;
 
@@ -68,15 +66,41 @@ class AppLogger {
       if (stackTrace != null) debugPrint('  StackTrace: $stackTrace');
     }
 
-    // 桥接到 Catcher2，写入日志文件
-    Catcher2.reportCheckedError(
-      error ?? message,
-      stackTrace ?? StackTrace.current,
-      extraData: {
-        if (tag != null) 'tag': tag,
-        'message': message,
-      },
-    );
+    final trace = stackTrace ?? StackTrace.current;
+    LogWriter.instance.write({
+      'timestamp': DateTime.now().toIso8601String(),
+      'level': 'error',
+      'type': 'general',
+      'message': message,
+      if (tag != null) 'tag': tag,
+      'error': error?.toString() ?? message,
+      'errorType': error?.runtimeType.toString(),
+      'stackTrace': trace.toString(),
+      ...?fields,
+    });
+  }
+
+  static void _log(
+    String level,
+    String message, {
+    String? tag,
+    Map<String, dynamic>? fields,
+  }) {
+    if (!_enabled) return;
+
+    if (kDebugMode) {
+      debugPrint(_format(level.toUpperCase(), tag, message));
+    }
+
+    // 写入文件（fire-and-forget，缓冲批量落盘）
+    LogWriter.instance.write({
+      'timestamp': DateTime.now().toIso8601String(),
+      'level': level,
+      'type': 'general',
+      'message': message,
+      if (tag != null) 'tag': tag,
+      ...?fields,
+    });
   }
 
   /// 格式化日志消息，兼容现有 `debugPrint('[模块名] 消息')` 约定

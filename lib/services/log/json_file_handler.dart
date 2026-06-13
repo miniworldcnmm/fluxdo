@@ -11,6 +11,8 @@ class JsonFileHandler extends ReportHandler {
     try {
       final entry = _buildJsonEntry(report);
       LogWriter.instance.write(entry);
+      // 未捕获异常可能伴随崩溃，立即落盘缓冲避免丢失现场
+      await LogWriter.instance.flushNow();
       return true;
     } catch (e) {
       logger.warning('JsonFileHandler 写入失败: $e');

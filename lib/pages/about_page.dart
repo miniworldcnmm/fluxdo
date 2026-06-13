@@ -3,6 +3,7 @@ import 'package:jovial_svg/jovial_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../services/app_logger.dart';
 import '../services/cf_challenge_logger.dart';
 import '../services/toast_service.dart';
 import '../services/update_checker_helper.dart';
@@ -63,10 +64,9 @@ class _AboutPageState extends State<AboutPage> {
   Future<void> _setDeveloperMode(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('developer_mode', enabled);
-    if (!enabled) {
-      await CfChallengeLogger.clear();
-    }
-    await CfChallengeLogger.setEnabled(enabled);
+    CfChallengeLogger.setEnabled(enabled);
+    // 开发者模式控制 debug 级日志是否落盘
+    AppLogger.setVerbose(enabled);
     if (mounted) {
       setState(() => _developerMode = enabled);
     }

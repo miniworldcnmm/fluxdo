@@ -185,14 +185,19 @@ class WebViewSettings {
   /// 在 `onWebViewCreated` 拿到 controller 后调用一次。
   ///
   /// JS 侧通过 `flutter_inappwebview.callHandler('onWebViewJsError', payload)` 发，
-  /// 按 `source` 字段路由：
-  /// - `lifecycle` → info 级别 + event=webview_compat_ready，带 polyfill 自检 probes/missing
-  /// - `console.error` → error 级别，能突破跨域 sanitization 拿到 Discourse 自家 stack
-  /// - `window.error` / `unhandledrejection` → error 级别，uncaught 兜底（跨域时 sanitized）
+  /// 按 `source` 字段路由（统一 debug 级，仅开发者模式落盘）：
+  /// - `lifecycle` → event=boot 阶段名，带 polyfill 自检 probes/missing
+  /// - `console.error` → 能突破跨域 sanitization 拿到 Discourse 自家 stack
+  /// - `window.error` / `unhandledrejection` → uncaught 兜底（跨域时 sanitized）
+  ///
+  /// 这些都是 WebView 诊断信息：日常浏览、贴内嵌入(iframe)、外链页面的 JS 报错
+  /// 与 app 自身无关，常态全部丢弃；排查老设备白屏/兼容性时开开发者模式即可收集。
   static void registerJsErrorReporter(InAppWebViewController controller) {
     controller.addJavaScriptHandler(
       handlerName: 'onWebViewJsError',
       callback: (args) {
+        // 非开发者模式直接丢弃，省去 Map 构造与跨进程数据落盘
+        if (!LogWriter.verboseEnabled) return null;
         if (args.isEmpty) return null;
         try {
           final raw = args[0];
@@ -211,7 +216,7 @@ class WebViewSettings {
             final msg = data['message']?.toString() ?? 'compat_bundle_loaded';
             LogWriter.instance.write({
               'timestamp': DateTime.now().toIso8601String(),
-              'level': 'info',
+              'level': 'debug',
               'type': 'webview_compat',
               'event': msg,
               'message': msg,
@@ -229,7 +234,7 @@ class WebViewSettings {
           } else {
             LogWriter.instance.write({
               'timestamp': DateTime.now().toIso8601String(),
-              'level': 'error',
+              'level': 'debug',
               'type': 'webview_js',
               'event': 'js_runtime_error',
               'message': data['message']?.toString() ?? 'unknown',

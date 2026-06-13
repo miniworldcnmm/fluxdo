@@ -35,7 +35,7 @@ import '../message_bus_service.dart';
 import '../login_ready_coordinator.dart';
 import '../network/discourse_dio.dart';
 import '../preloaded_data_service.dart';
-import '../auth_log_service.dart';
+import '../app_logger.dart';
 import '../log/log_writer.dart';
 import '../network/exceptions/api_exception.dart';
 import '../storage/resilient_secure_storage.dart';

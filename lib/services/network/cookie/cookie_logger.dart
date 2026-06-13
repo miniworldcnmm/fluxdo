@@ -184,7 +184,8 @@ class CookieLogger {
   }) {
     final level = switch (event) {
       'failed' => 'warning',
-      'noop' => 'debug',
+      // invoked / noop 每次 sweep 都会产生，记为 debug 仅开发者模式落盘
+      'noop' || 'invoked' => 'debug',
       _ => 'info',
     };
     final msg = 'sweep_$event: $name @ $url';

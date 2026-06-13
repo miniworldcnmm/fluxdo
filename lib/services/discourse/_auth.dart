@@ -439,14 +439,18 @@ mixin _AuthMixin on _DiscourseServiceBase {
               data is Map &&
               data['error_type'] == 'not_logged_in') {
             final jarTToken = sessionState.tToken;
-            await AuthLogService().logAuthInvalid(
-              source: 'error_response',
-              reason: data['error_type']?.toString() ?? 'not_logged_in',
-              extra: {
+            AppLogger.warning(
+              '认证失效: source=error_response, reason=${data['error_type'] ?? 'not_logged_in'}',
+              tag: 'Auth',
+              fields: {
+                'type': 'auth',
+                'event': 'auth_invalid',
+                'source': 'error_response',
+                'reason': data['error_type']?.toString() ?? 'not_logged_in',
                 'method': error.requestOptions.method,
                 'url': error.requestOptions.uri.toString(),
                 'statusCode': error.response?.statusCode,
-                'errors': data['errors'],
+                'errors': data['errors']?.toString(),
                 'jarHasToken': jarTToken != null && jarTToken.isNotEmpty,
                 'jarTokenLength': jarTToken?.length,
                 'memHasToken': _tToken != null && _tToken!.isNotEmpty,
@@ -631,10 +635,14 @@ mixin _AuthMixin on _DiscourseServiceBase {
     final sentCookieHeader = requestOptions.headers['cookie']?.toString() ?? '';
     final sentTMatch = RegExp(r'(?:^|;\s*)_t=([^;]*)').firstMatch(sentCookieHeader);
 
-    await AuthLogService().logAuthInvalid(
-      source: source,
-      reason: 'discourse-logged-out',
-      extra: {
+    AppLogger.warning(
+      '认证失效: source=$source, reason=discourse-logged-out',
+      tag: 'Auth',
+      fields: {
+        'type': 'auth',
+        'event': 'auth_invalid',
+        'source': source,
+        'reason': 'discourse-logged-out',
         'method': requestOptions.method,
         'url': requestOptions.uri.toString(),
         'statusCode': statusCode,

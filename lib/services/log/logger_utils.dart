@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../constants.dart';
@@ -15,19 +16,15 @@ import 'log_writer.dart';
 class LoggerUtils {
   LoggerUtils._();
 
-  /// 过期天数
-  static const int _expireDays = 14;
-
   /// 获取日志文件
   static Future<File> getLogFile() => LogWriter.getLogFile();
 
   /// 生成带设备/APP 头信息的分享文件，返回临时文件路径
   static Future<String> getShareFilePath() async {
     final header = await _buildShareHeader();
-    final logFile = await getLogFile();
-    final logContent =
-        logFile.existsSync() ? await LogWriter.readContentSafely(logFile) : '';
+    final logContent = await LogWriter.readAllContent();
 
+    final logFile = await getLogFile();
     final dir = logFile.parent;
     final shareFile = File('${dir.path}/app_log_share.jsonl');
     await shareFile.writeAsString('$header$logContent');
@@ -241,16 +238,18 @@ class LoggerUtils {
     return url;
   }
 
-  /// 读取并解析 JSONL，逆序返回（最新在前）
+  /// 读取并解析 JSONL，逆序返回（最新在前）。
+  /// 解析放 isolate，避免数 MB JSONL 在主线程 jsonDecode 造成掉帧。
   /// 对旧格式条目（无 level/type 字段）默认当作 error + general
   static Future<List<Map<String, dynamic>>> readLogEntries() async {
-    final file = await getLogFile();
-    if (!file.existsSync()) return [];
-
-    final content = await LogWriter.readContentSafely(file);
+    final content = await LogWriter.readAllContent();
     if (content.trim().isEmpty) return [];
+    return compute(_parseLogEntries, content);
+  }
 
-    final lines = content.trim().split('\n');
+  /// isolate 入口：JSONL 文本 → 条目列表（最新在前）
+  static List<Map<String, dynamic>> _parseLogEntries(String content) {
+    final lines = content.split('\n');
     final entries = <Map<String, dynamic>>[];
 
     for (final line in lines) {
@@ -279,48 +278,8 @@ class LoggerUtils {
   }
 
   /// 读取原始文本（用于复制/分享）
-  static Future<String> readLogContent() async {
-    final file = await getLogFile();
-    if (!file.existsSync()) return '';
-    return LogWriter.readContentSafely(file);
-  }
-
-  /// 清理 14 天前的过期条目
-  static Future<void> cleanExpiredLogs() async {
-    final file = await getLogFile();
-    if (!file.existsSync()) return;
-
-    final content = await LogWriter.readContentSafely(file);
-    if (content.trim().isEmpty) return;
-
-    final lines = content.trim().split('\n');
-    final now = DateTime.now();
-    final retained = <String>[];
-
-    for (final line in lines) {
-      if (line.trim().isEmpty) continue;
-      try {
-        final json = jsonDecode(line) as Map<String, dynamic>;
-        final timestamp = json['timestamp'] as String?;
-        if (timestamp != null) {
-          final time = DateTime.tryParse(timestamp);
-          if (time != null && now.difference(time).inDays < _expireDays) {
-            retained.add(line);
-          }
-        }
-      } catch (_) {
-        // 无法解析的行也丢弃
-      }
-    }
-
-    await file.writeAsString('${retained.join('\n')}\n');
-  }
+  static Future<String> readLogContent() => LogWriter.readAllContent();
 
   /// 清空日志
-  static Future<void> clearLogs() async {
-    final file = await getLogFile();
-    if (file.existsSync()) {
-      await file.writeAsString('');
-    }
-  }
+  static Future<void> clearLogs() => LogWriter.instance.clearAll();
 }
