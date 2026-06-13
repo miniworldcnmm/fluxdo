@@ -8,6 +8,7 @@ on:
 env:
   IS_STABLE: ${{ !contains(github.ref, '-') }}
   FLUTTER_LINUX_VERSION: '3.44.0'
+  ANDROID_NDK_VERSION: '27.3.13750724'
 
 jobs:
   build:
@@ -116,7 +117,15 @@ jobs:
         if: startsWith(matrix.platform, 'android')
         uses: android-actions/setup-android@v3
         with:
-          packages: 'ndk;25.2.9519653'
+          packages: 'ndk;${{ env.ANDROID_NDK_VERSION }}'
+
+      - name: Configure Android NDK path
+        if: startsWith(matrix.platform, 'android')
+        run: |
+          ndk_path="${ANDROID_HOME}/ndk/${ANDROID_NDK_VERSION}"
+          test -d "${ndk_path}"
+          echo "ANDROID_NDK_HOME=${ndk_path}" >> "${GITHUB_ENV}"
+          echo "ANDROID_NDK_ROOT=${ndk_path}" >> "${GITHUB_ENV}"
 
       - name: Setup Android Signing
         if: startsWith(matrix.platform, 'android')
@@ -390,10 +399,14 @@ jobs:
 
       - name: Extract Flatpak source tree
         run: |
+          echo "解包前:" && df -h /
           rm -rf flatpak/stage/source-tree
           mkdir -p flatpak/stage/source-tree
           tar -xzf .artifacts/flatpak/fluxdo-flatpak-source-tree.tar.gz -C flatpak/stage/source-tree
+          rm -rf .artifacts/flatpak
           ls -la flatpak/stage/source-tree
+          du -sh flatpak/stage/source-tree flatpak/stage/wpe-layer || true
+          echo "解包并清理源包后:" && df -h /
 
       - name: Build Flatpak bundle
         uses: flatpak/flatpak-github-actions/flatpak-builder@v6
