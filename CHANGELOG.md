@@ -2,6 +2,124 @@
 
 所有版本的变更记录。beta / rc 版本提交在 stable 发版时会折叠并入对应 stable 版本。
 
+## [0.2.18] - 2026-06-13
+
+
+### 🌟 新功能
+
+- 登录页调整 by @Lingyan000
+
+- 增加本地草稿兜底缓存 by @Lingyan000
+
+- 优化启动页 UI 并统一氛围页角落按钮 by @Lingyan000
+
+- 点击通知跳转后不再主动关闭通知面板 by @Lingyan000
+
+- 统一登录文案为 LINUX.DO by @Lingyan000
+
+- 调整主题预览弹窗自适应高度 by @Lingyan000
+
+- 支持话题摘要流式更新 by @Lingyan000
+
+- Cdk 卡片跳转地址更改 by @Lingyan000
+
+- 头像点击改弹用户卡片:基于话题私信/关注/静音忽略 by @Lingyan000
+
+- 统一错误页 UI:补网络设置入口 + 收敛 9 个页面到 ErrorView by @Lingyan000
+
+- MessageBus 对齐官方 v4 协议：消除 iOS 100ms 重连风暴 by @Lingyan000
+
+- CF 验证期间冻结业务请求：模拟网页 CF 403 直接停滞 by @Lingyan000
+
+- 编辑器工具栏极简化：网格工具面板 + 可自定义外显工具 by @Lingyan000
+
+- Boost 弹幕化 + 阅读设置开关 by @Lingyan000
+
+- 移除「连通性检查」,「测试模型」按钮挪到 AppBar by @Lingyan000
+
+- 支持 Boost 举报功能 (#279) ([#279](https://github.com/lingyan000/fluxdo/pull/279)) by @miniworldcnmm
+
+- 登录 dialog CSRF 403 自动重过 CF 验证 by @Lingyan000
+
+
+### 🐛 修复
+
+- 修复私信草稿 key 恢复和收件人同步 by @Lingyan000
+
+- 用户卡片背景图露边:背景图移入 child 与渐变蒙版同层,避免 border 内缩导致边缘未被遮罩覆盖 by @Lingyan000
+
+- Cookie 读写加固:显式删除被新鲜度仲裁拦截 + 并发写竞态 + 每响应全量写盘 by @Lingyan000
+
+- Cf_clearance 新旧变体打架致 cdk 反复 403:jar 版本化防旧盖新 + native 精确删 by @Lingyan000
+
+- 关键词过滤场景下话题列表死循环 loadMore 导致下拉刷新卡 loading by @Lingyan000
+
+- Profile 页下拉刷新 LDC/CDK 卡片无 spinner 也不刷数据 by @Lingyan000
+
+- LDC 今日收益偶发 +0:score 与 LDC 数据解耦,展示层组合 by @Lingyan000
+
+- 多图发帖偶发永久裂图:lookup-urls 失败不再缓存 null + 批量合并加 429 重试 by @Lingyan000
+
+- 草稿偶发 409:对齐 Discourse 前端的 sequence 三板斧 by @Lingyan000
+
+- 复制日志炸 TransactionTooLargeException:>1MB 回退分享 by @Lingyan000
+
+- CF 速率限制 challenge 返 429:拦截器只看 403 漏判 by @Lingyan000
+
+- 修登录后 ProfilePage 卡 loading：refresher 改用 ProviderContainer by @Lingyan000
+
+- 修 rhttp 写死 30s timeout 截断长请求：违反 HttpClientAdapter 契约 by @Lingyan000
+
+- 修 macOS CF 验证死循环：补齐 WKWebView 半截 UA by @Lingyan000
+
+- 修 AI 对话表格 1px 溢出：totalWidth 算错列间分隔线 by @Lingyan000
+
+- 修 footer 操作栏溢出：表情叠叠乐 + 弹幕开关挪到 header by @Lingyan000
+
+- 修 Anthropic 多个真实失败 + baseUrl 自动补 /v1 + 诊断增强 by @Lingyan000
+
+- 修预见式返回手势进行中锁屏致 UI 卡死 by @Lingyan000
+
+
+### ⚡ 性能
+
+- DoH 提速:接入 h2 MITM 开关 + 升级 doh_proxy 子模块 by @Lingyan000
+
+- 表情面板滚动卡顿:缓存 panel/页面实例阻断 rebuild 级联 by @Lingyan000
+
+- AVIF 解码:缩略图单帧解码 + 并发 1→4 恢复预热 + 预览流式逐帧 by @Lingyan000
+
+- 图片加载地基:缓存索引 JSON→Hive + 失败 evict 自动重试 + 下载全局限流 by @Lingyan000
+
+
+### ♻️ 重构
+
+- 日志系统重构:统一入口 + 缓冲落盘轮换 + 日志页重做 by @Lingyan000
+
+
+### 🔧 其他
+
+- Keep node tools for crashlytics upload by @Lingyan000
+
+- Fix release workflow failures by @Lingyan000
+
+- 👷 TG 发布失败不再静默：CI 报错可重跑 + 回收半截消息，并美化消息模板 by @Lingyan000
+
+- 👷 Android 构建前清理 runner 预装组件,避免磁盘写满导致构建失败 by @Lingyan000
+
+- 👷 macOS CI 改 M1 交叉编 x86_64 + 全 Rust job 加缓存 by @Lingyan000
+
+- 💄 网络并发设置文案太硬核:改大白话 + 档位预设 + 一键重置 by @Lingyan000
+
+- 👷 CI 出 Android 包时分离并上传 Dart symbols 到 Crashlytics by @Lingyan000
+
+- ⬆️ 升若干依赖 + 项目级关 SwiftPM 修 gal macOS 11.0 报错 by @Lingyan000
+
+
+
+
+**Full Changelog**: https://github.com/lingyan000/fluxdo/compare/v0.2.17...v0.2.18
+
 ## [0.2.17] - 2026-06-10
 
 
