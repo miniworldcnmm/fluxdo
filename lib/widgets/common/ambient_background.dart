@@ -78,6 +78,37 @@ class _AmbientBackgroundState extends State<AmbientBackground>
   }
 }
 
+/// 氛围背景页面的角落图标按钮。
+///
+/// 半透明 surface 衬底 + 圆角 12，保证按钮浮在彩色光斑上时
+/// 仍有清晰的可点击区域。onboarding / 登录页 / 启动失败页共用。
+class AmbientIconButton extends StatelessWidget {
+  const AmbientIconButton({
+    super.key,
+    required this.icon,
+    this.tooltip,
+    this.onPressed,
+  });
+
+  final IconData icon;
+  final String? tooltip;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(icon),
+      tooltip: tooltip,
+      style: IconButton.styleFrom(
+        backgroundColor:
+            Theme.of(context).colorScheme.surface.withValues(alpha: 0.3),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      onPressed: onPressed,
+    );
+  }
+}
+
 class _AnimatedBlob extends StatelessWidget {
   const _AnimatedBlob({
     required this.color,

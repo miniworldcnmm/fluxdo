@@ -212,12 +212,21 @@ Future<void> main() async {
         await windowManager.focus();
       }
     } else {
-      await windowManager.waitUntilReadyToShow(null, () async {
-        await WindowStateService.instance.restore(prefs);
-        if (Platform.isLinux) {
-          await windowManager.focus();
-        }
-      });
+      // 冷启动：窗口保持隐藏，推迟到 Flutter 首帧光栅化后再恢复位置并显示，
+      // 避免 main() 后续初始化（迁移/网络栈/rhttp 等）期间露出空白窗口。
+      // Future.any 兜底：极端情况下首帧迟迟未到时也要把窗口显示出来。
+      unawaited(() async {
+        await Future.any([
+          WidgetsBinding.instance.waitUntilFirstFrameRasterized,
+          Future.delayed(const Duration(seconds: 3)),
+        ]);
+        await windowManager.waitUntilReadyToShow(null, () async {
+          await WindowStateService.instance.restore(prefs);
+          if (Platform.isLinux) {
+            await windowManager.focus();
+          }
+        });
+      }());
     }
   }
 

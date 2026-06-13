@@ -21,6 +21,7 @@ class ErrorView extends StatelessWidget {
     this.icon,
     this.iconSize = 48,
     this.title,
+    this.retryLabel,
     this.showDetails = true,
   });
 
@@ -41,6 +42,9 @@ class ErrorView extends StatelessWidget {
 
   /// 自定义标题（默认为"加载失败"）
   final String? title;
+
+  /// 自定义重试按钮文案（默认为"重试"）
+  final String? retryLabel;
 
   /// 是否显示"查看详情"按钮
   final bool showDetails;
@@ -111,7 +115,7 @@ class ErrorView extends StatelessWidget {
     } else if (onRetry != null) {
       widgets.add(
         _PrimaryButton(
-          label: context.l10n.common_retry,
+          label: retryLabel ?? context.l10n.common_retry,
           onPressed: onRetry!,
         ),
       );
@@ -327,6 +331,7 @@ class SliverErrorView extends StatelessWidget {
     this.icon,
     this.iconSize = 48,
     this.title,
+    this.retryLabel,
     this.showDetails = true,
   });
 
@@ -336,6 +341,7 @@ class SliverErrorView extends StatelessWidget {
   final IconData? icon;
   final double iconSize;
   final String? title;
+  final String? retryLabel;
   final bool showDetails;
 
   @override
@@ -349,6 +355,7 @@ class SliverErrorView extends StatelessWidget {
         icon: icon,
         iconSize: iconSize,
         title: title,
+        retryLabel: retryLabel,
         showDetails: showDetails,
       ),
     );

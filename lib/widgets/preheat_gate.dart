@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:jovial_svg/jovial_svg.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/s.dart';
 import '../pages/about_page.dart';
@@ -14,8 +14,10 @@ import '../services/emoji_handler.dart';
 import '../services/log/log_writer.dart';
 import '../services/migration_service.dart';
 import '../utils/dialog_utils.dart';
-import '../utils/error_utils.dart';
+import '../widgets/common/ambient_background.dart';
 import '../widgets/common/error_view.dart';
+import '../widgets/common/loading_spinner.dart';
+import 'preheat_logo.dart';
 
 class PreheatGate extends StatefulWidget {
   final Widget child;
@@ -162,41 +164,27 @@ class _PreheatLoading extends StatefulWidget {
   State<_PreheatLoading> createState() => _PreheatLoadingState();
 }
 
-class _PreheatLoadingState extends State<_PreheatLoading>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _fadeAnimation;
+class _PreheatLoadingState extends State<_PreheatLoading> {
   bool _showSkip = false;
   Timer? _skipTimer;
+  String? _version;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 2000),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 1.05).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
-    );
-
-    _fadeAnimation = Tween<double>(begin: 0.6, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOutSine),
-    );
-
     if (widget.onSkip != null) {
       _skipTimer = Timer(const Duration(seconds: 10), () {
         if (mounted) setState(() => _showSkip = true);
       });
     }
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) setState(() => _version = info.version);
+    });
   }
 
   @override
   void dispose() {
     _skipTimer?.cancel();
-    _controller.dispose();
     super.dispose();
   }
 
@@ -209,85 +197,68 @@ class _PreheatLoadingState extends State<_PreheatLoading>
     return Scaffold(
       backgroundColor: hasAcrylic ? Colors.transparent : colorScheme.surface,
       body: Stack(
+        fit: StackFit.expand,
         children: [
           Center(
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                AnimatedBuilder(
-                  animation: _controller,
-                  builder: (context, child) {
-                    return Transform.scale(
-                      scale: _scaleAnimation.value,
-                      child: Opacity(
-                        opacity: _fadeAnimation.value,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: colorScheme.primary.withValues(alpha: 0.15),
-                                blurRadius: 40,
-                                spreadRadius: 0,
-                              ),
-                            ],
-                          ),
-                          child: SizedBox(
-                            width: 100,
-                            height: 100,
-                            child: ScalableImageWidget.fromSISource(
-                              si: ScalableImageSource.fromSvg(
-                                DefaultAssetBundle.of(context),
-                                widget.iconStyle == AppIconStyle.modern
-                                    ? (Theme.of(context).brightness == Brightness.dark
-                                        ? 'assets/logo_modern.svg'
-                                        : 'assets/logo_modern_light.svg')
-                                    : 'assets/logo.svg',
-                                warnF: (_) {},
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 32),
+                PreheatLogo(style: widget.iconStyle, size: 108),
+                const SizedBox(height: 24),
                 Text(
                   'FluxDO',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 1.2,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.5,
                   ),
                 ),
-                const SizedBox(height: 48),
-                 SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2.5,
-                    color: colorScheme.primary.withValues(alpha: 0.8),
-                  ),
-                ),
+                const SizedBox(height: 56),
+                const LoadingSpinner(size: 40),
               ],
             ),
           ),
-          if (_showSkip)
-            Positioned(
-              bottom: 48,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: TextButton(
-                  onPressed: widget.onSkip,
-                  child: Text(
-                    context.l10n.common_skip,
-                    style: TextStyle(color: colorScheme.onSurfaceVariant),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // 跳过按钮常驻树中,超时后淡入上移出现
+                  IgnorePointer(
+                    ignoring: !_showSkip,
+                    child: AnimatedOpacity(
+                      opacity: _showSkip ? 1.0 : 0.0,
+                      duration: const Duration(milliseconds: 400),
+                      curve: Curves.easeOut,
+                      child: AnimatedSlide(
+                        offset: _showSkip ? Offset.zero : const Offset(0, 0.4),
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeOutCubic,
+                        child: TextButton(
+                          onPressed: widget.onSkip,
+                          child: Text(
+                            context.l10n.common_skip,
+                            style: TextStyle(color: colorScheme.onSurfaceVariant),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _version != null ? 'v$_version' : '',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
               ),
             ),
+          ),
         ],
       ),
     );
@@ -344,26 +315,9 @@ class _PreheatFailed extends StatelessWidget {
     }
   }
 
-  void _showErrorDetails(BuildContext context) {
-    final details = ErrorUtils.getErrorDetails(error, null);
-    showAppBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) => ErrorDetailsSheet(details: details),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final errorInfo = ErrorUtils.getErrorInfo(error);
-    final buttonStyle = IconButton.styleFrom(
-      backgroundColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    );
-
+    final colorScheme = Theme.of(context).colorScheme;
     final hasAcrylic = Platform.isMacOS || Platform.isWindows;
 
     return Scaffold(
@@ -371,98 +325,38 @@ class _PreheatFailed extends StatelessWidget {
       body: SafeArea(
         child: Stack(
           children: [
-            // 右上角：网络设置 + 退出登录
+            // 右上角：关于 + 网络设置 + 退出登录
             Positioned(
               top: 16,
               right: 16,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  IconButton(
-                    icon: const Icon(Icons.info_outline_rounded),
+                  AmbientIconButton(
+                    icon: Icons.info_outline_rounded,
                     tooltip: context.l10n.common_about,
-                    style: buttonStyle,
                     onPressed: () => _openAbout(context),
                   ),
                   const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.network_check_rounded),
+                  AmbientIconButton(
+                    icon: Icons.network_check_rounded,
                     tooltip: context.l10n.preheat_networkSettings,
-                    style: buttonStyle,
                     onPressed: () => _openNetworkSettings(context),
                   ),
                   const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.logout_rounded),
+                  AmbientIconButton(
+                    icon: Icons.logout_rounded,
                     tooltip: context.l10n.common_logout,
-                    style: buttonStyle,
                     onPressed: () => _confirmLogout(context),
                   ),
                 ],
               ),
             ),
-            // 居中内容
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: colorScheme.errorContainer.withValues(alpha: 0.3),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        errorInfo.icon,
-                        size: 48,
-                        color: colorScheme.error,
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      errorInfo.title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      errorInfo.message,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    FilledButton.tonalIcon(
-                      onPressed: onRetry,
-                      icon: const Icon(Icons.refresh_rounded, size: 20),
-                      label: Text(context.l10n.preheat_retryConnection),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: 16,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: () => _showErrorDetails(context),
-                      icon: const Icon(Icons.info_outline_rounded, size: 20),
-                      label: Text(context.l10n.common_viewDetails),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 32,
-                          vertical: 16,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            // 居中错误内容复用公共 ErrorView(含 CF 手动验证、网络设置、查看详情)
+            ErrorView(
+              error: error ?? TimeoutException(S.current.preheat_userSkipped),
+              onRetry: onRetry,
+              retryLabel: context.l10n.preheat_retryConnection,
             ),
           ],
         ),

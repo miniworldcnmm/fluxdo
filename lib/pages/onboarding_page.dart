@@ -103,13 +103,9 @@ class _OnboardingPageState extends State<OnboardingPage> with TickerProviderStat
       right: 16,
       child: FadeTransition(
         opacity: _fadeAnimations[0],
-        child: IconButton(
-          icon: const Icon(Icons.network_check_rounded),
+        child: AmbientIconButton(
+          icon: Icons.network_check_rounded,
           tooltip: context.l10n.onboarding_networkSettings,
-          style: IconButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.surface.withValues(alpha:0.3),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
           onPressed: () => Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const NetworkSettingsPage()),
