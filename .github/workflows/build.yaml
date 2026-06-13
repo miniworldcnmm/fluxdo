@@ -64,8 +64,7 @@ jobs:
             /opt/hostedtoolcache/CodeQL \
             /usr/share/swift \
             /usr/local/share/powershell \
-            /usr/local/share/chromium \
-            /usr/local/lib/node_modules
+            /usr/local/share/chromium
           sudo docker image prune --all --force > /dev/null 2>&1 || true
           echo "清理后:" && df -h /
 
