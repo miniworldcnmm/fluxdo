@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/topic.dart';
 import '../../services/preloaded_data_service.dart';
 import '../../services/discourse/discourse_service.dart';
+import '../../utils/paged_async_notifier.dart';
 import '../../utils/pagination_helper.dart';
 import '../core_providers.dart';
 import '../category_provider.dart';
@@ -12,16 +13,11 @@ import 'sort_provider.dart';
 import 'tab_state_provider.dart';
 
 /// 话题列表 Notifier (支持分页、静默刷新和筛选)
-class TopicListNotifier extends AsyncNotifier<List<Topic>> {
+class TopicListNotifier extends AsyncNotifier<List<Topic>>
+    with PagedAsyncNotifierMixin<Topic> {
   TopicListNotifier(this._categoryId);
 
   final int? _categoryId;
-
-  int _page = 0;
-  bool _hasMore = true;
-  bool _isLoadMoreFailed = false;
-  bool get hasMore => _hasMore;
-  bool get isLoadMoreFailed => _isLoadMoreFailed;
 
   /// 分页助手
   static final _paginationHelper = PaginationHelpers.forTopics<Topic>(
@@ -38,9 +34,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
     final sortOrder = ref.read(topicSortOrderProvider);
     final sortAscending = ref.read(topicSortAscendingProvider);
 
-    _page = 0;
-    _hasMore = true;
-    _isLoadMoreFailed = false;
+    resetPagingState();
 
     // 获取排序 API 参数
     final orderParam = sortOrder.apiValue;
@@ -60,8 +54,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
         final result = _paginationHelper.processRefresh(
           PaginationResult(items: preloadedData.topics, moreUrl: preloadedData.moreTopicsUrl),
         );
-        _hasMore = result.hasMore;
-        return result.items;
+        return completePagedRefresh(PagedPage.fromPagination(result));
       }
       if (preloadedService.hasInitialTopicList) {
         final asyncPreloaded = await preloadedService.getInitialTopicList();
@@ -69,8 +62,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
           final result = _paginationHelper.processRefresh(
             PaginationResult(items: asyncPreloaded.topics, moreUrl: asyncPreloaded.moreTopicsUrl),
           );
-          _hasMore = result.hasMore;
-          return result.items;
+          return completePagedRefresh(PagedPage.fromPagination(result));
         }
       }
     }
@@ -82,8 +74,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
     final result = _paginationHelper.processRefresh(
       PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
     );
-    _hasMore = result.hasMore;
-    return result.items;
+    return completePagedRefresh(PagedPage.fromPagination(result));
   }
 
   Future<TopicListResponse> _fetchTopics(
@@ -172,11 +163,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
 
   /// 刷新列表
   Future<void> refresh() async {
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      _page = 0;
-      _hasMore = true;
-      _isLoadMoreFailed = false;
+    await runPagedRefresh(() async {
       final service = ref.read(discourseServiceProvider);
       final filterParams = _currentFilterParams();
       final (order, ascending) = _currentSortParams();
@@ -188,8 +175,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
       final result = _paginationHelper.processRefresh(
         PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
       );
-      _hasMore = result.hasMore;
-      return result.items;
+      return PagedPage.fromPagination(result);
     });
   }
 
@@ -203,14 +189,13 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
         : null;
     try {
       final response = await _fetchTopics(service, _currentFilter, 0, filterParams, order: order, ascending: ascending, subset: subset);
-      _page = 0;
-      _isLoadMoreFailed = false;
 
       final result = _paginationHelper.processRefresh(
         PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
       );
-      _hasMore = result.hasMore;
-      state = AsyncValue.data(result.items);
+      state = AsyncValue.data(
+        completePagedRefresh(PagedPage.fromPagination(result)),
+      );
     } catch (e) {
       debugPrint('Silent refresh failed: $e');
     }
@@ -248,16 +233,7 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
 
   /// 加载更多
   Future<void> loadMore() async {
-    if (_isLoadMoreFailed) return; // 失败后需手动重试
-    if (!_hasMore || state.isLoading) return;
-
-    // ignore: invalid_use_of_internal_member
-    state = const AsyncLoading<List<Topic>>().copyWithPrevious(state);
-
-    final result = await AsyncValue.guard(() async {
-      final currentTopics = state.requireValue;
-      final nextPage = _page + 1;
-
+    await runPagedLoadMore((currentTopics, nextPage) async {
       final service = ref.read(discourseServiceProvider);
       final filterParams = _currentFilterParams();
       final (order, ascending) = _currentSortParams();
@@ -272,24 +248,16 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
         PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
       );
 
-      _hasMore = paginationResult.hasMore;
-      if (paginationResult.items.length > currentTopics.length) {
-        _page = nextPage;
-      }
-      return paginationResult.items;
+      return PagedPage.fromPagination(
+        paginationResult,
+        advancePage: response.topics.isNotEmpty,
+      );
     });
-    if (result.hasError) {
-      _isLoadMoreFailed = true;
-      state = AsyncValue.data(state.requireValue);
-    } else {
-      state = result;
-    }
   }
 
   /// 手动重试加载更多
-  void retryLoadMore() {
-    _isLoadMoreFailed = false;
-    loadMore();
+  Future<void> retryLoadMore() {
+    return retryPagedLoadMore(loadMore);
   }
 
   /// 刷新单条话题状态（用于 MessageBus 更新）
@@ -364,8 +332,11 @@ class TopicListNotifier extends AsyncNotifier<List<Topic>> {
       ref.read(topicTrackingStateProvider.notifier)
           .dismissUnreadTopics(categoryId: _categoryId);
     }
-    state = const AsyncValue.data([]);
-    _hasMore = false;
+    state = AsyncValue.data(
+      completePagedRefresh(
+        const PagedPage<Topic>(items: <Topic>[], hasMore: false),
+      ),
+    );
   }
 
   void updateSeen(int topicId, int highestSeen) {

@@ -6,6 +6,8 @@ import '../models/topic.dart';
 import '../navigation/nav_action_bus.dart';
 import '../providers/user_content_providers.dart';
 import '../providers/preferences_provider.dart';
+import '../utils/load_more_coordinator.dart';
+import '../widgets/common/paged_list_footer.dart';
 import '../widgets/topic/topic_item_builder.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
 import '../widgets/common/error_view.dart';
@@ -27,8 +29,8 @@ final _pmTabEventNonceProvider = StateProvider<int>((ref) => 0);
 
 final _pmTabEventProvider =
     StateProvider.family<_PmTabEvent?, PrivateMessageFilter>(
-  (ref, filter) => null,
-);
+      (ref, filter) => null,
+    );
 
 /// 私信列表页面
 class PrivateMessagesPage extends ConsumerStatefulWidget {
@@ -70,12 +72,12 @@ class _PrivateMessagesPageState extends ConsumerState<PrivateMessagesPage>
     final progress = raw < 0 ? 0.0 : raw;
     final current = ref.read(navScrollProgressProvider(NavEntryIds.messages));
     final atZero = progress == 0 && current != 0;
-    final crossed = (progress >= navScrollIconThreshold) !=
+    final crossed =
+        (progress >= navScrollIconThreshold) !=
         (current >= navScrollIconThreshold);
     if (!atZero && !crossed && (progress - current).abs() < 4.0) return false;
-    ref
-        .read(navScrollProgressProvider(NavEntryIds.messages).notifier)
-        .state = progress;
+    ref.read(navScrollProgressProvider(NavEntryIds.messages).notifier).state =
+        progress;
     return false;
   }
 
@@ -92,8 +94,10 @@ class _PrivateMessagesPageState extends ConsumerState<PrivateMessagesPage>
       final tabAction = event.action == NavAction.scrollToTop
           ? _PmTabAction.scrollToTop
           : _PmTabAction.refresh;
-      ref.read(_pmTabEventProvider(filter).notifier).state =
-          _PmTabEvent(tabAction, nextNonce);
+      ref.read(_pmTabEventProvider(filter).notifier).state = _PmTabEvent(
+        tabAction,
+        nextNonce,
+      );
     });
 
     return NotificationListener<ScrollNotification>(
@@ -133,10 +137,10 @@ class _PrivateMessageTabView extends ConsumerStatefulWidget {
       _PrivateMessageTabViewState();
 }
 
-class _PrivateMessageTabViewState
-    extends ConsumerState<_PrivateMessageTabView>
+class _PrivateMessageTabViewState extends ConsumerState<_PrivateMessageTabView>
     with AutomaticKeepAliveClientMixin {
   final ScrollController _scrollController = ScrollController();
+  final LoadMoreCoordinator _loadMoreCoordinator = LoadMoreCoordinator();
 
   @override
   bool get wantKeepAlive => true;
@@ -157,17 +161,17 @@ class _PrivateMessageTabViewState
   (AsyncValue<List<Topic>>, PrivateMessagesNotifier) _watchMessages() {
     return switch (widget.filter) {
       PrivateMessageFilter.inbox => (
-          ref.watch(pmInboxProvider),
-          ref.watch(pmInboxProvider.notifier),
-        ),
+        ref.watch(pmInboxProvider),
+        ref.watch(pmInboxProvider.notifier),
+      ),
       PrivateMessageFilter.sent => (
-          ref.watch(pmSentProvider),
-          ref.watch(pmSentProvider.notifier),
-        ),
+        ref.watch(pmSentProvider),
+        ref.watch(pmSentProvider.notifier),
+      ),
       PrivateMessageFilter.archive => (
-          ref.watch(pmArchiveProvider),
-          ref.watch(pmArchiveProvider.notifier),
-        ),
+        ref.watch(pmArchiveProvider),
+        ref.watch(pmArchiveProvider.notifier),
+      ),
     };
   }
 
@@ -179,14 +183,35 @@ class _PrivateMessageTabViewState
     };
   }
 
+  AsyncValue<List<Topic>> _readMessagesAsync() {
+    return switch (widget.filter) {
+      PrivateMessageFilter.inbox => ref.read(pmInboxProvider),
+      PrivateMessageFilter.sent => ref.read(pmSentProvider),
+      PrivateMessageFilter.archive => ref.read(pmArchiveProvider),
+    };
+  }
+
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      _readNotifier().loadMore();
+    final distance =
+        _scrollController.position.maxScrollExtent -
+        _scrollController.position.pixels;
+    if (_loadMoreCoordinator.shouldTriggerForDistance(distance)) {
+      _loadMore();
     }
   }
 
+  Future<void> _loadMore() async {
+    final notifier = _readNotifier();
+    await _loadMoreCoordinator.loadMore(
+      loadMore: notifier.loadMore,
+      hasMore: () => notifier.hasMore,
+      isActive: () => mounted,
+      progressCount: () => _readMessagesAsync().value?.length ?? 0,
+    );
+  }
+
   Future<void> _onRefresh() async {
+    _loadMoreCoordinator.resetCooldown();
     await _readNotifier().refresh();
   }
 
@@ -261,12 +286,13 @@ class _PrivateMessageTabViewState
             itemCount: topics.length + 1,
             itemBuilder: (context, index) {
               if (index == topics.length) {
-                return _buildPaginationFooter(messagesAsync, notifier);
+                return _buildPaginationFooter(notifier);
               }
 
               final topic = topics[index];
-              final enableLongPress =
-                  ref.watch(preferencesProvider).longPressPreview;
+              final enableLongPress = ref
+                  .watch(preferencesProvider)
+                  .longPressPreview;
               return buildTopicItem(
                 context: context,
                 topic: topic,
@@ -278,60 +304,18 @@ class _PrivateMessageTabViewState
           );
         },
         loading: () => const TopicListSkeleton(),
-        error: (error, stack) => ErrorView(
-          error: error,
-          stackTrace: stack,
-          onRetry: _onRefresh,
-        ),
+        error: (error, stack) =>
+            ErrorView(error: error, stackTrace: stack, onRetry: _onRefresh),
       ),
     );
   }
 
-  Widget _buildPaginationFooter(
-    AsyncValue<List<Topic>> messagesAsync,
-    PrivateMessagesNotifier notifier,
-  ) {
-    if (!notifier.hasMore) {
-      return Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Center(
-          child: Text(
-            context.l10n.common_noMore,
-            style: const TextStyle(color: Colors.grey),
-          ),
-        ),
-      );
-    }
-    if (notifier.isLoadMoreFailed) {
-      return Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Center(
-          child: GestureDetector(
-            onTap: () => notifier.retryLoadMore(),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.refresh,
-                    size: 16, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 6),
-                Text(
-                  context.l10n.common_loadFailedTapRetry,
-                  style: TextStyle(
-                      fontSize: 14,
-                      color: Theme.of(context).colorScheme.primary),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-    if (messagesAsync.isLoading && !messagesAsync.hasError) {
-      return const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    return const SizedBox();
+  Widget _buildPaginationFooter(PrivateMessagesNotifier notifier) {
+    return PagedListFooter(
+      hasMore: notifier.hasMore,
+      isLoadingMore: notifier.isLoadingMore,
+      isLoadMoreFailed: notifier.isLoadMoreFailed,
+      onRetry: notifier.retryLoadMore,
+    );
   }
 }

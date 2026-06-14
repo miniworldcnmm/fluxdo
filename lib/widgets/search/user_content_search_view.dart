@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/s.dart';
 import '../../models/search_filter.dart';
 import '../../providers/user_content_search_provider.dart';
+import '../../utils/load_more_coordinator.dart';
 import '../../utils/dialog_utils.dart';
 import '../common/loading_spinner.dart';
+import '../common/paged_list_footer.dart';
 import '../../pages/topic_detail_page/topic_detail_page.dart';
 import 'search_filter_panel.dart';
 import 'search_post_card.dart';
@@ -41,6 +43,7 @@ class UserContentSearchView extends ConsumerStatefulWidget {
 
 class _UserContentSearchViewState extends ConsumerState<UserContentSearchView> {
   final ScrollController _scrollController = ScrollController();
+  final LoadMoreCoordinator _loadMoreCoordinator = LoadMoreCoordinator();
 
   @override
   void initState() {
@@ -55,10 +58,29 @@ class _UserContentSearchViewState extends ConsumerState<UserContentSearchView> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      ref.read(userContentSearchProvider(widget.inType).notifier).loadMore();
+    final distance =
+        _scrollController.position.maxScrollExtent -
+        _scrollController.position.pixels;
+    if (_loadMoreCoordinator.shouldTriggerForDistance(distance)) {
+      _loadMore();
     }
+  }
+
+  Future<void> _loadMore() async {
+    final provider = userContentSearchProvider(widget.inType);
+    await _loadMoreCoordinator.loadMore(
+      loadMore: ref.read(provider.notifier).loadMore,
+      hasMore: () => ref.read(provider).hasMore,
+      isActive: () => mounted,
+      progressCount: () => ref.read(provider).results.length,
+    );
+  }
+
+  Future<void> _retryLoadMore() async {
+    _loadMoreCoordinator.resetCooldown();
+    await ref
+        .read(userContentSearchProvider(widget.inType).notifier)
+        .retryLoadMore();
   }
 
   void _onClearCategory() {
@@ -265,12 +287,15 @@ class _UserContentSearchViewState extends ConsumerState<UserContentSearchView> {
           child: ListView.builder(
             controller: _scrollController,
             padding: const EdgeInsets.all(16),
-            itemCount: searchState.results.length + (searchState.isLoading ? 1 : 0),
+            itemCount: searchState.results.length + 1,
             itemBuilder: (context, index) {
               if (index == searchState.results.length) {
-                return const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: LoadingSpinner()),
+                return PagedListFooter(
+                  hasMore: searchState.hasMore,
+                  isLoadingMore:
+                      searchState.isLoading && searchState.results.isNotEmpty,
+                  isLoadMoreFailed: searchState.isLoadMoreFailed,
+                  onRetry: _retryLoadMore,
                 );
               }
 

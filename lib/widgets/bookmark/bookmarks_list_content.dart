@@ -9,6 +9,7 @@ import '../../utils/platform_utils.dart';
 import '../../utils/time_utils.dart';
 import 'bookmark_preview_quick_editor.dart';
 import '../common/error_view.dart';
+import '../common/paged_list_footer.dart';
 import '../desktop_refresh_indicator.dart';
 import '../topic/topic_list_skeleton.dart';
 import '../topic/topic_item_builder.dart';
@@ -153,9 +154,7 @@ class BookmarksListContent extends StatelessWidget {
     return Column(
       children: [
         DecoratedBox(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-          ),
+          decoration: BoxDecoration(color: theme.colorScheme.surface),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
             child: _BookmarkSummaryBar(
@@ -171,52 +170,12 @@ class BookmarksListContent extends StatelessWidget {
   }
 
   Widget _buildFooter(BuildContext context) {
-    if (isLoadingMore) {
-      return const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Center(child: CircularProgressIndicator()),
-      );
-    }
-    if (!hasMore) {
-      return Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Center(
-          child: Text(
-            context.l10n.common_noMore,
-            style: const TextStyle(color: Colors.grey),
-          ),
-        ),
-      );
-    }
-    if (isLoadMoreFailed) {
-      return Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Center(
-          child: GestureDetector(
-            onTap: onRetryLoadMore,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.refresh,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  context.l10n.common_loadFailedTapRetry,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-    return const SizedBox.shrink();
+    return PagedListFooter(
+      hasMore: hasMore,
+      isLoadingMore: isLoadingMore,
+      isLoadMoreFailed: isLoadMoreFailed,
+      onRetry: onRetryLoadMore,
+    );
   }
 
   List<PreviewAction> _buildPreviewActions(BuildContext context, Topic topic) {
@@ -488,7 +447,8 @@ class _BookmarkFilterSwipeRegion extends StatefulWidget {
       _BookmarkFilterSwipeRegionState();
 }
 
-class _BookmarkFilterSwipeRegionState extends State<_BookmarkFilterSwipeRegion> {
+class _BookmarkFilterSwipeRegionState
+    extends State<_BookmarkFilterSwipeRegion> {
   static const String _allSummaryKey = '__bookmark_summary_all__';
   static const double _swipeDistanceThreshold = 72;
   static const double _swipeVelocityThreshold = 320;

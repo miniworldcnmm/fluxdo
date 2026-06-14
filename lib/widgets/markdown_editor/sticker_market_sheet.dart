@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/sticker.dart';
 import '../../providers/sticker_provider.dart';
 import '../../services/discourse_cache_manager.dart';
+import '../../utils/load_more_coordinator.dart';
 import '../common/cached_image.dart';
 import '../common/loading_spinner.dart';
+import '../common/paged_list_footer.dart';
 import '../../../../../l10n/s.dart';
 
 /// 表情包市场浏览面板 (Bottom Sheet)
@@ -22,7 +24,8 @@ class StickerMarketSheet extends ConsumerStatefulWidget {
 
 class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
   final ScrollController _scrollController = ScrollController();
-  bool _scrollThrottled = false;
+  final LoadMoreCoordinator _loadMoreCoordinator =
+      LoadMoreCoordinator(triggerDistance: 600, releaseDistance: 600);
 
   @override
   void initState() {
@@ -37,16 +40,27 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
   }
 
   void _onScroll() {
-    if (!_scrollController.hasClients || _scrollThrottled) return;
-    _scrollThrottled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _scrollThrottled = false;
-      if (!mounted || !_scrollController.hasClients) return;
-      final pos = _scrollController.position;
-      if (pos.pixels >= pos.maxScrollExtent - 600) {
-        ref.read(marketGroupsProvider.notifier).loadMore();
-      }
-    });
+    if (!_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    final distance = pos.maxScrollExtent - pos.pixels;
+    if (_loadMoreCoordinator.shouldTriggerForDistance(distance)) {
+      _loadMore();
+    }
+  }
+
+  Future<void> _loadMore() async {
+    final notifier = ref.read(marketGroupsProvider.notifier);
+    await _loadMoreCoordinator.loadMore(
+      loadMore: notifier.loadMore,
+      hasMore: () => notifier.hasMore,
+      isActive: () => mounted,
+      progressCount: () => ref.read(marketGroupsProvider).value?.length ?? 0,
+    );
+  }
+
+  Future<void> _retryLoadMore() async {
+    _loadMoreCoordinator.resetCooldown();
+    await ref.read(marketGroupsProvider.notifier).retryLoadMore();
   }
 
   @override
@@ -148,7 +162,10 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
           Text(S.current.sticker_marketLoadFailed, style: TextStyle(color: theme.colorScheme.error)),
           const SizedBox(height: 8),
           TextButton(
-            onPressed: () => ref.read(marketGroupsProvider.notifier).refresh(),
+            onPressed: () {
+              _loadMoreCoordinator.resetCooldown();
+              ref.read(marketGroupsProvider.notifier).refresh();
+            },
             child: Text(S.current.common_retry),
           ),
         ],
@@ -168,8 +185,8 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
       );
     }
 
-    final hasMore = ref.read(marketGroupsProvider.notifier).hasMore;
-    final itemCount = groups.length + (hasMore ? 1 : 0);
+    final notifier = ref.read(marketGroupsProvider.notifier);
+    final itemCount = groups.length + 1;
 
     return ListView.builder(
       controller: _scrollController,
@@ -182,16 +199,11 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
       itemCount: itemCount,
       itemBuilder: (context, index) {
         if (index >= groups.length) {
-          // 底部加载指示器
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator.adaptive(strokeWidth: 2),
-              ),
-            ),
+          return PagedListFooter(
+            hasMore: notifier.hasMore,
+            isLoadingMore: notifier.isLoadingMore,
+            isLoadMoreFailed: notifier.isLoadMoreFailed,
+            onRetry: _retryLoadMore,
           );
         }
         final group = groups[index];

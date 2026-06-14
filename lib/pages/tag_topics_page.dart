@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/topic.dart';
 import '../providers/discourse_providers.dart';
 import '../providers/selected_topic_provider.dart';
 import '../providers/preferences_provider.dart';
+import '../utils/load_more_coordinator.dart';
 import '../utils/pagination_helper.dart';
 import '../utils/topic_keyword_filter.dart';
+import '../widgets/common/paged_list_footer.dart';
 import '../widgets/topic/keyword_filter_hint_bar.dart';
 import '../widgets/topic/topic_list_skeleton.dart';
 import '../widgets/topic/sort_and_tags_bar.dart';
@@ -31,6 +34,8 @@ class TagTopicsPage extends ConsumerStatefulWidget {
 
 class _TagTopicsPageState extends ConsumerState<TagTopicsPage> {
   final ScrollController _scrollController = ScrollController();
+  final TopicLoadMoreCoordinator _loadMoreCoordinator =
+      TopicLoadMoreCoordinator();
   List<Topic> _topics = [];
   bool _isLoading = true;
   bool _isLoadingMore = false;
@@ -44,6 +49,8 @@ class _TagTopicsPageState extends ConsumerState<TagTopicsPage> {
   late NewSubset _currentSubset;
   TopicSortOrder _currentOrder = TopicSortOrder.defaultOrder;
   bool _ascending = false;
+  List<String> _lastAutoLoadKeywords = const [];
+  bool? _lastAutoLoadWholeWord;
 
   static final _paginationHelper = PaginationHelpers.forTopics<Topic>(
     keyExtractor: (topic) => topic.id,
@@ -66,63 +73,38 @@ class _TagTopicsPageState extends ConsumerState<TagTopicsPage> {
     super.dispose();
   }
 
-  /// 关键词过滤场景下，loadMore 自动续加载的并发标志
-  bool _isAutoContinueLoading = false;
-
-  /// 贴底连续自动续加载已用尽 attempts，需用户滚出底部 200px 区域后再放开。
-  bool _autoContinueExhausted = false;
-
   void _onScroll() {
     final distance =
         _scrollController.position.maxScrollExtent -
         _scrollController.position.pixels;
-    if (distance >= 200) {
-      _autoContinueExhausted = false;
-    } else {
+    if (_loadMoreCoordinator.shouldTriggerForDistance(distance)) {
       _loadMoreWithAutoContinue();
     }
   }
 
   /// 触发 loadMore；若关键词命中率高、可见增量不足，自动续加载至多 3 次。
   Future<void> _loadMoreWithAutoContinue() async {
-    if (_isAutoContinueLoading) return;
-    if (_autoContinueExhausted) return;
-    _isAutoContinueLoading = true;
-    try {
-      final prefs = ref.read(preferencesProvider);
-      final keywords = prefs.normalizedFilterKeywords;
-      final wholeWord = prefs.topicFilterWholeWord;
+    final prefs = ref.read(preferencesProvider);
+    final keywords = prefs.normalizedFilterKeywords;
+    final wholeWord = prefs.topicFilterWholeWord;
 
-      var attempts = 0;
-      while (true) {
-        final (visBefore, _) = TopicKeywordFilter.apply(
-          _topics,
-          normalizedKeywords: keywords,
-          wholeWord: wholeWord,
-        );
-        await _loadMore();
-        if (!mounted) return;
-        final (visAfter, _) = TopicKeywordFilter.apply(
-          _topics,
-          normalizedKeywords: keywords,
-          wholeWord: wholeWord,
-        );
-        if (!TopicKeywordFilter.shouldAutoLoadMore(
-          visibleBefore: visBefore.length,
-          visibleAfter: visAfter.length,
-          hasMore: _hasMore,
-          attempts: attempts,
-        )) {
-          if (_hasMore && (visAfter.length - visBefore.length) < 5) {
-            _autoContinueExhausted = true;
-          }
-          break;
-        }
-        attempts++;
-      }
-    } finally {
-      _isAutoContinueLoading = false;
+    int visibleItemCount() {
+      final (visible, _) = TopicKeywordFilter.apply(
+        _topics,
+        normalizedKeywords: keywords,
+        wholeWord: wholeWord,
+      );
+      return visible.length;
     }
+
+    await _loadMoreCoordinator.loadTopicPage(
+      loadMore: _loadMore,
+      hasMore: () => _hasMore,
+      isActive: () => mounted,
+      itemCount: () => _topics.length,
+      visibleItemCount: visibleItemCount,
+      hasKeywordFilter: keywords.isNotEmpty,
+    );
   }
 
   Future<void> _loadTopics() async {
@@ -161,6 +143,7 @@ class _TagTopicsPageState extends ConsumerState<TagTopicsPage> {
           _page = 0;
           _isLoading = false;
         });
+        _loadMoreCoordinator.resetCooldown();
       }
     } catch (e) {
       if (mounted) {
@@ -203,6 +186,7 @@ class _TagTopicsPageState extends ConsumerState<TagTopicsPage> {
           _hasMore = result.hasMore;
           _page = 0;
         });
+        _loadMoreCoordinator.resetCooldown();
       }
     } on DioException catch (_) {
       // 网络错误已由 ErrorInterceptor 处理
@@ -246,7 +230,9 @@ class _TagTopicsPageState extends ConsumerState<TagTopicsPage> {
       if (mounted) {
         setState(() {
           _hasMore = result.hasMore;
-          if (result.items.length > _topics.length) {
+          if (response.topics.isEmpty) {
+            _hasMore = false;
+          } else {
             _page = nextPage;
           }
           _topics = result.items;
@@ -267,6 +253,7 @@ class _TagTopicsPageState extends ConsumerState<TagTopicsPage> {
     if (filter == _currentFilter) return;
     setState(() => _currentFilter = filter);
     ref.read(topicFilterProvider.notifier).setFilter(filter);
+    _loadMoreCoordinator.resetCooldown();
     _loadTopics();
   }
 
@@ -274,18 +261,31 @@ class _TagTopicsPageState extends ConsumerState<TagTopicsPage> {
     if (subset == _currentSubset) return;
     setState(() => _currentSubset = subset);
     ref.read(topicNewSubsetProvider.notifier).setSubset(subset);
+    _loadMoreCoordinator.resetCooldown();
     _loadTopics();
   }
 
   void _setOrder(TopicSortOrder order) {
     if (order == _currentOrder) return;
     setState(() => _currentOrder = order);
+    _loadMoreCoordinator.resetCooldown();
     _loadTopics();
   }
 
   void _toggleAscending() {
     setState(() => _ascending = !_ascending);
+    _loadMoreCoordinator.resetCooldown();
     _loadTopics();
+  }
+
+  void _syncAutoLoadFilter(List<String> keywords, bool wholeWord) {
+    if (listEquals(_lastAutoLoadKeywords, keywords) &&
+        _lastAutoLoadWholeWord == wholeWord) {
+      return;
+    }
+    _lastAutoLoadKeywords = List.unmodifiable(keywords);
+    _lastAutoLoadWholeWord = wholeWord;
+    _loadMoreCoordinator.resetCooldown();
   }
 
   Future<void> _openTopic(Topic topic) async {
@@ -386,6 +386,7 @@ class _TagTopicsPageState extends ConsumerState<TagTopicsPage> {
     final wholeWord = ref.watch(
       preferencesProvider.select((p) => p.topicFilterWholeWord),
     );
+    _syncAutoLoadFilter(keywords, wholeWord);
     final (visible, hidden) = TopicKeywordFilter.apply(
       _topics,
       normalizedKeywords: keywords,
@@ -406,51 +407,14 @@ class _TagTopicsPageState extends ConsumerState<TagTopicsPage> {
           }
           final topicIndex = index - hintOffset;
           if (topicIndex >= visible.length) {
-            if (!_hasMore) {
-              return Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Center(
-                  child: Text(
-                    context.l10n.common_noMore,
-                    style: const TextStyle(color: Colors.grey),
-                  ),
-                ),
-              );
-            }
-            if (_isLoadMoreFailed) {
-              return Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Center(
-                  child: GestureDetector(
-                    onTap: () {
-                      setState(() => _isLoadMoreFailed = false);
-                      _loadMore();
-                    },
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.refresh,
-                          size: 16,
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          context.l10n.common_loadFailedTapRetry,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }
-            return const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Center(child: CircularProgressIndicator()),
+            return PagedListFooter(
+              hasMore: _hasMore,
+              isLoadingMore: _isLoadingMore,
+              isLoadMoreFailed: _isLoadMoreFailed,
+              onRetry: () {
+                setState(() => _isLoadMoreFailed = false);
+                _loadMore();
+              },
             );
           }
 

@@ -5,6 +5,8 @@ import '../models/topic.dart';
 import '../navigation/nav_action_bus.dart';
 import '../providers/discourse_providers.dart';
 import '../providers/user_content_search_provider.dart';
+import '../utils/load_more_coordinator.dart';
+import '../widgets/common/paged_list_footer.dart';
 import '../widgets/search/searchable_app_bar.dart';
 import '../widgets/search/user_content_search_view.dart';
 import '../widgets/topic/topic_item_builder.dart';
@@ -23,19 +25,22 @@ class BrowsingHistoryPage extends ConsumerStatefulWidget {
   final bool isActive;
 
   @override
-  ConsumerState<BrowsingHistoryPage> createState() => _BrowsingHistoryPageState();
+  ConsumerState<BrowsingHistoryPage> createState() =>
+      _BrowsingHistoryPageState();
 }
 
 class _BrowsingHistoryPageState extends ConsumerState<BrowsingHistoryPage> {
   final ScrollController _scrollController = ScrollController();
+  final LoadMoreCoordinator _loadMoreCoordinator = LoadMoreCoordinator();
   late final UserContentSearchNotifier _searchNotifier;
 
   @override
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    _searchNotifier = ref.read(userContentSearchProvider(SearchInType.seen).notifier);
-
+    _searchNotifier = ref.read(
+      userContentSearchProvider(SearchInType.seen).notifier,
+    );
   }
 
   @override
@@ -47,10 +52,22 @@ class _BrowsingHistoryPageState extends ConsumerState<BrowsingHistoryPage> {
 
   void _onScroll() {
     _publishScrollProgress();
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      ref.read(browsingHistoryProvider.notifier).loadMore();
+    final distance =
+        _scrollController.position.maxScrollExtent -
+        _scrollController.position.pixels;
+    if (_loadMoreCoordinator.shouldTriggerForDistance(distance)) {
+      _loadMore();
     }
+  }
+
+  Future<void> _loadMore() async {
+    final notifier = ref.read(browsingHistoryProvider.notifier);
+    await _loadMoreCoordinator.loadMore(
+      loadMore: notifier.loadMore,
+      hasMore: () => notifier.hasMore,
+      isActive: () => mounted,
+      progressCount: () => ref.read(browsingHistoryProvider).value?.length ?? 0,
+    );
   }
 
   void _publishScrollProgress() {
@@ -59,7 +76,8 @@ class _BrowsingHistoryPageState extends ConsumerState<BrowsingHistoryPage> {
     final progress = raw < 0 ? 0.0 : raw;
     final current = ref.read(navScrollProgressProvider(NavEntryIds.history));
     final atZero = progress == 0 && current != 0;
-    final crossed = (progress >= navScrollIconThreshold) !=
+    final crossed =
+        (progress >= navScrollIconThreshold) !=
         (current >= navScrollIconThreshold);
     if (!atZero && !crossed && (progress - current).abs() < 4.0) return;
     ref.read(navScrollProgressProvider(NavEntryIds.history).notifier).state =
@@ -67,6 +85,7 @@ class _BrowsingHistoryPageState extends ConsumerState<BrowsingHistoryPage> {
   }
 
   Future<void> _onRefresh() async {
+    _loadMoreCoordinator.resetCooldown();
     await ref.read(browsingHistoryProvider.notifier).refresh();
   }
 
@@ -120,7 +139,9 @@ class _BrowsingHistoryPageState extends ConsumerState<BrowsingHistoryPage> {
       onPopInvokedWithResult: (bool didPop, dynamic result) {
         if (!didPop) {
           // 搜索模式下按返回键，退出搜索而不是退出页面
-          ref.read(userContentSearchProvider(SearchInType.seen).notifier).exitSearchMode();
+          ref
+              .read(userContentSearchProvider(SearchInType.seen).notifier)
+              .exitSearchMode();
         }
       },
       child: Scaffold(
@@ -172,7 +193,10 @@ class _BrowsingHistoryPageState extends ConsumerState<BrowsingHistoryPage> {
                 children: [
                   const Icon(Icons.history, size: 64, color: Colors.grey),
                   const SizedBox(height: 16),
-                  Text(context.l10n.browsingHistory_empty, style: const TextStyle(color: Colors.grey)),
+                  Text(
+                    context.l10n.browsingHistory_empty,
+                    style: const TextStyle(color: Colors.grey),
+                  ),
                 ],
               ),
             );
@@ -185,49 +209,18 @@ class _BrowsingHistoryPageState extends ConsumerState<BrowsingHistoryPage> {
             itemBuilder: (context, index) {
               if (index == topics.length) {
                 final notifier = ref.watch(browsingHistoryProvider.notifier);
-                if (!notifier.hasMore) {
-                  return Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Center(
-                      child: Text(
-                        context.l10n.common_noMore,
-                        style: const TextStyle(color: Colors.grey),
-                      ),
-                    ),
-                  );
-                }
-                if (notifier.isLoadMoreFailed) {
-                  return Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Center(
-                      child: GestureDetector(
-                        onTap: () => notifier.retryLoadMore(),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.refresh, size: 16, color: Theme.of(context).colorScheme.primary),
-                            const SizedBox(width: 6),
-                            Text(
-                              context.l10n.common_loadFailedTapRetry,
-                              style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.primary),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }
-                if (historyAsync.isLoading && !historyAsync.hasError) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
-                }
-                return const SizedBox();
+                return PagedListFooter(
+                  hasMore: notifier.hasMore,
+                  isLoadingMore: notifier.isLoadingMore,
+                  isLoadMoreFailed: notifier.isLoadMoreFailed,
+                  onRetry: notifier.retryLoadMore,
+                );
               }
 
               final topic = topics[index];
-              final enableLongPress = ref.watch(preferencesProvider).longPressPreview;
+              final enableLongPress = ref
+                  .watch(preferencesProvider)
+                  .longPressPreview;
               return buildTopicItem(
                 context: context,
                 topic: topic,
@@ -239,11 +232,8 @@ class _BrowsingHistoryPageState extends ConsumerState<BrowsingHistoryPage> {
           );
         },
         loading: () => const TopicListSkeleton(),
-        error: (error, stack) => ErrorView(
-          error: error,
-          stackTrace: stack,
-          onRetry: _onRefresh,
-        ),
+        error: (error, stack) =>
+            ErrorView(error: error, stackTrace: stack, onRetry: _onRefresh),
       ),
     );
   }

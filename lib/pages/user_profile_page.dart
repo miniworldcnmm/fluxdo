@@ -11,6 +11,7 @@ import '../services/discourse_cache_manager.dart';
 import '../utils/time_utils.dart';
 import '../widgets/common/relative_time_text.dart';
 import '../utils/number_utils.dart';
+import '../utils/load_more_coordinator.dart';
 import '../utils/pagination_helper.dart';
 import '../services/emoji_handler.dart';
 import 'package:dio/dio.dart';
@@ -21,6 +22,7 @@ import '../providers/preferences_provider.dart';
 import '../widgets/common/flair_badge.dart';
 import '../widgets/common/grain_gradient_background.dart';
 import '../widgets/common/error_view.dart';
+import '../widgets/common/paged_list_footer.dart';
 import '../widgets/common/smart_avatar.dart';
 import '../widgets/content/discourse_html_content/discourse_html_content_widget.dart';
 import '../widgets/content/collapsed_html_content.dart';
@@ -70,11 +72,15 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
   final Map<String, List<UserAction>> _actionsCache = {};
   final Map<String, bool> _hasMoreCache = {};
   final Map<String, bool> _loadingCache = {};
+  final Map<String, bool> _loadMoreFailedCache = {};
+  final Map<String, LoadMoreCoordinator> _actionLoadMoreCoordinators = {};
 
   // 回应列表单独缓存
   List<UserReaction>? _reactionsCache;
   bool _reactionsHasMore = true;
   bool _reactionsLoading = false;
+  bool _reactionsLoadMoreFailed = false;
+  final LoadMoreCoordinator _reactionsLoadMoreCoordinator = LoadMoreCoordinator();
 
   // tab 对应的 filter: summary=总结, 4,5=全部(话题+回复), 4=话题, 5=回复, 1=点赞, reactions=回应
   static const List<String> _tabFilters = ['summary', '4,5', '4', '5', '1', 'reactions'];
@@ -563,11 +569,44 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
     expectedPageSize: 20,
   );
 
+  LoadMoreCoordinator _actionLoadMoreCoordinator(String filter) {
+    return _actionLoadMoreCoordinators.putIfAbsent(
+      filter,
+      () => LoadMoreCoordinator(),
+    );
+  }
+
+  Future<void> _loadMoreActions(String filter) async {
+    final coordinator = _actionLoadMoreCoordinator(filter);
+    await coordinator.loadMore(
+      loadMore: () => _loadActions(filter, loadMore: true),
+      hasMore: () => _hasMoreCache[filter] ?? true,
+      isActive: () => mounted,
+      progressCount: () => _actionsCache[filter]?.length ?? 0,
+    );
+  }
+
+  Future<void> _loadMoreReactions() async {
+    await _reactionsLoadMoreCoordinator.loadMore(
+      loadMore: () => _loadReactions(loadMore: true),
+      hasMore: () => _reactionsHasMore,
+      isActive: () => mounted,
+      progressCount: () => _reactionsCache?.length ?? 0,
+    );
+  }
+
   Future<void> _loadActions(String filter, {bool loadMore = false}) async {
     // 如果已有数据且正在加载，跳过（防止重复加载更多）
     if (_loadingCache[filter] == true && _actionsCache.containsKey(filter)) return;
 
-    setState(() => _loadingCache[filter] = true);
+    if (!loadMore) {
+      _actionLoadMoreCoordinator(filter).resetCooldown();
+    }
+
+    setState(() {
+      _loadingCache[filter] = true;
+      _loadMoreFailedCache[filter] = false;
+    });
 
     try {
       final service = ref.read(discourseServiceProvider);
@@ -596,11 +635,17 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
             _hasMoreCache[filter] = result.hasMore;
           }
           _loadingCache[filter] = false;
+          _loadMoreFailedCache[filter] = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _loadingCache[filter] = false);
+        setState(() {
+          _loadingCache[filter] = false;
+          if (loadMore) {
+            _loadMoreFailedCache[filter] = true;
+          }
+        });
       }
     }
   }
@@ -608,7 +653,14 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
   Future<void> _loadReactions({bool loadMore = false}) async {
     if (_reactionsLoading && _reactionsCache != null) return;
 
-    setState(() => _reactionsLoading = true);
+    if (!loadMore) {
+      _reactionsLoadMoreCoordinator.resetCooldown();
+    }
+
+    setState(() {
+      _reactionsLoading = true;
+      _reactionsLoadMoreFailed = false;
+    });
 
     try {
       final service = ref.read(discourseServiceProvider);
@@ -635,11 +687,17 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
             _reactionsHasMore = result.hasMore;
           }
           _reactionsLoading = false;
+          _reactionsLoadMoreFailed = false;
         });
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _reactionsLoading = false);
+        setState(() {
+          _reactionsLoading = false;
+          if (loadMore) {
+            _reactionsLoadMoreFailed = true;
+          }
+        });
       }
     }
   }
@@ -1422,6 +1480,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
     final actions = _actionsCache[filter];
     final isLoading = _loadingCache[filter] == true;
     final hasMore = _hasMoreCache[filter] ?? true;
+    final loadMoreCoordinator = _actionLoadMoreCoordinator(filter);
 
     // 优先检查 loading 状态
     if (isLoading && actions == null) {
@@ -1444,11 +1503,12 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
-        if (notification is ScrollEndNotification &&
-            notification.metrics.pixels >= notification.metrics.maxScrollExtent - 200 &&
-            hasMore &&
-            !isLoading) {
-          _loadActions(filter, loadMore: true);
+        if (notification.metrics.axis == Axis.vertical) {
+          final distance =
+              notification.metrics.maxScrollExtent - notification.metrics.pixels;
+          if (loadMoreCoordinator.shouldTriggerForDistance(distance)) {
+            _loadMoreActions(filter);
+          }
         }
         return false;
       },
@@ -1456,12 +1516,14 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
         onRefresh: () => _loadActions(filter),
         child: ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          itemCount: actions.length + (hasMore ? 1 : 0),
+          itemCount: actions.length + 1,
           itemBuilder: (context, index) {
             if (index == actions.length) {
-              return const Padding(
-                padding: EdgeInsets.all(16),
-                child: Center(child: CircularProgressIndicator()),
+              return PagedListFooter(
+                hasMore: hasMore,
+                isLoadingMore: loadMoreCoordinator.isRunning && isLoading,
+                isLoadMoreFailed: _loadMoreFailedCache[filter] == true,
+                onRetry: () => _loadMoreActions(filter),
               );
             }
             return _buildActionItem(actions[index]);
@@ -1929,11 +1991,12 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
-        if (notification is ScrollEndNotification &&
-            notification.metrics.pixels >= notification.metrics.maxScrollExtent - 200 &&
-            hasMore &&
-            !isLoading) {
-          _loadReactions(loadMore: true);
+        if (notification.metrics.axis == Axis.vertical) {
+          final distance =
+              notification.metrics.maxScrollExtent - notification.metrics.pixels;
+          if (_reactionsLoadMoreCoordinator.shouldTriggerForDistance(distance)) {
+            _loadMoreReactions();
+          }
         }
         return false;
       },
@@ -1941,12 +2004,15 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
         onRefresh: () => _loadReactions(),
         child: ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          itemCount: reactions.length + (hasMore ? 1 : 0),
+          itemCount: reactions.length + 1,
           itemBuilder: (context, index) {
             if (index == reactions.length) {
-              return const Padding(
-                padding: EdgeInsets.all(16),
-                child: Center(child: CircularProgressIndicator()),
+              return PagedListFooter(
+                hasMore: hasMore,
+                isLoadingMore:
+                    _reactionsLoadMoreCoordinator.isRunning && isLoading,
+                isLoadMoreFailed: _reactionsLoadMoreFailed,
+                onRetry: _loadMoreReactions,
               );
             }
             return _buildReactionItem(reactions[index]);

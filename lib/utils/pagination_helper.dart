@@ -167,7 +167,8 @@ class PaginationHelper<T> {
   bool _checkHasMore(HasMoreContext<T> context) {
     switch (strategy) {
       case HasMoreStrategy.byMoreUrl:
-        return context.result.moreUrl != null;
+        return context.result.moreUrl != null &&
+            context.responseItems.isNotEmpty;
 
       case HasMoreStrategy.byTotalRows:
         return context.totalCount < (context.result.totalRows ?? 0);
@@ -179,7 +180,8 @@ class PaginationHelper<T> {
           return context.responseItems.length >= pageSize;
         }
         // 加载更多时检查返回数量 + 去重后是否有新数据
-        return context.responseItems.length >= pageSize && context.newItems.isNotEmpty;
+        return context.responseItems.length >= pageSize &&
+            context.newItems.isNotEmpty;
 
       case HasMoreStrategy.custom:
         return hasMoreChecker?.call(context) ?? false;

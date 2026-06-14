@@ -8,6 +8,7 @@ import '../services/preloaded_data_service.dart';
 import '../widgets/common/smart_avatar.dart';
 import '../widgets/common/error_view.dart';
 import '../widgets/common/loading_spinner.dart';
+import '../widgets/common/paged_list_footer.dart';
 import '../widgets/search/search_filter_panel.dart';
 import '../widgets/search/search_post_card.dart';
 import '../widgets/search/search_preview_dialog.dart';
@@ -19,6 +20,7 @@ import '../services/app_error_handler.dart';
 import '../l10n/s.dart';
 import 'user_profile_page.dart';
 import '../utils/dialog_utils.dart';
+import '../utils/load_more_coordinator.dart';
 
 /// 搜索页面
 class SearchPage extends ConsumerStatefulWidget {
@@ -35,6 +37,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
   final _scrollController = ScrollController();
+  final LoadMoreCoordinator _loadMoreCoordinator = LoadMoreCoordinator();
   late final ShortcutSurfaceBinding _shortcutSurfaceBinding =
       ShortcutSurfaceBinding(
         ref: ref,
@@ -170,10 +173,10 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 200 &&
-        !_isLoadingMore &&
-        _hasMorePosts) {
+    final distance =
+        _scrollController.position.maxScrollExtent -
+        _scrollController.position.pixels;
+    if (_loadMoreCoordinator.shouldTriggerForDistance(distance)) {
       _loadMore();
     }
   }
@@ -362,6 +365,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     if (_currentQuery.isEmpty) return;
 
     final isLoadMore = _currentPage > 1;
+    if (!isLoadMore) {
+      _loadMoreCoordinator.resetCooldown();
+    }
 
     setState(() {
       _hasError = false;
@@ -408,7 +414,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         } else {
           _standardPosts.addAll(result.posts);
         }
-        _hasMorePosts = result.hasMorePosts;
+        _hasMorePosts = result.hasMorePosts && result.posts.isNotEmpty;
         _hasMoreUsers = result.hasMoreUsers;
         _isLoadingMore = false;
         _rebuildDisplayPosts();
@@ -431,6 +437,16 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   }
 
   Future<void> _loadMore() async {
+    if (_isLoadMoreFailed) return;
+    await _loadMoreCoordinator.loadMore(
+      loadMore: _loadMorePage,
+      hasMore: () => _hasMorePosts,
+      isActive: () => mounted,
+      progressCount: () => _allPosts.length,
+    );
+  }
+
+  Future<void> _loadMorePage() async {
     if (_isLoadingMore || !_hasMorePosts || _isLoadMoreFailed) return;
 
     setState(() {
@@ -443,6 +459,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
 
   void _clearSearch() {
     _searchController.clear();
+    _loadMoreCoordinator.resetCooldown();
     setState(() {
       _currentQuery = '';
       _standardPosts = [];
@@ -855,7 +872,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             itemCount:
                 _allPosts.length +
                 (_allUsers.isNotEmpty ? _allUsers.length + 1 : 0) +
-                (_isLoadingMore || _isLoadMoreFailed ? 1 : 0),
+                1,
             itemBuilder: (context, index) {
               // 帖子结果（标准 + AI 混合）
               if (index < _allPosts.length) {
@@ -935,48 +952,17 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 }
               }
 
-              // 加载更多失败重试
-              if (_isLoadMoreFailed) {
-                return Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Center(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() => _isLoadMoreFailed = false);
-                        _loadMore();
-                      },
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.refresh,
-                            size: 16,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            context.l10n.common_loadFailedTapRetry,
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Theme.of(context).colorScheme.primary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              }
-
-              // 加载更多指示器
-              if (_isLoadingMore) {
-                return const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: LoadingSpinner()),
-                );
-              }
-
-              return const SizedBox.shrink();
+              return PagedListFooter(
+                hasMore: _hasMorePosts,
+                isLoadingMore:
+                    _loadMoreCoordinator.isRunning && _isLoadingMore,
+                isLoadMoreFailed: _isLoadMoreFailed,
+                onRetry: () {
+                  _loadMoreCoordinator.resetCooldown();
+                  setState(() => _isLoadMoreFailed = false);
+                  _loadMore();
+                },
+              );
             },
           ),
         ),

@@ -1,16 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/notification.dart';
+import '../utils/paged_async_notifier.dart';
 import '../utils/pagination_helper.dart';
 import 'core_providers.dart';
 import 'message_bus_providers.dart';
 
 /// 通知列表 Notifier (支持分页和刷新，用于历史通知页面)
 /// autoDispose：离开页面后自动清除，下次进入重新加载
-class NotificationListNotifier extends AsyncNotifier<List<DiscourseNotification>> {
+class NotificationListNotifier
+    extends AsyncNotifier<List<DiscourseNotification>>
+    with PagedAsyncNotifierMixin<DiscourseNotification> {
   int _totalRows = 0;
-  bool _isLoadMoreFailed = false;
-  bool get hasMore => state.value != null && state.value!.length < _totalRows;
-  bool get isLoadMoreFailed => _isLoadMoreFailed;
 
   /// 分页助手
   static final _paginationHelper = PaginationHelpers.forNotifications<DiscourseNotification>(
@@ -19,35 +19,34 @@ class NotificationListNotifier extends AsyncNotifier<List<DiscourseNotification>
 
   @override
   Future<List<DiscourseNotification>> build() async {
-    _isLoadMoreFailed = false;
+    resetPagingState();
     final service = ref.read(discourseServiceProvider);
     final response = await service.getNotifications();
     _totalRows = response.totalRowsNotifications;
-    return response.notifications;
+    return completePagedRefresh(
+      PagedPage(
+        items: response.notifications,
+        hasMore: response.notifications.length < _totalRows,
+      ),
+    );
   }
 
   /// 刷新列表
   Future<void> refresh() async {
-    _isLoadMoreFailed = false;
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
+    await runPagedRefresh(() async {
       final service = ref.read(discourseServiceProvider);
       final response = await service.getNotifications();
       _totalRows = response.totalRowsNotifications;
-      return response.notifications;
+      return PagedPage(
+        items: response.notifications,
+        hasMore: response.notifications.length < _totalRows,
+      );
     });
   }
 
   /// 加载更多
   Future<void> loadMore() async {
-    if (_isLoadMoreFailed) return; // 失败后需手动重试
-    if (!hasMore || state.isLoading) return;
-
-    // ignore: invalid_use_of_internal_member
-    state = const AsyncLoading<List<DiscourseNotification>>().copyWithPrevious(state);
-
-    final result = await AsyncValue.guard(() async {
-      final currentList = state.requireValue;
+    await runPagedLoadMore((currentList, _) async {
       final offset = currentList.length;
 
       final service = ref.read(discourseServiceProvider);
@@ -59,20 +58,17 @@ class NotificationListNotifier extends AsyncNotifier<List<DiscourseNotification>
         PaginationResult(items: response.notifications, totalRows: _totalRows),
       );
 
-      return paginationResult.items;
+      return PagedPage(
+        items: paginationResult.items,
+        hasMore:
+            response.notifications.isNotEmpty && paginationResult.hasMore,
+      );
     });
-    if (result.hasError) {
-      _isLoadMoreFailed = true;
-      state = AsyncValue.data(state.requireValue);
-    } else {
-      state = result;
-    }
   }
 
   /// 手动重试加载更多
-  void retryLoadMore() {
-    _isLoadMoreFailed = false;
-    loadMore();
+  Future<void> retryLoadMore() {
+    return retryPagedLoadMore(loadMore);
   }
 
   /// 标记所有为已读

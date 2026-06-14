@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/topic.dart';
 import '../pages/bookmarks/bookmarks_models.dart';
+import '../utils/paged_async_notifier.dart';
 import '../utils/pagination_helper.dart';
 import 'bookmarks_reconciler.dart';
 import 'bookmarks_repository.dart';
@@ -25,34 +26,22 @@ final _topicPaginationHelper = PaginationHelpers.forTopics<Topic>(
 );
 
 /// 浏览历史 Notifier (支持分页)
-class BrowsingHistoryNotifier extends AsyncNotifier<List<Topic>> {
-  int _page = 0;
-  bool _hasMore = true;
-  bool _isLoadMoreFailed = false;
-  bool get hasMore => _hasMore;
-  bool get isLoadMoreFailed => _isLoadMoreFailed;
-
+class BrowsingHistoryNotifier extends AsyncNotifier<List<Topic>>
+    with PagedAsyncNotifierMixin<Topic> {
   @override
   Future<List<Topic>> build() async {
-    _page = 0;
-    _hasMore = true;
-    _isLoadMoreFailed = false;
+    resetPagingState();
     final service = ref.read(discourseServiceProvider);
     final response = await service.getBrowsingHistory(page: 0);
 
     final result = _topicPaginationHelper.processRefresh(
       PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
     );
-    _hasMore = result.hasMore;
-    return result.items;
+    return completePagedRefresh(PagedPage.fromPagination(result));
   }
 
   Future<void> refresh() async {
-    _isLoadMoreFailed = false;
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      _page = 0;
-      _hasMore = true;
+    await runPagedRefresh(() async {
       final service = ref.read(discourseServiceProvider);
       final response = await service.getBrowsingHistory(page: 0);
 
@@ -62,22 +51,12 @@ class BrowsingHistoryNotifier extends AsyncNotifier<List<Topic>> {
           moreUrl: response.moreTopicsUrl,
         ),
       );
-      _hasMore = result.hasMore;
-      return result.items;
+      return PagedPage.fromPagination(result);
     });
   }
 
   Future<void> loadMore() async {
-    if (_isLoadMoreFailed) return;
-    if (!_hasMore || state.isLoading) return;
-
-    // ignore: invalid_use_of_internal_member
-    state = const AsyncLoading<List<Topic>>().copyWithPrevious(state);
-
-    final result = await AsyncValue.guard(() async {
-      final currentList = state.requireValue;
-      final nextPage = _page + 1;
-
+    await runPagedLoadMore((currentList, nextPage) async {
       final service = ref.read(discourseServiceProvider);
       final response = await service.getBrowsingHistory(page: nextPage);
 
@@ -90,23 +69,15 @@ class BrowsingHistoryNotifier extends AsyncNotifier<List<Topic>> {
         ),
       );
 
-      _hasMore = paginationResult.hasMore;
-      if (paginationResult.items.length > currentList.length) {
-        _page = nextPage;
-      }
-      return paginationResult.items;
+      return PagedPage.fromPagination(
+        paginationResult,
+        advancePage: response.topics.isNotEmpty,
+      );
     });
-    if (result.hasError) {
-      _isLoadMoreFailed = true;
-      state = AsyncValue.data(state.requireValue);
-    } else {
-      state = result;
-    }
   }
 
-  void retryLoadMore() {
-    _isLoadMoreFailed = false;
-    loadMore();
+  Future<void> retryLoadMore() {
+    return retryPagedLoadMore(loadMore);
   }
 }
 
@@ -395,34 +366,22 @@ final bookmarksProvider =
     });
 
 /// 我的话题 Notifier (支持分页)
-class MyTopicsNotifier extends AsyncNotifier<List<Topic>> {
-  int _page = 0;
-  bool _hasMore = true;
-  bool _isLoadMoreFailed = false;
-  bool get hasMore => _hasMore;
-  bool get isLoadMoreFailed => _isLoadMoreFailed;
-
+class MyTopicsNotifier extends AsyncNotifier<List<Topic>>
+    with PagedAsyncNotifierMixin<Topic> {
   @override
   Future<List<Topic>> build() async {
-    _page = 0;
-    _hasMore = true;
-    _isLoadMoreFailed = false;
+    resetPagingState();
     final service = ref.read(discourseServiceProvider);
     final response = await service.getUserCreatedTopics(page: 0);
 
     final result = _topicPaginationHelper.processRefresh(
       PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
     );
-    _hasMore = result.hasMore;
-    return result.items;
+    return completePagedRefresh(PagedPage.fromPagination(result));
   }
 
   Future<void> refresh() async {
-    _isLoadMoreFailed = false;
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      _page = 0;
-      _hasMore = true;
+    await runPagedRefresh(() async {
       final service = ref.read(discourseServiceProvider);
       final response = await service.getUserCreatedTopics(page: 0);
 
@@ -432,22 +391,12 @@ class MyTopicsNotifier extends AsyncNotifier<List<Topic>> {
           moreUrl: response.moreTopicsUrl,
         ),
       );
-      _hasMore = result.hasMore;
-      return result.items;
+      return PagedPage.fromPagination(result);
     });
   }
 
   Future<void> loadMore() async {
-    if (_isLoadMoreFailed) return;
-    if (!_hasMore || state.isLoading) return;
-
-    // ignore: invalid_use_of_internal_member
-    state = const AsyncLoading<List<Topic>>().copyWithPrevious(state);
-
-    final result = await AsyncValue.guard(() async {
-      final currentList = state.requireValue;
-      final nextPage = _page + 1;
-
+    await runPagedLoadMore((currentList, nextPage) async {
       final service = ref.read(discourseServiceProvider);
       final response = await service.getUserCreatedTopics(page: nextPage);
 
@@ -460,23 +409,15 @@ class MyTopicsNotifier extends AsyncNotifier<List<Topic>> {
         ),
       );
 
-      _hasMore = paginationResult.hasMore;
-      if (paginationResult.items.length > currentList.length) {
-        _page = nextPage;
-      }
-      return paginationResult.items;
+      return PagedPage.fromPagination(
+        paginationResult,
+        advancePage: response.topics.isNotEmpty,
+      );
     });
-    if (result.hasError) {
-      _isLoadMoreFailed = true;
-      state = AsyncValue.data(state.requireValue);
-    } else {
-      state = result;
-    }
   }
 
-  void retryLoadMore() {
-    _isLoadMoreFailed = false;
-    loadMore();
+  Future<void> retryLoadMore() {
+    return retryPagedLoadMore(loadMore);
   }
 }
 
@@ -489,35 +430,23 @@ final myTopicsProvider =
 enum PrivateMessageFilter { inbox, sent, archive }
 
 /// 私信列表 Notifier 基类 (支持分页)
-abstract class PrivateMessagesNotifier extends AsyncNotifier<List<Topic>> {
-  int _page = 0;
-  bool _hasMore = true;
-  bool _isLoadMoreFailed = false;
-  bool get hasMore => _hasMore;
-  bool get isLoadMoreFailed => _isLoadMoreFailed;
-
+abstract class PrivateMessagesNotifier extends AsyncNotifier<List<Topic>>
+    with PagedAsyncNotifierMixin<Topic> {
   Future<TopicListResponse> fetch(int page);
 
   @override
   Future<List<Topic>> build() async {
-    _page = 0;
-    _hasMore = true;
-    _isLoadMoreFailed = false;
+    resetPagingState();
     final response = await fetch(0);
 
     final result = _topicPaginationHelper.processRefresh(
       PaginationResult(items: response.topics, moreUrl: response.moreTopicsUrl),
     );
-    _hasMore = result.hasMore;
-    return result.items;
+    return completePagedRefresh(PagedPage.fromPagination(result));
   }
 
   Future<void> refresh() async {
-    _isLoadMoreFailed = false;
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      _page = 0;
-      _hasMore = true;
+    await runPagedRefresh(() async {
       final response = await fetch(0);
 
       final result = _topicPaginationHelper.processRefresh(
@@ -526,22 +455,12 @@ abstract class PrivateMessagesNotifier extends AsyncNotifier<List<Topic>> {
           moreUrl: response.moreTopicsUrl,
         ),
       );
-      _hasMore = result.hasMore;
-      return result.items;
+      return PagedPage.fromPagination(result);
     });
   }
 
   Future<void> loadMore() async {
-    if (_isLoadMoreFailed) return;
-    if (!_hasMore || state.isLoading) return;
-
-    // ignore: invalid_use_of_internal_member
-    state = const AsyncLoading<List<Topic>>().copyWithPrevious(state);
-
-    final result = await AsyncValue.guard(() async {
-      final currentList = state.requireValue;
-      final nextPage = _page + 1;
-
+    await runPagedLoadMore((currentList, nextPage) async {
       final response = await fetch(nextPage);
 
       final currentState = PaginationState<Topic>(items: currentList);
@@ -553,23 +472,15 @@ abstract class PrivateMessagesNotifier extends AsyncNotifier<List<Topic>> {
         ),
       );
 
-      _hasMore = paginationResult.hasMore;
-      if (paginationResult.items.length > currentList.length) {
-        _page = nextPage;
-      }
-      return paginationResult.items;
+      return PagedPage.fromPagination(
+        paginationResult,
+        advancePage: response.topics.isNotEmpty,
+      );
     });
-    if (result.hasError) {
-      _isLoadMoreFailed = true;
-      state = AsyncValue.data(state.requireValue);
-    } else {
-      state = result;
-    }
   }
 
-  void retryLoadMore() {
-    _isLoadMoreFailed = false;
-    loadMore();
+  Future<void> retryLoadMore() {
+    return retryPagedLoadMore(loadMore);
   }
 }
 

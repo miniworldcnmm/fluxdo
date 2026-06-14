@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/s.dart';
 import '../../providers/topic_search_provider.dart';
+import '../../utils/load_more_coordinator.dart';
 import '../common/loading_spinner.dart';
+import '../common/paged_list_footer.dart';
 import '../../pages/topic_detail_page/topic_detail_page.dart';
 import 'search_post_card.dart';
 
@@ -26,6 +28,7 @@ class TopicSearchView extends ConsumerStatefulWidget {
 
 class _TopicSearchViewState extends ConsumerState<TopicSearchView> {
   final ScrollController _scrollController = ScrollController();
+  final LoadMoreCoordinator _loadMoreCoordinator = LoadMoreCoordinator();
 
   @override
   void initState() {
@@ -40,10 +43,27 @@ class _TopicSearchViewState extends ConsumerState<TopicSearchView> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
-      ref.read(topicSearchProvider(widget.topicId).notifier).loadMore();
+    final distance =
+        _scrollController.position.maxScrollExtent -
+        _scrollController.position.pixels;
+    if (_loadMoreCoordinator.shouldTriggerForDistance(distance)) {
+      _loadMore();
     }
+  }
+
+  Future<void> _loadMore() async {
+    final provider = topicSearchProvider(widget.topicId);
+    await _loadMoreCoordinator.loadMore(
+      loadMore: ref.read(provider.notifier).loadMore,
+      hasMore: () => ref.read(provider).hasMore,
+      isActive: () => mounted,
+      progressCount: () => ref.read(provider).results.length,
+    );
+  }
+
+  Future<void> _retryLoadMore() async {
+    _loadMoreCoordinator.resetCooldown();
+    await ref.read(topicSearchProvider(widget.topicId).notifier).retryLoadMore();
   }
 
   @override
@@ -144,13 +164,15 @@ class _TopicSearchViewState extends ConsumerState<TopicSearchView> {
           child: ListView.builder(
             controller: _scrollController,
             padding: const EdgeInsets.all(16),
-            itemCount:
-                searchState.results.length + (searchState.isLoading ? 1 : 0),
+            itemCount: searchState.results.length + 1,
             itemBuilder: (context, index) {
               if (index == searchState.results.length) {
-                return const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: LoadingSpinner()),
+                return PagedListFooter(
+                  hasMore: searchState.hasMore,
+                  isLoadingMore:
+                      searchState.isLoading && searchState.results.isNotEmpty,
+                  isLoadMoreFailed: searchState.isLoadMoreFailed,
+                  onRetry: _retryLoadMore,
                 );
               }
 

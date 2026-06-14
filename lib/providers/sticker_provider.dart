@@ -111,12 +111,22 @@ class MarketGroupsNotifier
   int _loadedPages = 0;
   int _totalPages = 0;
   bool _isLoadingMore = false;
+  bool _isLoadMoreFailed = false;
 
   MarketGroupsNotifier(this._service) : super(const AsyncValue.loading()) {
     _loadFirstPage();
   }
 
   bool get hasMore => _loadedPages < _totalPages;
+  bool get isLoadingMore => _isLoadingMore;
+  bool get isLoadMoreFailed => _isLoadMoreFailed;
+
+  void _emitCurrentData() {
+    final groups = state.value;
+    if (groups != null && mounted) {
+      state = AsyncValue.data(List<StickerGroup>.of(groups));
+    }
+  }
 
   Future<void> _loadFirstPage() async {
     try {
@@ -127,6 +137,7 @@ class MarketGroupsNotifier
       ]);
       _totalPages = (results[0] as StickerMarketIndex).totalPages;
       _loadedPages = 1;
+      _isLoadMoreFailed = false;
       state = AsyncValue.data(results[1] as List<StickerGroup>);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -134,27 +145,43 @@ class MarketGroupsNotifier
   }
 
   Future<void> loadMore() async {
-    if (_isLoadingMore || !hasMore || state is! AsyncData) return;
+    if (_isLoadingMore || !hasMore || state is! AsyncData || _isLoadMoreFailed) return;
     _isLoadingMore = true;
+    _isLoadMoreFailed = false;
+    _emitCurrentData();
     try {
       final nextPage = _loadedPages + 1;
       final newGroups = await _service.getGroupsPage(nextPage);
       _loadedPages = nextPage;
+      if (newGroups.isEmpty) {
+        _totalPages = nextPage;
+      }
       if (!mounted) return;
 
       // 单次提交新页面，避免滚动过程中连续多次 rebuild 整个列表。
       state = AsyncValue.data([...state.value!, ...newGroups]);
     } catch (e) {
+      _isLoadMoreFailed = true;
       debugPrint('[MarketGroups] 加载第${_loadedPages + 1}页失败: $e');
     } finally {
       _isLoadingMore = false;
+      _emitCurrentData();
     }
+  }
+
+  Future<void> retryLoadMore() async {
+    if (!_isLoadMoreFailed) return;
+    _isLoadMoreFailed = false;
+    _emitCurrentData();
+    await loadMore();
   }
 
   Future<void> refresh() async {
     state = const AsyncValue.loading();
     _loadedPages = 0;
     _totalPages = 0;
+    _isLoadingMore = false;
+    _isLoadMoreFailed = false;
     await _loadFirstPage();
   }
 }

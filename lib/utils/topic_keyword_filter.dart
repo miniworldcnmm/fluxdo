@@ -7,6 +7,9 @@ import '../models/topic.dart';
 class TopicKeywordFilter {
   TopicKeywordFilter._();
 
+  static const int autoLoadVisibleThreshold = 5;
+  static const int autoLoadMaxAttempts = 3;
+
   /// 应用关键词过滤，返回 `(可见列表, 隐藏数量)`。
   ///
   /// - [normalizedKeywords] 必须是已 trim + lowercase + 去空的列表。
@@ -90,8 +93,8 @@ class TopicKeywordFilter {
     required int visibleAfter,
     required bool hasMore,
     required int attempts,
-    int threshold = 5,
-    int maxAttempts = 3,
+    int threshold = autoLoadVisibleThreshold,
+    int maxAttempts = autoLoadMaxAttempts,
   }) {
     if (!hasMore) return false;
     if (attempts >= maxAttempts) return false;

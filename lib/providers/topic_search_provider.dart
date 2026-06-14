@@ -24,6 +24,9 @@ class TopicSearchState {
   /// 是否有更多结果
   final bool hasMore;
 
+  /// 加载更多是否失败
+  final bool isLoadMoreFailed;
+
   /// 当前页码
   final int page;
 
@@ -37,6 +40,7 @@ class TopicSearchState {
     this.results = const [],
     this.isLoading = false,
     this.hasMore = false,
+    this.isLoadMoreFailed = false,
     this.page = 1,
     this.error,
   });
@@ -47,6 +51,7 @@ class TopicSearchState {
     List<SearchPost>? results,
     bool? isLoading,
     bool? hasMore,
+    bool? isLoadMoreFailed,
     int? page,
     String? error,
     bool clearError = false,
@@ -58,6 +63,7 @@ class TopicSearchState {
       results: results ?? this.results,
       isLoading: isLoading ?? this.isLoading,
       hasMore: hasMore ?? this.hasMore,
+      isLoadMoreFailed: isLoadMoreFailed ?? this.isLoadMoreFailed,
       page: page ?? this.page,
       error: clearError ? null : (error ?? this.error),
     );
@@ -91,6 +97,7 @@ class TopicSearchNotifier extends StateNotifier<TopicSearchState> {
       page: 1,
       results: [],
       hasMore: false,
+      isLoadMoreFailed: false,
       clearError: true,
     );
 
@@ -113,7 +120,7 @@ class TopicSearchNotifier extends StateNotifier<TopicSearchState> {
 
       state = state.copyWith(
         results: result.posts,
-        hasMore: result.hasMorePosts,
+        hasMore: result.hasMorePosts && result.posts.isNotEmpty,
         isLoading: false,
       );
     } catch (e) {
@@ -126,10 +133,20 @@ class TopicSearchNotifier extends StateNotifier<TopicSearchState> {
 
   /// 加载更多结果
   Future<void> loadMore() async {
-    if (state.isLoading || !state.hasMore || state.query.isEmpty || state.error != null) return;
+    if (state.isLoading ||
+        !state.hasMore ||
+        state.query.isEmpty ||
+        state.isLoadMoreFailed) {
+      return;
+    }
 
     final nextPage = state.page + 1;
-    state = state.copyWith(isLoading: true, page: nextPage);
+    state = state.copyWith(
+      isLoading: true,
+      isLoadMoreFailed: false,
+      page: nextPage,
+      clearError: true,
+    );
 
     try {
       final service = _ref.read(discourseServiceProvider);
@@ -145,16 +162,23 @@ class TopicSearchNotifier extends StateNotifier<TopicSearchState> {
 
       state = state.copyWith(
         results: [...state.results, ...result.posts],
-        hasMore: result.hasMorePosts,
+        hasMore: result.hasMorePosts && result.posts.isNotEmpty,
         isLoading: false,
       );
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
         page: state.page - 1,
+        isLoadMoreFailed: true,
         error: e.toString(),
       );
     }
+  }
+
+  Future<void> retryLoadMore() async {
+    if (!state.isLoadMoreFailed) return;
+    state = state.copyWith(isLoadMoreFailed: false, clearError: true);
+    await loadMore();
   }
 }
 

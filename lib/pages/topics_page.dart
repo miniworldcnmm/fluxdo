@@ -28,9 +28,11 @@ import '../widgets/topic/topic_item_builder.dart';
 import '../widgets/topic/topic_notification_button.dart';
 import '../widgets/topic/category_tab_manager_sheet.dart';
 import '../widgets/common/tag_selection_sheet.dart';
+import '../widgets/common/paged_list_footer.dart';
 import '../navigation/nav_action_bus.dart';
 import '../providers/app_state_refresher.dart';
 import '../providers/preferences_provider.dart';
+import '../utils/load_more_coordinator.dart';
 import '../utils/topic_keyword_filter.dart';
 import '../utils/responsive.dart';
 import '../widgets/layout/master_detail_layout.dart';
@@ -1194,12 +1196,10 @@ class _TopicListState extends ConsumerState<_TopicList>
   /// J/K 防抖：上次触发时间
   DateTime _lastKeyNavTime = DateTime(0);
 
-  /// 关键词过滤场景下，loadMore 自动续加载的并发标志
-  bool _isAutoContinueLoading = false;
-
-  /// 上一段贴底连续自动续加载已用尽 attempts，等用户滚出底部 200px 区域后再放开。
-  /// 防止"距底部 < 200px"持续成立时 ScrollUpdate 把 _triggerLoadMore 永远再叫起来。
-  bool _autoContinueExhausted = false;
+  final TopicLoadMoreCoordinator _loadMoreCoordinator =
+      TopicLoadMoreCoordinator();
+  List<String> _lastAutoLoadKeywords = const [];
+  bool? _lastAutoLoadWholeWord;
 
   @override
   bool get wantKeepAlive => true;
@@ -1316,55 +1316,45 @@ class _TopicListState extends ConsumerState<_TopicList>
   /// 触发 loadMore，并在关键词命中率高、可见增量不足时自动续加载，
   /// 避免用户在话题列表里看到「滑到底但只多了 1-2 条」。
   Future<void> _triggerLoadMore(int? providerKey) async {
-    if (_isAutoContinueLoading) return;
-    if (_autoContinueExhausted) return;
     final notifier = ref.read(topicListProvider(providerKey).notifier);
-    if (!notifier.hasMore) {
-      // 单次仍然交给 notifier，让其内部状态/错误处理生效
-      await notifier.loadMore();
+
+    final prefs = ref.read(preferencesProvider);
+    final keywords = prefs.normalizedFilterKeywords;
+    final wholeWord = prefs.topicFilterWholeWord;
+
+    int itemCount() {
+      return ref.read(topicListProvider(providerKey)).value?.length ?? 0;
+    }
+
+    int visibleItemCount() {
+      final raw =
+          ref.read(topicListProvider(providerKey)).value ?? const <Topic>[];
+      final (visible, _) = TopicKeywordFilter.apply(
+        raw,
+        normalizedKeywords: keywords,
+        wholeWord: wholeWord,
+      );
+      return visible.length;
+    }
+
+    await _loadMoreCoordinator.loadTopicPage(
+      loadMore: notifier.loadMore,
+      hasMore: () => notifier.hasMore,
+      isActive: () => mounted,
+      itemCount: itemCount,
+      visibleItemCount: visibleItemCount,
+      hasKeywordFilter: keywords.isNotEmpty,
+    );
+  }
+
+  void _syncAutoLoadFilter(List<String> keywords, bool wholeWord) {
+    if (listEquals(_lastAutoLoadKeywords, keywords) &&
+        _lastAutoLoadWholeWord == wholeWord) {
       return;
     }
-
-    _isAutoContinueLoading = true;
-    try {
-      final prefs = ref.read(preferencesProvider);
-      final keywords = prefs.normalizedFilterKeywords;
-      final wholeWord = prefs.topicFilterWholeWord;
-
-      int countVisible() {
-        final async = ref.read(topicListProvider(providerKey));
-        final raw = async.value ?? const <Topic>[];
-        final (vis, _) = TopicKeywordFilter.apply(
-          raw,
-          normalizedKeywords: keywords,
-          wholeWord: wholeWord,
-        );
-        return vis.length;
-      }
-
-      var attempts = 0;
-      while (true) {
-        final before = countVisible();
-        await notifier.loadMore();
-        if (!mounted) return;
-        final after = countVisible();
-        if (!TopicKeywordFilter.shouldAutoLoadMore(
-          visibleBefore: before,
-          visibleAfter: after,
-          hasMore: notifier.hasMore,
-          attempts: attempts,
-        )) {
-          // 因 attempts 用尽而跳出时，进入"贴底冷却"，等用户滚开再放开
-          if (notifier.hasMore && (after - before) < 5) {
-            _autoContinueExhausted = true;
-          }
-          break;
-        }
-        attempts++;
-      }
-    } finally {
-      _isAutoContinueLoading = false;
-    }
+    _lastAutoLoadKeywords = List.unmodifiable(keywords);
+    _lastAutoLoadWholeWord = wholeWord;
+    _loadMoreCoordinator.resetCooldown();
   }
 
   void _openTopic(Topic topic) {
@@ -1422,11 +1412,13 @@ class _TopicListState extends ConsumerState<_TopicList>
       });
       ref.listen(tabTagsProvider(widget.categoryId), (prev, next) {
         if (prev != next) {
+          _loadMoreCoordinator.resetCooldown();
           ref.read(topicListProvider(widget.categoryId).notifier).refresh();
           _clearIncomingState();
         }
       });
       ref.listen(topicListGlobalParamsSignal, (_, _) {
+        _loadMoreCoordinator.resetCooldown();
         _clearIncomingState();
       });
     } else {
@@ -1443,6 +1435,7 @@ class _TopicListState extends ConsumerState<_TopicList>
     final wholeWord = ref.watch(
       preferencesProvider.select((p) => p.topicFilterWholeWord),
     );
+    _syncAutoLoadFilter(keywords, wholeWord);
     var hiddenCount = 0;
     final visibleTopicsAsync = topicsAsync.whenData((topics) {
       final (visible, hidden) = TopicKeywordFilter.apply(
@@ -1479,6 +1472,7 @@ class _TopicListState extends ConsumerState<_TopicList>
         if (topics.isEmpty) {
           return RefreshIndicator(
             onRefresh: () async {
+              _loadMoreCoordinator.resetCooldown();
               try {
                 // ignore: unused_result
                 await ref.refresh(topicListProvider(providerKey).future);
@@ -1516,6 +1510,7 @@ class _TopicListState extends ConsumerState<_TopicList>
           shouldRefresh: () =>
               ref.read(currentTabCategoryIdProvider) == widget.categoryId,
           onRefresh: () async {
+            _loadMoreCoordinator.resetCooldown();
             try {
               // ignore: unused_result
               await ref.refresh(topicListProvider(providerKey).future);
@@ -1534,10 +1529,7 @@ class _TopicListState extends ConsumerState<_TopicList>
                   final distance =
                       notification.metrics.maxScrollExtent -
                       notification.metrics.pixels;
-                  if (distance >= 200) {
-                    // 滚出贴底区域，下次再贴底允许重新触发自动续加载
-                    _autoContinueExhausted = false;
-                  } else {
+                  if (_loadMoreCoordinator.shouldTriggerForDistance(distance)) {
                     _triggerLoadMore(providerKey);
                   }
                 }
@@ -1564,42 +1556,11 @@ class _TopicListState extends ConsumerState<_TopicList>
                     final notifier = ref.watch(
                       topicListProvider(providerKey).notifier,
                     );
-                    return Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Center(
-                        child: notifier.isLoadMoreFailed
-                            ? GestureDetector(
-                                onTap: () => notifier.retryLoadMore(),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.refresh,
-                                      size: 16,
-                                      color: Theme.of(
-                                        context,
-                                      ).colorScheme.primary,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      context.l10n.common_loadFailedTapRetry,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Theme.of(
-                                          context,
-                                        ).colorScheme.primary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            : notifier.hasMore
-                            ? const CircularProgressIndicator()
-                            : Text(
-                                context.l10n.common_noMore,
-                                style: const TextStyle(color: Colors.grey),
-                              ),
-                      ),
+                    return PagedListFooter(
+                      hasMore: notifier.hasMore,
+                      isLoadingMore: notifier.isLoadingMore,
+                      isLoadMoreFailed: notifier.isLoadMoreFailed,
+                      onRetry: notifier.retryLoadMore,
                     );
                   }
 
