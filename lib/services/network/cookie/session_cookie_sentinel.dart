@@ -193,11 +193,15 @@ class SessionCookieSentinel {
 
       // 3. 校验：每个 jar cookie 在 WV 中变体数 ≤ 1
       var allOk = true;
+      String? duplicatedName;
+      int? duplicatedCount;
       for (final cookie in jarCookies) {
         if (cookie.value.isEmpty) continue;
         final count = await _writer.countCookiesByName(url, cookie.name);
         if (count > 1) {
           allOk = false;
+          duplicatedName = cookie.name;
+          duplicatedCount = count;
           break;
         }
       }
@@ -206,7 +210,9 @@ class SessionCookieSentinel {
         success: allOk,
         elapsed: stopwatch.elapsed,
         primingDuration: primingDuration,
-        error: allOk ? null : 'Variants still > 1 after reset',
+        error: allOk
+            ? null
+            : '$duplicatedName variants still $duplicatedCount after reset',
       );
     } catch (e) {
       return NuclearResetResult(
@@ -229,10 +235,7 @@ class SessionCookieSentinel {
   }
 
   /// 该 name 最近 [within] 时长内是否 sweep 过。
-  bool wasRecentlySwept(
-    String name, {
-    Duration within = _throttleWindow,
-  }) {
+  bool wasRecentlySwept(String name, {Duration within = _throttleWindow}) {
     final last = _lastSweptAt[name];
     if (last == null) return false;
     return DateTime.now().difference(last) < within;
@@ -349,7 +352,13 @@ class SessionCookieSentinel {
       return result;
     }
 
-    return await _doNuclearReset(url, name, variantsBefore, stopwatch);
+    return await _doNuclearReset(
+      url,
+      name,
+      SweepIntent.delete,
+      variantsBefore,
+      stopwatch,
+    );
   }
 
   Future<SweepResult> _sweepEnsureUnique({
@@ -435,7 +444,13 @@ class SessionCookieSentinel {
       return result;
     }
 
-    return await _doNuclearReset(url, name, variantsBefore, stopwatch);
+    return await _doNuclearReset(
+      url,
+      name,
+      SweepIntent.ensureUnique,
+      variantsBefore,
+      stopwatch,
+    );
   }
 
   /// 执行删除：穷举 (domain, path) 组合。
@@ -443,11 +458,7 @@ class SessionCookieSentinel {
     final uri = Uri.parse(url);
     final host = uri.host.toLowerCase();
 
-    final domainCandidates = <String?>{
-      null,
-      host,
-      '.$host',
-    };
+    final domainCandidates = <String?>{null, host, '.$host'};
     final reg = _registrableDomain(host);
     if (reg != null && reg != host) {
       domainCandidates.add(reg);
@@ -520,6 +531,18 @@ class SessionCookieSentinel {
       final jarMatch = variants.firstWhereOrNull(
         (v) => v.value == jarValue || v.value == jarValueDecoded,
       );
+
+      // Discourse session cookies are server-authoritative. A WebView snapshot
+      // can contain stale host/domain variants, so never pick a non-jar value
+      // for _t / _forum_session merely because it differs from the jar value.
+      if (CookieJarService.sessionCookieNames.contains(name)) {
+        return _WinnerInfo(
+          cookieInfo:
+              jarMatch ?? CookieFullInfo(name: name, value: jarCookie.value),
+          source: 'jar',
+          canonical: jarCookie,
+        );
+      }
 
       if (jarMatch != null) {
         // 规则 1: 唯一且与 jar 一致, 直接用 jar canonical
@@ -624,7 +647,9 @@ class SessionCookieSentinel {
     final winnerDomain = winner.domain;
     if (winnerDomain != null && winnerDomain.isNotEmpty) {
       final normalizedWinnerDomain =
-          (winnerDomain.startsWith('.') ? winnerDomain.substring(1) : winnerDomain)
+          (winnerDomain.startsWith('.')
+                  ? winnerDomain.substring(1)
+                  : winnerDomain)
               .toLowerCase();
       final host = uri.host.toLowerCase();
       if (normalizedWinnerDomain != host) {
@@ -671,7 +696,9 @@ class SessionCookieSentinel {
       final winnerDomain = winner.domain;
       if (winnerDomain != null && winnerDomain.isNotEmpty) {
         final normalized =
-            (winnerDomain.startsWith('.') ? winnerDomain.substring(1) : winnerDomain)
+            (winnerDomain.startsWith('.')
+                    ? winnerDomain.substring(1)
+                    : winnerDomain)
                 .toLowerCase();
         if (normalized != host) {
           domainToWrite = winnerDomain;
@@ -702,6 +729,7 @@ class SessionCookieSentinel {
   Future<SweepResult> _doNuclearReset(
     String url,
     String name,
+    SweepIntent intent,
     int variantsBefore,
     Stopwatch stopwatch,
   ) async {
@@ -719,7 +747,11 @@ class SessionCookieSentinel {
       totalElapsedMs: nuclear.elapsed.inMilliseconds,
     );
     final after = await _writer.countCookiesByName(url, name);
-    final status = nuclear.success ? SweepStatus.nuclearReset : SweepStatus.failed;
+    final expectedMaxAfter = intent == SweepIntent.delete ? 0 : 1;
+    final targetSatisfied = after <= expectedMaxAfter;
+    final status = targetSatisfied
+        ? SweepStatus.nuclearReset
+        : SweepStatus.failed;
     final result = SweepResult(
       name: name,
       status: status,
@@ -728,14 +760,30 @@ class SessionCookieSentinel {
       elapsed: stopwatch.elapsed,
     );
     _eventController.add(SweepCompleted(result: result));
-    if (!nuclear.success) {
+    if (targetSatisfied) {
+      CookieLogger.sweep(
+        event: 'swept',
+        url: url,
+        name: name,
+        intent: intent.name,
+        variantsBefore: variantsBefore,
+        variantsAfter: after,
+        reason: nuclear.success
+            ? 'nuclear reset restored target'
+            : 'target restored; global reset check failed: ${nuclear.error}',
+        elapsedMs: stopwatch.elapsedMilliseconds,
+      );
+    } else {
       CookieLogger.sweep(
         event: 'failed',
         url: url,
         name: name,
+        intent: intent.name,
         variantsBefore: variantsBefore,
         variantsAfter: after,
-        reason: 'nuclear reset failed: ${nuclear.error}',
+        reason:
+            'target variants after reset=$after, expected <= $expectedMaxAfter'
+            '${nuclear.error != null ? '; global error: ${nuclear.error}' : ''}',
         elapsedMs: stopwatch.elapsedMilliseconds,
       );
     }
@@ -947,7 +995,8 @@ class CookieSweepException implements Exception {
   final Object? cause;
 
   @override
-  String toString() => 'CookieSweepException: $message'
+  String toString() =>
+      'CookieSweepException: $message'
       '${cause != null ? ' (caused by $cause)' : ''}';
 }
 
@@ -957,11 +1006,7 @@ class CookieSweepException implements Exception {
 /// 写回 WV 时的规范化 source of truth(完整的 hostOnly/Domain/SameSite
 /// 等字段)。winner 来自 WV 时为 null,fallback 到 [cookieInfo]。
 class _WinnerInfo {
-  _WinnerInfo({
-    required this.cookieInfo,
-    required this.source,
-    this.canonical,
-  });
+  _WinnerInfo({required this.cookieInfo, required this.source, this.canonical});
   final CookieFullInfo cookieInfo;
   final String source;
   final CanonicalCookie? canonical;

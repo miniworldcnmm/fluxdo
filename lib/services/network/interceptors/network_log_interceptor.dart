@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
 
 import '../../log/log_writer.dart';
@@ -36,14 +38,16 @@ class NetworkLogInterceptor extends Interceptor {
       return;
     }
     final isSilent = err.requestOptions.extra['isSilent'] == true;
-    final isTimeout = err.type == DioExceptionType.receiveTimeout ||
+    final isTimeout =
+        err.type == DioExceptionType.receiveTimeout ||
         err.type == DioExceptionType.connectionTimeout ||
         err.type == DioExceptionType.sendTimeout;
 
     // cancel: 长轮询频繁 cancel 是正常行为，记录为 debug
     // isSilent + 超时: MessageBus 长轮询超时是正常行为，记录为 debug
     // 其他错误: 记录为 warning
-    final level = (err.type == DioExceptionType.cancel || (isSilent && isTimeout))
+    final level =
+        (err.type == DioExceptionType.cancel || (isSilent && isTimeout))
         ? 'debug'
         : 'warning';
 
@@ -79,6 +83,9 @@ class NetworkLogInterceptor extends Interceptor {
       'statusCode': statusCode,
       'duration': duration,
     };
+    if (uri.path == '/topics/timings') {
+      entry.addAll(_timingsDiagnostics(options));
+    }
     final extraFields = options.extra['_networkLogFields'];
     if (extraFields is Map) {
       entry.addAll(extraFields.cast<String, dynamic>());
@@ -88,5 +95,42 @@ class NetworkLogInterceptor extends Interceptor {
       entry['networkAdapter'] = adapterName;
     }
     LogWriter.instance.write(entry);
+  }
+
+  Map<String, dynamic> _timingsDiagnostics(RequestOptions options) {
+    final csrfHeader = options.headers['X-CSRF-Token']?.toString();
+    final cookieHeader =
+        options.headers[HttpHeaders.cookieHeader]?.toString() ??
+        options.headers['Cookie']?.toString() ??
+        '';
+    final sentT = RegExp(
+      r'(?:^|;\s*)_t=([^;]*)',
+    ).firstMatch(cookieHeader)?.group(1);
+
+    final csrfState = csrfHeader == null
+        ? 'missing'
+        : csrfHeader.isEmpty
+        ? 'empty'
+        : csrfHeader == 'undefined'
+        ? 'undefined'
+        : 'present';
+
+    return {
+      'csrfHeaderState': csrfState,
+      if (csrfHeader != null) 'csrfHeaderLen': csrfHeader.length,
+      'hasRequestedWith':
+          options.headers['X-Requested-With']?.toString() == 'XMLHttpRequest',
+      'hasDiscourseLoggedInHeader':
+          options.headers['Discourse-Logged-In']?.toString() == 'true',
+      'hasDiscoursePresentHeader':
+          options.headers['Discourse-Present']?.toString() == 'true',
+      'hasCookieHeader': cookieHeader.isNotEmpty,
+      'sentCookieLen': cookieHeader.length,
+      'sentHasT': sentT != null && sentT.isNotEmpty,
+      'sentTLen': sentT?.isNotEmpty == true ? sentT!.length : null,
+      'sentHasForumSession': RegExp(
+        r'(?:^|;\s*)_forum_session=',
+      ).hasMatch(cookieHeader),
+    };
   }
 }

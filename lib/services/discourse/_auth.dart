@@ -19,6 +19,79 @@ mixin _AuthMixin on _DiscourseServiceBase {
     _lastInconclusiveAt = null;
   }
 
+  String? _safeTokenHash(String? token) {
+    if (token == null || token.isEmpty) return null;
+
+    var hash = BigInt.parse('cbf29ce484222325', radix: 16);
+    final prime = BigInt.parse('100000001b3', radix: 16);
+    final mask = (BigInt.one << 64) - BigInt.one;
+
+    for (final byte in utf8.encode(token)) {
+      hash = (hash ^ BigInt.from(byte)) * prime & mask;
+    }
+
+    return hash.toRadixString(16).padLeft(16, '0').substring(0, 12);
+  }
+
+  int? _tokenLength(String? token) =>
+      token != null && token.isNotEmpty ? token.length : null;
+
+  bool _hasTokenValue(String? token) => token != null && token.isNotEmpty;
+
+  bool? _sameNonEmptyToken(String? left, String? right) {
+    if (left == null || left.isEmpty || right == null || right.isEmpty) {
+      return null;
+    }
+    return left == right;
+  }
+
+  String? _sentTTokenFromRequest(RequestOptions requestOptions) {
+    final sentCookieHeader =
+        requestOptions.headers[HttpHeaders.cookieHeader]?.toString() ??
+        requestOptions.headers['Cookie']?.toString() ??
+        '';
+    return RegExp(
+      r'(?:^|;\s*)_t=([^;]*)',
+    ).firstMatch(sentCookieHeader)?.group(1);
+  }
+
+  Map<String, dynamic> _sentTDiagnostics(RequestOptions requestOptions) {
+    final sentTToken = _sentTTokenFromRequest(requestOptions);
+    return {
+      'sentHasT': sentTToken != null && sentTToken.isNotEmpty,
+      'sentTLen': _tokenLength(sentTToken),
+      'sentTHash': _safeTokenHash(sentTToken),
+    };
+  }
+
+  bool _isAlreadyLoggedOutSignal({String? jarTToken, String? sentTToken}) {
+    return !_hasTokenValue(_tToken) &&
+        !_hasTokenValue(jarTToken) &&
+        !_hasTokenValue(sentTToken);
+  }
+
+  void _logAuthSignalSuppressedAlreadyLoggedOut({
+    required String source,
+    required String triggerInfo,
+    int? statusCode,
+    String? jarTToken,
+    String? sentTToken,
+  }) {
+    LogWriter.instance.write({
+      'timestamp': DateTime.now().toIso8601String(),
+      'level': 'info',
+      'type': 'auth',
+      'event': 'auth_signal_suppressed_already_logged_out',
+      'message': '本地已无登录态，忽略后续未登录响应',
+      'source': source,
+      'trigger': triggerInfo,
+      'statusCode': statusCode,
+      'memHasToken': _hasTokenValue(_tToken),
+      'jarHasToken': _hasTokenValue(jarTToken),
+      'sentHasT': _hasTokenValue(sentTToken),
+    });
+  }
+
   bool _isInCooldown() {
     final last = _lastInconclusiveAt;
     if (last == null) return false;
@@ -36,6 +109,23 @@ mixin _AuthMixin on _DiscourseServiceBase {
     int? statusCode,
   }) async {
     if (_isLoggingOut) return;
+
+    final jarTToken = await _cookieJar.getTToken();
+    final sentTToken = _sentTTokenFromRequest(requestOptions);
+    if (_isAlreadyLoggedOutSignal(
+      jarTToken: jarTToken,
+      sentTToken: sentTToken,
+    )) {
+      _logAuthSignalSuppressedAlreadyLoggedOut(
+        source: source,
+        triggerInfo: triggerInfo,
+        statusCode: statusCode,
+        jarTToken: jarTToken,
+        sentTToken: sentTToken,
+      );
+      _resetStrikes();
+      return;
+    }
 
     // 冷却期内抑制
     if (_isInCooldown() && !isStrong) {
@@ -78,12 +168,6 @@ mixin _AuthMixin on _DiscourseServiceBase {
     final threshold = isStrong ? 1 : 2;
 
     // 记录诊断日志
-    final jarTToken = await _cookieJar.getTToken();
-    final sentCookieHeader =
-        requestOptions.headers['cookie']?.toString() ?? '';
-    final sentTMatch =
-        RegExp(r'(?:^|;\s*)_t=([^;]*)').firstMatch(sentCookieHeader);
-
     LogWriter.instance.write({
       'timestamp': now.toIso8601String(),
       'level': _authStrikeCount >= threshold ? 'warning' : 'info',
@@ -99,8 +183,16 @@ mixin _AuthMixin on _DiscourseServiceBase {
       'threshold': threshold,
       'statusCode': statusCode,
       'memHasToken': _tToken != null && _tToken!.isNotEmpty,
+      'memTLen': _tokenLength(_tToken),
+      'memTHash': _safeTokenHash(_tToken),
       'jarHasToken': jarTToken != null && jarTToken.isNotEmpty,
-      'sentHasT': sentTMatch != null,
+      'jarTLen': _tokenLength(jarTToken),
+      'jarTHash': _safeTokenHash(jarTToken),
+      'sentHasT': sentTToken != null && sentTToken.isNotEmpty,
+      'sentTLen': _tokenLength(sentTToken),
+      'sentTHash': _safeTokenHash(sentTToken),
+      'sentMatchesJarT': _sameNonEmptyToken(sentTToken, jarTToken),
+      'sentMatchesMemT': _sameNonEmptyToken(sentTToken, _tToken),
     });
 
     if (_authStrikeCount >= threshold) {
@@ -110,17 +202,11 @@ mixin _AuthMixin on _DiscourseServiceBase {
 
   /// 通过 GET /session/current.json 验证会话是否仍然有效。
   /// 返回值：true=有效, false=确认失效, null=无法判断
-  Future<bool?> _probeSession({
-    required String source,
-    String? triggerInfo,
-  }) {
+  Future<bool?> _probeSession({required String source, String? triggerInfo}) {
     final inFlight = _activeProbe;
     if (inFlight != null) return inFlight;
 
-    final future = _probeSessionImpl(
-      source: source,
-      triggerInfo: triggerInfo,
-    );
+    final future = _probeSessionImpl(source: source, triggerInfo: triggerInfo);
     _activeProbe = future;
     future.whenComplete(() {
       if (identical(_activeProbe, future)) {
@@ -146,15 +232,30 @@ mixin _AuthMixin on _DiscourseServiceBase {
       debugPrint('[Auth] probe 前 cf_clearance 同步失败: $e');
     }
 
+    final probeJarTToken = await _cookieJar.getTToken();
+    LogWriter.instance.write({
+      'timestamp': DateTime.now().toIso8601String(),
+      'level': 'info',
+      'type': 'auth',
+      'event': 'auth_probe_started',
+      'message': '开始 session probe',
+      'source': source,
+      if (triggerInfo != null) 'trigger': triggerInfo,
+      'memHasToken': _tToken != null && _tToken!.isNotEmpty,
+      'memTLen': _tokenLength(_tToken),
+      'memTHash': _safeTokenHash(_tToken),
+      'jarHasToken': probeJarTToken != null && probeJarTToken.isNotEmpty,
+      'jarTLen': _tokenLength(probeJarTToken),
+      'jarTHash': _safeTokenHash(probeJarTToken),
+      'memMatchesJarT': _sameNonEmptyToken(_tToken, probeJarTToken),
+    });
+
     try {
       final response = await _dio.get(
         '/session/current.json',
         queryParameters: {'_': DateTime.now().millisecondsSinceEpoch},
         options: Options(
-          extra: const {
-            'skipAuthCheck': true,
-            'skipCsrf': true,
-          },
+          extra: const {'skipAuthCheck': true, 'skipCsrf': true},
         ),
       );
 
@@ -169,6 +270,7 @@ mixin _AuthMixin on _DiscourseServiceBase {
           'source': source,
           if (triggerInfo != null) 'trigger': triggerInfo,
           'statusCode': response.statusCode,
+          ..._sentTDiagnostics(response.requestOptions),
         });
         _lastInconclusiveAt = DateTime.now();
         return null;
@@ -199,6 +301,7 @@ mixin _AuthMixin on _DiscourseServiceBase {
           'source': source,
           if (triggerInfo != null) 'trigger': triggerInfo,
           'username': user.username,
+          ..._sentTDiagnostics(response.requestOptions),
         });
         _resetStrikes();
         return true;
@@ -213,6 +316,7 @@ mixin _AuthMixin on _DiscourseServiceBase {
         'message': 'session probe 确认 current_user 不存在，执行登出',
         'source': source,
         if (triggerInfo != null) 'trigger': triggerInfo,
+        ..._sentTDiagnostics(response.requestOptions),
       });
       await _handleAuthInvalid(
         S.current.auth_loginExpiredRelogin,
@@ -232,6 +336,7 @@ mixin _AuthMixin on _DiscourseServiceBase {
           'message': 'session probe 返回 404，确认会话失效',
           'source': source,
           if (triggerInfo != null) 'trigger': triggerInfo,
+          ..._sentTDiagnostics(e.response?.requestOptions ?? e.requestOptions),
         });
         await _handleAuthInvalid(
           S.current.auth_loginExpiredRelogin,
@@ -251,6 +356,7 @@ mixin _AuthMixin on _DiscourseServiceBase {
         if (triggerInfo != null) 'trigger': triggerInfo,
         'statusCode': status,
         'errorType': e.type.toString(),
+        ..._sentTDiagnostics(e.response?.requestOptions ?? e.requestOptions),
       });
       // 如果累积 strike 较多，升级为登出
       if (strikeSnapshot >= 2) {
@@ -318,7 +424,11 @@ mixin _AuthMixin on _DiscourseServiceBase {
 
           if (_tToken != null && _tToken!.isNotEmpty) {
             options.headers['Discourse-Logged-In'] = 'true';
-            options.headers['Discourse-Present'] = 'true';
+            if (UserPresenceService().isPresent) {
+              options.headers['Discourse-Present'] = 'true';
+            } else {
+              options.headers.remove('Discourse-Present');
+            }
           } else {
             options.headers.remove('Discourse-Logged-In');
             options.headers.remove('Discourse-Present');
@@ -337,14 +447,16 @@ mixin _AuthMixin on _DiscourseServiceBase {
               loggedOut.isNotEmpty &&
               !_isLoggingOut) {
             // 2xx + discourse-logged-out 是弱信号（矛盾信号），异步处理不阻塞
-            unawaited(_reportAuthSignal(
-              isStrong: false,
-              source: 'response_header',
-              triggerInfo:
-                  '${response.requestOptions.method} ${response.requestOptions.uri} → ${response.statusCode}',
-              requestOptions: response.requestOptions,
-              statusCode: response.statusCode,
-            ));
+            unawaited(
+              _reportAuthSignal(
+                isStrong: false,
+                source: 'response_header',
+                triggerInfo:
+                    '${response.requestOptions.method} ${response.requestOptions.uri} → ${response.statusCode}',
+                requestOptions: response.requestOptions,
+                statusCode: response.statusCode,
+              ),
+            );
             return handler.next(response);
           }
 
@@ -378,31 +490,22 @@ mixin _AuthMixin on _DiscourseServiceBase {
           final data = error.response?.data;
           debugPrint('[DIO] Error: ${error.response?.statusCode}');
 
-          // BAD CSRF 处理：清空 token → 刷新 → 重试原请求
-          // 用 extra 标记防止无限循环，只重试一次
-          if (error.response?.statusCode == 403 &&
-              _isBadCsrfResponse(data) &&
-              error.requestOptions.extra['_csrfRetried'] != true) {
-            debugPrint(
-              '[DIO] BAD CSRF detected, refreshing csrfToken and retrying',
-            );
+          // BAD CSRF 处理：对齐 Discourse 官方前端，只清空 token。
+          // 下一次非 GET 请求会在 RequestHeaderInterceptor 中先刷新 CSRF。
+          if (error.response?.statusCode == 403 && _isBadCsrfResponse(data)) {
+            debugPrint('[DIO] BAD CSRF detected, clearing csrfToken');
+            LogWriter.instance.write({
+              'timestamp': DateTime.now().toIso8601String(),
+              'level': 'warning',
+              'type': 'auth',
+              'event': 'csrf_bad_response_detected',
+              'message': '收到 BAD CSRF，已清空 token，下次 POST 前刷新',
+              'method': error.requestOptions.method,
+              'url': error.requestOptions.uri.toString(),
+              'statusCode': error.response?.statusCode,
+            });
             _cookieSync.clearCsrfToken();
-            await _cookieSync.updateCsrfToken();
-            // 用新 token 重试原请求
-            final options = error.requestOptions;
-            options.extra['_csrfRetried'] = true;
-            options.headers.remove('cookie');
-            options.headers.remove('Cookie');
-            final csrf = _cookieSync.csrfToken;
-            options.headers['X-CSRF-Token'] = (csrf == null || csrf.isEmpty)
-                ? 'undefined'
-                : csrf;
-            try {
-              final response = await _dio.fetch(options);
-              return handler.resolve(response);
-            } on DioException catch (e) {
-              return handler.next(e);
-            }
+            return handler.next(error);
           }
 
           final loggedOut = error.response?.headers.value(
@@ -414,14 +517,16 @@ mixin _AuthMixin on _DiscourseServiceBase {
               !_isLoggingOut) {
             // 4xx + logged-out 是强信号，2xx/3xx 是弱信号
             final errorStatusCode = error.response?.statusCode;
-            unawaited(_reportAuthSignal(
-              isStrong: errorStatusCode == 401 || errorStatusCode == 403,
-              source: 'error_response_header',
-              triggerInfo:
-                  '${error.requestOptions.method} ${error.requestOptions.uri} → $errorStatusCode',
-              requestOptions: error.requestOptions,
-              statusCode: errorStatusCode,
-            ));
+            unawaited(
+              _reportAuthSignal(
+                isStrong: errorStatusCode == 401 || errorStatusCode == 403,
+                source: 'error_response_header',
+                triggerInfo:
+                    '${error.requestOptions.method} ${error.requestOptions.uri} → $errorStatusCode',
+                requestOptions: error.requestOptions,
+                statusCode: errorStatusCode,
+              ),
+            );
             return handler.next(error);
           }
 
@@ -439,6 +544,21 @@ mixin _AuthMixin on _DiscourseServiceBase {
               data is Map &&
               data['error_type'] == 'not_logged_in') {
             final jarTToken = sessionState.tToken;
+            final sentTToken = _sentTTokenFromRequest(error.requestOptions);
+            if (_isAlreadyLoggedOutSignal(
+              jarTToken: jarTToken,
+              sentTToken: sentTToken,
+            )) {
+              _logAuthSignalSuppressedAlreadyLoggedOut(
+                source: 'error_response_body',
+                triggerInfo:
+                    '${error.requestOptions.method} ${error.requestOptions.uri} → ${error.response?.statusCode}, error_type=${data['error_type']}',
+                statusCode: error.response?.statusCode,
+                jarTToken: jarTToken,
+                sentTToken: sentTToken,
+              );
+              return handler.next(error);
+            }
             AppLogger.warning(
               '认证失效: source=error_response, reason=${data['error_type'] ?? 'not_logged_in'}',
               tag: 'Auth',
@@ -457,14 +577,16 @@ mixin _AuthMixin on _DiscourseServiceBase {
               },
             );
             // 服务端明确返回 not_logged_in 是强信号
-            unawaited(_reportAuthSignal(
-              isStrong: true,
-              source: 'error_response_body',
-              triggerInfo:
-                  '${error.requestOptions.method} ${error.requestOptions.uri} → ${error.response?.statusCode}, error_type=${data['error_type']}',
-              requestOptions: error.requestOptions,
-              statusCode: error.response?.statusCode,
-            ));
+            unawaited(
+              _reportAuthSignal(
+                isStrong: true,
+                source: 'error_response_body',
+                triggerInfo:
+                    '${error.requestOptions.method} ${error.requestOptions.uri} → ${error.response?.statusCode}, error_type=${data['error_type']}',
+                requestOptions: error.requestOptions,
+                statusCode: error.response?.statusCode,
+              ),
+            );
           }
 
           handler.next(error);
@@ -497,8 +619,10 @@ mixin _AuthMixin on _DiscourseServiceBase {
       return sessionState;
     }
 
-    final requestGeneration = requestOptions.extra['_sessionGeneration'] as int?;
-    if (requestGeneration != null && !AuthSession().isValid(requestGeneration)) {
+    final requestGeneration =
+        requestOptions.extra['_sessionGeneration'] as int?;
+    if (requestGeneration != null &&
+        !AuthSession().isValid(requestGeneration)) {
       return sessionState;
     }
 
@@ -513,10 +637,14 @@ mixin _AuthMixin on _DiscourseServiceBase {
       'phase': phase,
       'method': requestOptions.method,
       'url': requestOptions.uri.toString(),
-      'hadSessionBefore': beforeFingerprint != null && beforeFingerprint.isNotEmpty,
-      'hasSessionAfter': afterFingerprint != null && afterFingerprint.isNotEmpty,
+      'hadSessionBefore':
+          beforeFingerprint != null && beforeFingerprint.isNotEmpty,
+      'hasSessionAfter':
+          afterFingerprint != null && afterFingerprint.isNotEmpty,
       'beforeTLen': beforeFingerprint?.length,
+      'beforeTHash': _safeTokenHash(beforeFingerprint),
       'afterTLen': afterFingerprint?.length,
+      'afterTHash': _safeTokenHash(afterFingerprint),
       'hasForumSessionAfter': sessionState.hasForumSession,
     });
 
@@ -625,15 +753,17 @@ mixin _AuthMixin on _DiscourseServiceBase {
     required String triggerInfo,
     required RequestOptions requestOptions,
     int? statusCode,
-    Map<String, List<String>>? responseHeaders,
   }) async {
     if (_isLoggingOut) return;
 
     debugPrint('[Auth] discourse-logged-out: $triggerInfo');
 
     final jarTToken = await _cookieJar.getTToken();
-    final sentCookieHeader = requestOptions.headers['cookie']?.toString() ?? '';
-    final sentTMatch = RegExp(r'(?:^|;\s*)_t=([^;]*)').firstMatch(sentCookieHeader);
+    final sentCookieHeader =
+        requestOptions.headers[HttpHeaders.cookieHeader]?.toString() ??
+        requestOptions.headers['Cookie']?.toString() ??
+        '';
+    final sentTToken = _sentTTokenFromRequest(requestOptions);
 
     AppLogger.warning(
       '认证失效: source=$source, reason=discourse-logged-out',
@@ -648,9 +778,15 @@ mixin _AuthMixin on _DiscourseServiceBase {
         'statusCode': statusCode,
         'jarHasToken': jarTToken != null && jarTToken.isNotEmpty,
         'jarTokenLen': jarTToken?.length,
+        'jarTHash': _safeTokenHash(jarTToken),
         'memHasToken': _tToken != null && _tToken!.isNotEmpty,
-        'sentHasT': sentTMatch != null,
-        'sentTLen': sentTMatch?.group(1)?.length,
+        'memTLen': _tokenLength(_tToken),
+        'memTHash': _safeTokenHash(_tToken),
+        'sentHasT': sentTToken != null && sentTToken.isNotEmpty,
+        'sentTLen': _tokenLength(sentTToken),
+        'sentTHash': _safeTokenHash(sentTToken),
+        'sentMatchesJarT': _sameNonEmptyToken(sentTToken, jarTToken),
+        'sentMatchesMemT': _sameNonEmptyToken(sentTToken, _tToken),
         'sentCookieLen': sentCookieHeader.length,
       },
     );
@@ -686,8 +822,8 @@ mixin _AuthMixin on _DiscourseServiceBase {
     // 收集 _t cookie 诊断信息（不含实际值，仅状态）
     final jarTToken = await _cookieJar.getTToken();
     final csrfToken = _cookieSync.csrfToken;
-    final jarSessionCookies =
-        await _cookieJar.getSessionCookieDiagnosticsForRequest(
+    final jarSessionCookies = await _cookieJar
+        .getSessionCookieDiagnosticsForRequest(
           uri: Uri.parse(AppConstants.baseUrl),
         );
 
@@ -703,8 +839,11 @@ mixin _AuthMixin on _DiscourseServiceBase {
       'trigger': triggerInfo,
       // _t cookie 诊断（仅记录有无和长度，不记录实际值）
       'memHasToken': _tToken != null && _tToken!.isNotEmpty,
+      'memTLen': _tokenLength(_tToken),
+      'memTHash': _safeTokenHash(_tToken),
       'jarHasToken': jarTToken != null && jarTToken.isNotEmpty,
       'jarTokenLen': jarTToken?.length,
+      'jarTHash': _safeTokenHash(jarTToken),
       'hasCsrf': csrfToken != null && csrfToken.isNotEmpty,
       'jarSessionCookies': jarSessionCookies,
       // 实际请求中 Cookie header 的 _t 状态（仅 discourse-logged-out 触发时有值）
@@ -742,8 +881,8 @@ mixin _AuthMixin on _DiscourseServiceBase {
       final data = response.data;
       if (data is Map<String, dynamic> && data['current_user'] is Map) {
         _tToken = tToken;
-        final liveUsername =
-            (data['current_user'] as Map)['username']?.toString();
+        final liveUsername = (data['current_user'] as Map)['username']
+            ?.toString();
         _username = (liveUsername != null && liveUsername.isNotEmpty)
             ? liveUsername
             : username;
@@ -751,12 +890,43 @@ mixin _AuthMixin on _DiscourseServiceBase {
         return true;
       }
       // 200 但无 current_user
+      LogWriter.instance.write({
+        'timestamp': DateTime.now().toIso8601String(),
+        'level': 'warning',
+        'type': 'auth',
+        'event': 'auth_session_check_failed',
+        'message': '登录态检查返回 200 但无 current_user，执行登出',
+        'statusCode': response.statusCode,
+        'memHasToken': _tToken != null && _tToken!.isNotEmpty,
+        'memTLen': _tokenLength(_tToken),
+        'memTHash': _safeTokenHash(_tToken),
+        'jarHasToken': tToken.isNotEmpty,
+        'jarTLen': _tokenLength(tToken),
+        'jarTHash': _safeTokenHash(tToken),
+        ..._sentTDiagnostics(response.requestOptions),
+      });
       await logout(callApi: false, refreshPreload: false);
       return false;
     } on DioException catch (e) {
       final status = e.response?.statusCode;
       // 404 = 无用户 / 401/403 = 明确拒绝
       if (status == 404 || status == 401 || status == 403) {
+        LogWriter.instance.write({
+          'timestamp': DateTime.now().toIso8601String(),
+          'level': 'warning',
+          'type': 'auth',
+          'event': 'auth_session_check_failed',
+          'message': '登录态检查被服务端拒绝，执行登出',
+          'statusCode': status,
+          'errorType': e.type.toString(),
+          'memHasToken': _tToken != null && _tToken!.isNotEmpty,
+          'memTLen': _tokenLength(_tToken),
+          'memTHash': _safeTokenHash(_tToken),
+          'jarHasToken': tToken.isNotEmpty,
+          'jarTLen': _tokenLength(tToken),
+          'jarTHash': _safeTokenHash(tToken),
+          ..._sentTDiagnostics(e.response?.requestOptions ?? e.requestOptions),
+        });
         await logout(callApi: false, refreshPreload: false);
         return false;
       }

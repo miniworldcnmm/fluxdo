@@ -63,6 +63,7 @@ import 'services/navigation/app_route_observer.dart';
 import 'services/window_state_service.dart';
 import 'services/webview_settings.dart';
 import 'services/windows_webview_environment_service.dart';
+import 'services/user_presence_service.dart';
 import 'models/user.dart';
 import 'constants.dart';
 import 'providers/connectivity_provider.dart';
@@ -582,19 +583,27 @@ class MainApp extends ConsumerWidget {
                   ),
                 );
 
-                // 桌面端：全局鼠标返回键 + 键盘快捷键（HardwareKeyboard）
+                result = Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerDown: (event) {
+                    UserPresenceService().markUserActivity();
+                    // 鼠标侧键返回（第 4 按钮，bit flag 0x08）
+                    if (PlatformUtils.isDesktop && event.buttons & 0x08 != 0) {
+                      navigatorKey.currentState?.maybePop();
+                    }
+                  },
+                  onPointerMove: (_) =>
+                      UserPresenceService().markUserActivity(),
+                  onPointerSignal: (_) =>
+                      UserPresenceService().markUserActivity(),
+                  child: result,
+                );
+
+                // 桌面端：全局键盘快捷键（HardwareKeyboard）
                 if (PlatformUtils.isDesktop) {
-                  result = Listener(
-                    onPointerDown: (event) {
-                      // 鼠标侧键返回（第 4 按钮，bit flag 0x08）
-                      if (event.buttons & 0x08 != 0) {
-                        navigatorKey.currentState?.maybePop();
-                      }
-                    },
-                    child: KeyboardShortcutHandler(
-                      navigatorKey: navigatorKey,
-                      child: result,
-                    ),
+                  result = KeyboardShortcutHandler(
+                    navigatorKey: navigatorKey,
+                    child: result,
                   );
                 }
 
@@ -654,6 +663,8 @@ class _MainPageState extends ConsumerState<MainPage>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    UserPresenceService().setForeground(true, countAsActivity: true);
+    HardwareKeyboard.instance.addHandler(_handlePresenceKeyEvent);
     if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
       WindowStateService.instance.startListening();
     }
@@ -894,6 +905,7 @@ class _MainPageState extends ConsumerState<MainPage>
     if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
       WindowStateService.instance.stopListening();
     }
+    HardwareKeyboard.instance.removeHandler(_handlePresenceKeyEvent);
     WidgetsBinding.instance.removeObserver(this);
     _resumeDebounceTimer?.cancel();
     _pendingSingleTap?.cancel();
@@ -910,6 +922,15 @@ class _MainPageState extends ConsumerState<MainPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
+
+    if (state == AppLifecycleState.resumed) {
+      UserPresenceService().setForeground(true, countAsActivity: true);
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      UserPresenceService().setForeground(false);
+    }
 
     if (state == AppLifecycleState.hidden) {
       // hidden 比 paused 更早触发，在系统挂起 Dart isolate 之前启动前台服务
@@ -942,6 +963,13 @@ class _MainPageState extends ConsumerState<MainPage>
         _checkClipboardTopicLink();
       });
     }
+  }
+
+  bool _handlePresenceKeyEvent(KeyEvent event) {
+    if (event is KeyDownEvent || event is KeyRepeatEvent) {
+      UserPresenceService().markUserActivity();
+    }
+    return false;
   }
 
   Future<void> _checkClipboardTopicLink() async {

@@ -15,7 +15,6 @@ typedef OnTimingsSent =
 /// 帖子浏览时间追踪服务
 class ScreenTrack {
   static const _flushInterval = Duration(seconds: 60);
-  static const _minRushFlushInterval = Duration(seconds: 3);
   static const _tickInterval = Duration(seconds: 1);
   static const _pauseUnlessScrolled = Duration(minutes: 3);
   static const _maxTrackingTime = Duration(minutes: 6);
@@ -58,8 +57,12 @@ class ScreenTrack {
   /// CF 触发的瞬间还会清空已累积但未上报的数据，模拟"用户离开 topic"语义。
   bool _cfFrozen = false;
 
-  ScreenTrack(this._service, {this.onTimingsSent, this.debugSourceId, CfChallengeService? cfService})
-      : _cfService = cfService ?? CfChallengeService();
+  ScreenTrack(
+    this._service, {
+    this.onTimingsSent,
+    this.debugSourceId,
+    CfChallengeService? cfService,
+  }) : _cfService = cfService ?? CfChallengeService();
 
   void start(int topicId) {
     if (_topicId != null && _topicId != topicId) {
@@ -120,7 +123,10 @@ class ScreenTrack {
   }
 
   void setHasFocus(bool hasFocus) {
+    if (_hasFocus == hasFocus) return;
     _hasFocus = hasFocus;
+    _lastTick = DateTime.now();
+    _lastFlush = Duration.zero;
   }
 
   void _reset() {
@@ -148,9 +154,11 @@ class ScreenTrack {
     final sinceScrolled = now.difference(_lastScrolled ?? now);
     if (sinceScrolled > _pauseUnlessScrolled) return;
 
-    final diff = now.difference(_lastTick ?? now).inMilliseconds;
-    _lastFlush += Duration(milliseconds: diff);
+    final diffDuration = now.difference(_lastTick ?? now);
     _lastTick = now;
+
+    final diff = diffDuration.inMilliseconds;
+    _lastFlush += diffDuration;
 
     // 检查是否需要立即上报（有新的未上报帖子）
     final rush = _timings.entries.any(
@@ -160,8 +168,7 @@ class ScreenTrack {
           !_readPosts.contains(e.key),
     );
 
-    final shouldRushFlush = rush && _lastFlush >= _minRushFlushInterval;
-    if (!_inProgress && (_lastFlush > _flushInterval || shouldRushFlush)) {
+    if (!_inProgress && (_lastFlush > _flushInterval || rush)) {
       _flush();
     }
 
@@ -283,7 +290,7 @@ class ScreenTrack {
         }
       }
     } catch (e) {
-      _consolidateTimings(next.timings, next.topicTime, next.topicId);
+      debugPrint('[ScreenTrack] topicsTimings failed without status: $e');
     } finally {
       _inProgress = false;
       _lastFlush = Duration.zero;

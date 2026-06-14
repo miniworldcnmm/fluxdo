@@ -145,16 +145,15 @@ class SelfHealingInterceptor extends Interceptor {
 
     // 检查 jar 中 _t 是否有效（jar 无 _t = 真登出）
     final jarT = await _jar.getCanonicalCookie('_t');
-    final jarValid = jarT != null &&
+    final jarValid =
+        jarT != null &&
         jarT.value.isNotEmpty &&
         (jarT.expiresAt == null || jarT.expiresAt!.isAfter(DateTime.now()));
 
     final origin = '${uri.scheme}://${uri.host}';
 
     if (!jarValid) {
-      debugPrint(
-        '[SelfHealing] skip: jar has no valid _t (uri=$uri)',
-      );
+      debugPrint('[SelfHealing] skip: jar has no valid _t (uri=$uri)');
       CookieLogger.selfHealing(
         event: 'triggered',
         url: origin,
@@ -183,19 +182,15 @@ class SelfHealingInterceptor extends Interceptor {
     await Future<void>.delayed(const Duration(milliseconds: 100));
 
     for (var attempt = 1; attempt <= 2; attempt++) {
-      CookieLogger.selfHealing(
-        event: 'retry',
-        url: origin,
-        attempt: attempt,
-      );
+      CookieLogger.selfHealing(event: 'retry', url: origin, attempt: attempt);
       final result = await _attemptRetry(options, attempt);
       if (result != null) {
-        debugPrint(
-          '[SelfHealing] success on attempt $attempt (uri=$uri)',
-        );
+        debugPrint('[SelfHealing] success on attempt $attempt (uri=$uri)');
         CookieLogger.selfHealing(
           event: 'success',
           url: origin,
+          status: result.statusCode,
+          hasLoggedOutHeader: false,
           attemptsUsed: attempt,
         );
         return result;
@@ -218,27 +213,21 @@ class SelfHealingInterceptor extends Interceptor {
     }
     await Future<void>.delayed(const Duration(milliseconds: 200));
 
-    CookieLogger.selfHealing(
-      event: 'retry',
-      url: origin,
-      attempt: 3,
-    );
+    CookieLogger.selfHealing(event: 'retry', url: origin, attempt: 3);
     final finalResult = await _attemptRetry(options, 3);
     if (finalResult != null) {
-      debugPrint(
-        '[SelfHealing] success on nuclear-reset retry (uri=$uri)',
-      );
+      debugPrint('[SelfHealing] success on nuclear-reset retry (uri=$uri)');
       CookieLogger.selfHealing(
         event: 'success',
         url: origin,
+        status: finalResult.statusCode,
+        hasLoggedOutHeader: false,
         attemptsUsed: 3,
       );
       return finalResult;
     }
 
-    debugPrint(
-      '[SelfHealing] all retries failed (uri=$uri) → 透传原 401',
-    );
+    debugPrint('[SelfHealing] all retries failed (uri=$uri) → 透传原 401');
     CookieLogger.selfHealing(
       event: 'failed',
       url: origin,
@@ -257,20 +246,29 @@ class SelfHealingInterceptor extends Interceptor {
       // 复制 options 避免污染原 options 的 extra
       final retryOptions = _cloneOptions(options);
       retryOptions.extra[selfHealedExtraKey] = true;
+      retryOptions.headers.remove('cookie');
+      retryOptions.headers.remove('Cookie');
 
       final retryResp = await dio.fetch<dynamic>(retryOptions);
       final status = retryResp.statusCode ?? 0;
-      if (status < 400) {
+      final stillLoggedOut =
+          retryResp.headers.value('discourse-logged-out')?.isNotEmpty == true;
+      if (status < 400 && !stillLoggedOut) {
         return retryResp;
+      }
+      if (stillLoggedOut) {
+        debugPrint(
+          '[SelfHealing] retry $attempt still has discourse-logged-out '
+          '(status=$status, uri=${options.uri})',
+        );
+        return null;
       }
       debugPrint(
         '[SelfHealing] retry $attempt got status $status (uri=${options.uri})',
       );
       return null;
     } catch (e) {
-      debugPrint(
-        '[SelfHealing] retry $attempt error: $e (uri=${options.uri})',
-      );
+      debugPrint('[SelfHealing] retry $attempt error: $e (uri=${options.uri})');
       return null;
     }
   }

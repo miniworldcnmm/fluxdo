@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 
 import '../../../constants.dart';
+import '../../log/log_writer.dart';
+import '../../user_presence_service.dart';
 import '../cookie/csrf_token_service.dart';
 
 /// 请求头拦截器
@@ -31,12 +33,41 @@ class RequestHeaderInterceptor extends Interceptor {
       // 非 GET 请求且 token 为空时，先从 /session/csrf 获取
       // 对齐 Discourse 前端: if (type !== "GET" && !csrfToken) { updateCsrfToken() }
       final method = options.method.toUpperCase();
-      if (method != 'GET' && (_cookieSync.csrfToken == null || _cookieSync.csrfToken!.isEmpty)) {
+      if (method != 'GET' &&
+          (_cookieSync.csrfToken == null || _cookieSync.csrfToken!.isEmpty)) {
         await _cookieSync.updateCsrfToken();
       }
 
       final csrf = _cookieSync.csrfToken;
-      options.headers['X-CSRF-Token'] = (csrf == null || csrf.isEmpty) ? 'undefined' : csrf;
+      if (method != 'GET' && (csrf == null || csrf.isEmpty)) {
+        options.headers.remove('X-CSRF-Token');
+        options.extra['_csrfUnavailable'] = true;
+        LogWriter.instance.write({
+          'timestamp': DateTime.now().toIso8601String(),
+          'level': 'warning',
+          'type': 'request',
+          'event': 'csrf_unavailable_before_request',
+          'message': 'POST 前无法取得 CSRF token，已取消请求以避免 BAD CSRF',
+          'method': options.method,
+          'url': options.uri.toString(),
+          'isSilent': options.extra['isSilent'] == true,
+        });
+        handler.reject(
+          DioException(
+            requestOptions: options,
+            type: DioExceptionType.cancel,
+            error:
+                'CSRF token unavailable before ${options.method} ${options.uri.path}',
+          ),
+          true,
+        );
+        return;
+      }
+      if (csrf != null && csrf.isNotEmpty) {
+        options.headers['X-CSRF-Token'] = csrf;
+      } else {
+        options.headers.remove('X-CSRF-Token');
+      }
     }
 
     // 4. API 请求（XHR）设置 Origin、Referer 和 Sec-Fetch-* 头
@@ -50,7 +81,11 @@ class RequestHeaderInterceptor extends Interceptor {
       options.headers['Sec-Fetch-Site'] = 'same-origin';
       // 告知 Discourse 用户当前在线，使后端更新 last_seen_at
       // 对齐 Discourse 前端: if (userPresent()) { headers["Discourse-Present"] = "true"; }
-      options.headers['Discourse-Present'] = 'true';
+      if (UserPresenceService().isPresent) {
+        options.headers['Discourse-Present'] = 'true';
+      } else {
+        options.headers.remove('Discourse-Present');
+      }
     }
 
     handler.next(options);

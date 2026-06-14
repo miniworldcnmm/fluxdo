@@ -115,7 +115,16 @@ class CsrfTokenService {
       if (csrf != null && csrf.isNotEmpty) {
         setCsrfToken(csrf);
         debugPrint('[CsrfTokenService] CSRF token 已刷新');
-        AppLogger.info('CSRF token 已刷新', tag: 'CsrfTokenService');
+        AppLogger.info(
+          'CSRF token 已刷新',
+          tag: 'CsrfTokenService',
+          fields: {
+            'type': 'auth',
+            'event': 'csrf_token_refreshed',
+            'url': response.requestOptions.uri.toString(),
+            'csrfLen': csrf.length,
+          },
+        );
       }
     } on DioException catch (e) {
       final statusCode = e.response?.statusCode;
@@ -131,7 +140,17 @@ class CsrfTokenService {
           'CSRF token 刷新失败: status=$statusCode, url=$uri, '
           'type=${e.type}, response=$responsePreview';
       debugPrint('[CsrfTokenService] $message');
-      AppLogger.warning(message, tag: 'CsrfTokenService');
+      AppLogger.warning(
+        message,
+        tag: 'CsrfTokenService',
+        fields: {
+          'type': 'auth',
+          'event': 'csrf_token_refresh_failed',
+          'statusCode': statusCode,
+          'url': uri,
+          'errorType': e.type.toString(),
+        },
+      );
     } catch (e, stackTrace) {
       debugPrint('[CsrfTokenService] CSRF token 刷新失败: $e');
       AppLogger.error(
