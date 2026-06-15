@@ -2,6 +2,27 @@ part of '../topic_detail_provider.dart';
 
 // ignore_for_file: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
 
+@visibleForTesting
+bool isRealtimeBoostFromCurrentUser(Boost boost, User? currentUser) {
+  if (currentUser == null) return false;
+  if (boost.user.id != 0 && boost.user.id == currentUser.id) {
+    return true;
+  }
+  return boost.user.username.isNotEmpty &&
+      boost.user.username == currentUser.username;
+}
+
+@visibleForTesting
+bool resolveCanBoostAfterRealtimeBoost({
+  required bool currentCanBoost,
+  required Boost newBoost,
+  required User? currentUser,
+}) {
+  return isRealtimeBoostFromCurrentUser(newBoost, currentUser)
+      ? false
+      : currentCanBoost;
+}
+
 /// 帖子和话题更新相关方法
 extension PostUpdateMethods on TopicDetailNotifier {
   /// 正在请求中的 postId 集合，防止同一 postId 并发请求。
@@ -402,7 +423,15 @@ extension PostUpdateMethods on TopicDetailNotifier {
       // 避免重复添加
       if (currentBoosts.any((b) => b.id == newBoost.id)) return post;
       currentBoosts.add(newBoost);
-      return post.copyWith(boosts: currentBoosts, canBoost: false);
+      // boost_added 会广播给所有浏览者；消息本身不携带当前用户的
+      // can_boost 重新计算结果，只有自己的 boost 才应消耗本地权限。
+      final currentUser = ref.read(currentUserProvider).value;
+      final canBoost = resolveCanBoostAfterRealtimeBoost(
+        currentCanBoost: post.canBoost,
+        newBoost: newBoost,
+        currentUser: currentUser,
+      );
+      return post.copyWith(boosts: currentBoosts, canBoost: canBoost);
     });
   }
 
