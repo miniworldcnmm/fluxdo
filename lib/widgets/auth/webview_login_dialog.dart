@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../constants.dart';
+import '../../services/auth_session.dart';
 import '../../services/cf_challenge_service.dart';
 import '../../services/discourse/discourse_service.dart';
 import '../../services/network/cookie/boundary_sync_service.dart';
@@ -115,6 +116,7 @@ class _WebViewLoginDialogState extends State<_WebViewLoginDialog> {
   bool _cookiesPrimed = false; // 方案 A: 是否已从 jar 预灌 cookie
   bool _windowsInlineHtmlInjected = false;
   bool _cfRetryUsed = false; // CSRF 403 自动重验证只做一次, 避免死循环
+  final int _flowGeneration = AuthSession().generation;
   // 最近一次 _runLogin 的参数, CSRF 403 重新过 CF 后用同样参数重跑。
   // CSRF 失败发生在 JS __fluxdoLogin 第一步 (fetch /session/csrf), 此时
   // hcaptchaToken 还没被 hcaptcha/create 消费, 可直接重用; secondFactorToken
@@ -523,12 +525,16 @@ document.close();
       return;
     }
 
-    // 2. 等 WV 网络栈把 Set-Cookie 写完, 再同步全部 webview cookies 到 jar
-    //    (对齐 LoginPage._ensureCfClearance 的兜底节奏)
+    // 2. 等 WV 网络栈把 Set-Cookie 写完, 再同步 CF/验证码相关 cookie。
+    //    session cookie 只在登录成功收口时同步，避免旧会话回写。
     await Future<void>.delayed(const Duration(milliseconds: 1500));
     if (_finished) return;
     for (var i = 0; i < 3; i++) {
-      await BoundarySyncService.instance.syncFromWebView(cookieNames: null);
+      await BoundarySyncService.instance.syncFromWebView(
+        cookieNames: null,
+        excludeCookieNames: CookieJarService.sessionCookieNames,
+        requestGeneration: _flowGeneration,
+      );
       final clearance = await CookieJarService().getCfClearance();
       if (clearance != null && clearance.isNotEmpty) break;
       await Future<void>.delayed(const Duration(milliseconds: 500));
@@ -571,6 +577,13 @@ document.close();
   Future<void> _finishSuccess() async {
     if (_finished) return;
     _finished = true;
+    if (!AuthSession().isValid(_flowGeneration)) {
+      debugPrint('[WebViewLogin] 登录对话框流程已过期，跳过会话同步');
+      if (mounted) {
+        Navigator.of(context).pop(const WebViewLoginDialogResult.canceled());
+      }
+      return;
+    }
     // pop 前用 controller 把会话 cookie 落 jar (pop 后 WebView dispose, CDP 读不到)
     try {
       await BoundarySyncService.instance.syncFromWebView(
@@ -578,6 +591,7 @@ document.close();
         currentUrl: 'https://linux.do/',
         cookieNames: CookieJarService.sessionCookieNames,
         allowLowConfidenceSessionCookies: true,
+        requestGeneration: _flowGeneration,
       );
     } catch (e) {
       debugPrint('[WebViewLogin] syncFromWebView 失败: $e');

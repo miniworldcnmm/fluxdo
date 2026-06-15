@@ -344,10 +344,21 @@ class WebViewHttpAdapter implements HttpClientAdapter {
     _throwIfSessionExpired(options);
 
     if (shouldSyncAppCookies) {
+      final trustsWebViewSession = _trustsWebViewSessionFromResponse(
+        options,
+        statusCode,
+        responseHeaders,
+      );
+      // 成功的 WebView 登录态请求本身就是服务端认可 session 的证明。
+      // 失败/登出信号路径仍只同步非登录态 cookie，避免旧 _t 回灌。
       await _syncCriticalCookiesBackToJar(
         url,
-        force: method != 'GET' && method != 'HEAD',
+        force:
+            trustsWebViewSession || (method != 'GET' && method != 'HEAD'),
         requestGeneration: options.extra['_sessionGeneration'] as int?,
+        excludeCookieNames: trustsWebViewSession
+            ? null
+            : CookieJarService.sessionCookieNames,
       );
     }
 
@@ -398,6 +409,48 @@ class WebViewHttpAdapter implements HttpClientAdapter {
       return false;
     }
     return requestHost == baseHost || requestHost.endsWith('.$baseHost');
+  }
+
+  bool _trustsWebViewSessionFromResponse(
+    RequestOptions options,
+    int statusCode,
+    Map<String, List<String>> responseHeaders,
+  ) {
+    if (statusCode < 200 || statusCode >= 400) return false;
+    if (!_hasRequestHeaderValue(
+      options.headers,
+      'Discourse-Logged-In',
+      'true',
+    )) {
+      return false;
+    }
+    return !_hasNonEmptyResponseHeader(responseHeaders, 'discourse-logged-out');
+  }
+
+  bool _hasRequestHeaderValue(
+    Map<String, dynamic> headers,
+    String name,
+    String expectedValue,
+  ) {
+    final normalized = name.toLowerCase();
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() != normalized) continue;
+      return entry.value?.toString().toLowerCase() ==
+          expectedValue.toLowerCase();
+    }
+    return false;
+  }
+
+  bool _hasNonEmptyResponseHeader(
+    Map<String, List<String>> responseHeaders,
+    String name,
+  ) {
+    final normalized = name.toLowerCase();
+    for (final entry in responseHeaders.entries) {
+      if (entry.key.toLowerCase() != normalized) continue;
+      return entry.value.any((value) => value.trim().isNotEmpty);
+    }
+    return false;
   }
 
   /// 通过全平台 CookieManager API 写入 cookie
@@ -871,6 +924,7 @@ class WebViewHttpAdapter implements HttpClientAdapter {
     String currentUrl, {
     bool force = false,
     int? requestGeneration,
+    Set<String>? excludeCookieNames,
   }) async {
     final controller = _controller;
     if (controller == null) return;
@@ -891,13 +945,14 @@ class WebViewHttpAdapter implements HttpClientAdapter {
     final active = _activeCriticalCookieSync;
     if (active != null) {
       await active;
-      return;
+      if (!force) return;
     }
 
     final future = BoundarySyncService.instance.syncFromWebView(
       currentUrl: currentUrl,
       controller: controller,
       cookieNames: CookieJarService.criticalCookieNames,
+      excludeCookieNames: excludeCookieNames,
       requestGeneration: requestGeneration,
     );
 

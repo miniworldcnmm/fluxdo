@@ -22,6 +22,8 @@ class AppCookieManager extends Interceptor {
   /// The cookie jar used to load and save cookies.
   final CookieJar cookieJar;
 
+  static const String skipCookieManagerExtraKey = 'skipCookieManager';
+
   /// Whether to also save Set-Cookie to redirect target domains when
   /// followRedirects is false. Default false to avoid cross-domain pollution.
   final bool saveRedirectedCookies;
@@ -160,6 +162,11 @@ class AppCookieManager extends Interceptor {
     RequestOptions options,
     RequestInterceptorHandler handler,
   ) async {
+    if (options.extra[skipCookieManagerExtraKey] == true) {
+      handler.next(options);
+      return;
+    }
+
     try {
       final cookies = await loadCookies(options);
       options.headers[HttpHeaders.cookieHeader] =
@@ -184,6 +191,11 @@ class AppCookieManager extends Interceptor {
     Response response,
     ResponseInterceptorHandler handler,
   ) async {
+    if (response.requestOptions.extra[skipCookieManagerExtraKey] == true) {
+      handler.next(response);
+      return;
+    }
+
     try {
       await saveCookies(response);
       handler.next(response);
@@ -209,6 +221,10 @@ class AppCookieManager extends Interceptor {
   ) async {
     final response = err.response;
     if (response == null) {
+      handler.next(err);
+      return;
+    }
+    if (err.requestOptions.extra[skipCookieManagerExtraKey] == true) {
       handler.next(err);
       return;
     }

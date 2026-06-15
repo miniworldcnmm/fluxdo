@@ -395,6 +395,9 @@ class CookieJarService {
 
       // WebView cookie store 清理（平台策略处理差异）
       await _strategy.clearWebViewCookies(webViewCookieManager, knownHosts);
+      for (final name in sessionCookieNames) {
+        await _deleteWebViewCookieVariants(name, knownHosts);
+      }
 
       CookieLogger.delete(name: '*', source: 'clearAll');
     } catch (e) {
@@ -403,33 +406,40 @@ class CookieJarService {
   }
 
   /// 从 WebView cookie store 删除指定名称的 cookie。
-  /// Windows 上同时尝试 host-only / host / .host 三种变体，避免 WebView2 domain 形态不一致导致残留。
+  /// 同时尝试 host-only / host / .host 三种变体，避免不同 WebView
+  /// cookie store 的 domain 形态不一致导致残留。
   Future<void> deleteWebViewCookie(String name) async {
     if (!_initialized) await initialize();
 
     try {
       final baseHost = Uri.parse(AppConstants.baseUrl).host;
       final hosts = await getKnownHostsForDomain(baseHost);
-
-      for (final host in hosts) {
-        final url = WebUri('https://$host');
-        for (final domain in <String?>{null, host, '.$host'}) {
-          try {
-            await webViewCookieManager.deleteCookie(
-              url: url,
-              name: name,
-              domain: domain,
-              path: '/',
-            );
-          } catch (e) {
-            debugPrint(
-              '[CookieJar] Failed to delete WebView cookie $name for host=$host domain=$domain: $e',
-            );
-          }
-        }
-      }
+      await _deleteWebViewCookieVariants(name, hosts);
     } catch (e) {
       debugPrint('[CookieJar] Failed to delete WebView cookie $name: $e');
+    }
+  }
+
+  Future<void> _deleteWebViewCookieVariants(
+    String name,
+    Set<String> hosts,
+  ) async {
+    for (final host in hosts) {
+      final url = WebUri('https://$host');
+      for (final domain in <String?>{null, host, '.$host'}) {
+        try {
+          await webViewCookieManager.deleteCookie(
+            url: url,
+            name: name,
+            domain: domain,
+            path: '/',
+          );
+        } catch (e) {
+          debugPrint(
+            '[CookieJar] Failed to delete WebView cookie $name for host=$host domain=$domain: $e',
+          );
+        }
+      }
     }
   }
 
@@ -604,6 +614,8 @@ class CookieJarService {
     InAppWebViewController controller, {
     String? currentUrl,
     Set<String>? cookieNames,
+    Set<String>? excludeCookieNames,
+    Map<String, String>? acceptValues,
     bool trusted = false,
   }) async {
     if (!io.Platform.isWindows) return 0;
@@ -624,6 +636,14 @@ class CookieJarService {
             final domain = raw['domain']?.toString();
             if (name == null || value.isEmpty) return false;
             if (cookieNames != null && !cookieNames.contains(name)) {
+              return false;
+            }
+            if (excludeCookieNames != null &&
+                excludeCookieNames.contains(name)) {
+              return false;
+            }
+            final onlyValue = acceptValues?[name];
+            if (onlyValue != null && value != onlyValue) {
               return false;
             }
             return matchesAppHost(domain);

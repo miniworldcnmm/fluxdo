@@ -8,9 +8,12 @@ mixin _AuthMixin on _DiscourseServiceBase {
   // 或 token rotation 窗口导致的误判。
   static const Duration _strikeWindow = Duration(seconds: 45);
   static const Duration _inconclusiveCooldown = Duration(seconds: 30);
+  static const Duration _candidateProbeFailureCooldown = Duration(minutes: 5);
   int _authStrikeCount = 0;
   DateTime? _lastStrikeAt;
   DateTime? _lastInconclusiveAt;
+  String? _lastRejectedWebViewCandidateHash;
+  DateTime? _lastRejectedWebViewCandidateAt;
   Future<bool?>? _activeProbe;
 
   void _resetStrikes() {
@@ -37,6 +40,30 @@ mixin _AuthMixin on _DiscourseServiceBase {
       token != null && token.isNotEmpty ? token.length : null;
 
   bool _hasTokenValue(String? token) => token != null && token.isNotEmpty;
+
+  bool _isRejectedWebViewCandidateInCooldown(String? token) {
+    final hash = _safeTokenHash(token);
+    final rejectedAt = _lastRejectedWebViewCandidateAt;
+    if (hash == null ||
+        rejectedAt == null ||
+        hash != _lastRejectedWebViewCandidateHash) {
+      return false;
+    }
+    return DateTime.now().difference(rejectedAt) <=
+        _candidateProbeFailureCooldown;
+  }
+
+  void _markRejectedWebViewCandidate(String? token) {
+    final hash = _safeTokenHash(token);
+    if (hash == null) return;
+    _lastRejectedWebViewCandidateHash = hash;
+    _lastRejectedWebViewCandidateAt = DateTime.now();
+  }
+
+  void _clearRejectedWebViewCandidate() {
+    _lastRejectedWebViewCandidateHash = null;
+    _lastRejectedWebViewCandidateAt = null;
+  }
 
   bool? _sameNonEmptyToken(String? left, String? right) {
     if (left == null || left.isEmpty || right == null || right.isEmpty) {
@@ -109,6 +136,25 @@ mixin _AuthMixin on _DiscourseServiceBase {
     int? statusCode,
   }) async {
     if (_isLoggingOut) return;
+
+    final requestGeneration =
+        requestOptions.extra['_sessionGeneration'] as int?;
+    if (requestGeneration != null &&
+        !AuthSession().isValid(requestGeneration)) {
+      LogWriter.instance.write({
+        'timestamp': DateTime.now().toIso8601String(),
+        'level': 'info',
+        'type': 'auth',
+        'event': 'auth_signal_suppressed_stale_generation',
+        'message': '忽略过期会话请求产生的 auth 信号',
+        'source': source,
+        'trigger': triggerInfo,
+        'statusCode': statusCode,
+        'requestGeneration': requestGeneration,
+        'currentGeneration': AuthSession().generation,
+      });
+      return;
+    }
 
     final jarTToken = await _cookieJar.getTToken();
     final sentTToken = _sentTTokenFromRequest(requestOptions);
@@ -196,17 +242,33 @@ mixin _AuthMixin on _DiscourseServiceBase {
     });
 
     if (_authStrikeCount >= threshold) {
-      await _probeSession(source: source, triggerInfo: triggerInfo);
+      if (requestGeneration != null &&
+          !AuthSession().isValid(requestGeneration)) {
+        return;
+      }
+      await _probeSession(
+        source: source,
+        triggerInfo: triggerInfo,
+        signalRequestOptions: requestOptions,
+      );
     }
   }
 
   /// 通过 GET /session/current.json 验证会话是否仍然有效。
   /// 返回值：true=有效, false=确认失效, null=无法判断
-  Future<bool?> _probeSession({required String source, String? triggerInfo}) {
+  Future<bool?> _probeSession({
+    required String source,
+    String? triggerInfo,
+    RequestOptions? signalRequestOptions,
+  }) {
     final inFlight = _activeProbe;
     if (inFlight != null) return inFlight;
 
-    final future = _probeSessionImpl(source: source, triggerInfo: triggerInfo);
+    final future = _probeSessionImpl(
+      source: source,
+      triggerInfo: triggerInfo,
+      signalRequestOptions: signalRequestOptions,
+    );
     _activeProbe = future;
     future.whenComplete(() {
       if (identical(_activeProbe, future)) {
@@ -219,14 +281,51 @@ mixin _AuthMixin on _DiscourseServiceBase {
   Future<bool?> _probeSessionImpl({
     required String source,
     String? triggerInfo,
+    RequestOptions? signalRequestOptions,
   }) async {
     final strikeSnapshot = _authStrikeCount;
+    final requestGeneration =
+        signalRequestOptions?.extra['_sessionGeneration'] as int?;
+    if (requestGeneration != null &&
+        !AuthSession().isValid(requestGeneration)) {
+      return null;
+    }
 
-    // probe 前只同步 cf_clearance，不同步 _t
-    // 避免在半失效态把坏 cookie 回灌到 CookieJar
+    final recoveredUser = await _recoverWebViewSessionBeforeProbe(
+      source: source,
+      triggerInfo: triggerInfo,
+      signalRequestOptions: signalRequestOptions,
+    );
+    if (recoveredUser != null) {
+      currentUserNotifier.value = recoveredUser;
+      if (recoveredUser.username.isNotEmpty) {
+        _username = recoveredUser.username;
+        await _storage.write(
+          key: DiscourseService._usernameKey,
+          value: recoveredUser.username,
+        );
+      }
+      LogWriter.instance.write({
+        'timestamp': DateTime.now().toIso8601String(),
+        'level': 'info',
+        'type': 'auth',
+        'event': 'auth_probe_success',
+        'message': 'WebView 候选 session 已确认有效，跳过重复 probe',
+        'source': source,
+        if (triggerInfo != null) 'trigger': triggerInfo,
+        'username': recoveredUser.username,
+        if (signalRequestOptions != null)
+          ..._sentTDiagnostics(signalRequestOptions),
+      });
+      _resetStrikes();
+      return true;
+    }
+
+    // probe 前同步 cf_clearance，避免 CF 验证态落后导致 probe 不确定。
     try {
       await BoundarySyncService.instance.syncFromWebView(
         cookieNames: {'cf_clearance'},
+        requestGeneration: requestGeneration,
       );
     } catch (e) {
       debugPrint('[Auth] probe 前 cf_clearance 同步失败: $e');
@@ -385,6 +484,183 @@ mixin _AuthMixin on _DiscourseServiceBase {
     }
   }
 
+  /// auth 信号可能来自 native CookieJar 落后于 WebView，也可能来自 WebView
+  /// 残留了更旧的 session。这里不信任 WebView，只把它的值当候选：
+  /// 先用候选值单独 probe，服务端确认有效后才写回 CookieJar。
+  Future<User?> _recoverWebViewSessionBeforeProbe({
+    required String source,
+    String? triggerInfo,
+    RequestOptions? signalRequestOptions,
+  }) async {
+    final sentTToken = signalRequestOptions == null
+        ? null
+        : _sentTTokenFromRequest(signalRequestOptions);
+    if (!_hasTokenValue(sentTToken)) return null;
+
+    final requestGeneration =
+        signalRequestOptions?.extra['_sessionGeneration'] as int?;
+    if (requestGeneration != null &&
+        !AuthSession().isValid(requestGeneration)) {
+      return null;
+    }
+
+    final beforeJarTToken = await _cookieJar.getTToken();
+    String? candidateTToken;
+    try {
+      candidateTToken = await BoundarySyncService.instance
+          .readCookieValueFromWebView(
+        currentUrl: AppConstants.baseUrl,
+        name: '_t',
+        allowLowConfidenceSessionCookies: true,
+      );
+    } catch (e) {
+      debugPrint('[Auth] probe 前读取 WebView session 失败: $e');
+      return null;
+    }
+
+    if (!_hasTokenValue(candidateTToken) ||
+        candidateTToken == beforeJarTToken ||
+        candidateTToken == sentTToken) {
+      return null;
+    }
+    if (_isRejectedWebViewCandidateInCooldown(candidateTToken)) return null;
+
+    String? candidateForumSession;
+    try {
+      candidateForumSession = await BoundarySyncService.instance
+          .readCookieValueFromWebView(
+        currentUrl: AppConstants.baseUrl,
+        name: '_forum_session',
+        allowLowConfidenceSessionCookies: true,
+      );
+    } catch (e) {
+      debugPrint('[Auth] probe 前读取 WebView _forum_session 失败: $e');
+    }
+    final candidateSessionCookies = <String, String>{
+      '_t': candidateTToken!,
+      if (_hasTokenValue(candidateForumSession))
+        '_forum_session': candidateForumSession!,
+    };
+
+    final candidateUser = await _probeCandidateWebViewSession(
+      candidateSessionCookies,
+      requestGeneration: requestGeneration,
+    );
+    if (candidateUser == null) {
+      _markRejectedWebViewCandidate(candidateTToken);
+      return null;
+    }
+    _clearRejectedWebViewCandidate();
+
+    if (requestGeneration != null &&
+        !AuthSession().isValid(requestGeneration)) {
+      return null;
+    }
+
+    try {
+      await BoundarySyncService.instance.syncFromWebView(
+        currentUrl: AppConstants.baseUrl,
+        cookieNames: candidateSessionCookies.keys.toSet(),
+        acceptValues: candidateSessionCookies,
+        requestGeneration: requestGeneration,
+      );
+    } catch (e) {
+      debugPrint('[Auth] 已验证的 WebView session 同步失败: $e');
+      return null;
+    }
+
+    final afterJarTToken = await _cookieJar.getTToken();
+    if (!_hasTokenValue(afterJarTToken) || afterJarTToken != candidateTToken) {
+      return null;
+    }
+
+    _tToken = afterJarTToken;
+    LogWriter.instance.write({
+      'timestamp': DateTime.now().toIso8601String(),
+      'level': 'info',
+      'type': 'auth',
+      'event': 'auth_probe_session_cookie_recovered',
+      'message': 'probe 前从 WebView 恢复了不同的 session cookie',
+      'source': source,
+      if (triggerInfo != null) 'trigger': triggerInfo,
+      'sentTLen': _tokenLength(sentTToken),
+      'sentTHash': _safeTokenHash(sentTToken),
+      'beforeJarTLen': _tokenLength(beforeJarTToken),
+      'beforeJarTHash': _safeTokenHash(beforeJarTToken),
+      'afterJarTLen': _tokenLength(afterJarTToken),
+      'afterJarTHash': _safeTokenHash(afterJarTToken),
+      'afterMatchesSentT': _sameNonEmptyToken(afterJarTToken, sentTToken),
+      if (requestGeneration != null) 'requestGeneration': requestGeneration,
+    });
+    return candidateUser;
+  }
+
+  Future<User?> _probeCandidateWebViewSession(
+    Map<String, String> candidateCookies, {
+    int? requestGeneration,
+  }) async {
+    if (requestGeneration != null &&
+        !AuthSession().isValid(requestGeneration)) {
+      return null;
+    }
+
+    final cookieHeader = await _cookieHeaderReplacingSessionCookies(
+      candidateCookies,
+    );
+    try {
+      final response = await _dio.get(
+        '/session/current.json',
+        queryParameters: {'_': DateTime.now().millisecondsSinceEpoch},
+        options: Options(
+          headers: {
+            HttpHeaders.cookieHeader: cookieHeader,
+            'Discourse-Logged-In': 'true',
+          },
+          extra: const {
+            'skipAuthCheck': true,
+            'skipCsrf': true,
+            'skipSessionStateSync': true,
+            AppCookieManager.skipCookieManagerExtraKey: true,
+            SelfHealingInterceptor.selfHealedExtraKey: true,
+          },
+        ),
+      );
+      final data = response.data;
+      if (data is! Map<String, dynamic>) return null;
+      final currentUser = data['current_user'];
+      if (currentUser is! Map<String, dynamic>) return null;
+      return User.fromJson(currentUser);
+    } on DioException {
+      return null;
+    } catch (e) {
+      debugPrint('[Auth] WebView candidate session probe 异常: $e');
+      return null;
+    }
+  }
+
+  Future<String> _cookieHeaderReplacingSessionCookies(
+    Map<String, String> replacements,
+  ) async {
+    final currentHeader = await _cookieJar.getCookieHeader() ?? '';
+    final replacementNames = replacements.keys.toSet();
+    final preserved = currentHeader
+        .split(';')
+        .map((part) => part.trim())
+        .where((part) {
+          final separator = part.indexOf('=');
+          if (separator <= 0) return false;
+          final name = part.substring(0, separator);
+          return !replacementNames.contains(name);
+        })
+        .toList(growable: true);
+
+    for (final entry in replacements.entries) {
+      if (entry.value.isEmpty) continue;
+      preserved.add('${entry.key}=${entry.value}');
+    }
+    return preserved.join('; ');
+  }
+
   /// 初始化拦截器
   void _initInterceptors() {
     // 添加业务特定拦截器
@@ -460,16 +736,20 @@ mixin _AuthMixin on _DiscourseServiceBase {
             return handler.next(response);
           }
 
-          final sessionState = await _syncSessionStateFromResponse(
-            response.requestOptions,
-            response: response,
-            phase: 'response',
-          );
-          _syncMemoryTokenFromSessionState(
-            sessionState,
-            logWhenCleared: true,
-            requestOptions: response.requestOptions,
-          );
+          final skipSessionStateSync =
+              response.requestOptions.extra['skipSessionStateSync'] == true;
+          if (!skipSessionStateSync) {
+            final sessionState = await _syncSessionStateFromResponse(
+              response.requestOptions,
+              response: response,
+              phase: 'response',
+            );
+            _syncMemoryTokenFromSessionState(
+              sessionState,
+              logWhenCleared: true,
+              requestOptions: response.requestOptions,
+            );
+          }
 
           final username = response.headers.value('x-discourse-username');
           if (username != null &&
@@ -530,15 +810,21 @@ mixin _AuthMixin on _DiscourseServiceBase {
             return handler.next(error);
           }
 
-          final sessionState = await _syncSessionStateFromResponse(
-            error.requestOptions,
-            response: error.response,
-            phase: 'error',
-          );
-          _syncMemoryTokenFromSessionState(
-            sessionState,
-            requestOptions: error.requestOptions,
-          );
+          final skipSessionStateSync =
+              error.requestOptions.extra['skipSessionStateSync'] == true;
+          final sessionState = skipSessionStateSync
+              ? await _readSessionCookieState()
+              : await _syncSessionStateFromResponse(
+                  error.requestOptions,
+                  response: error.response,
+                  phase: 'error',
+                );
+          if (!skipSessionStateSync) {
+            _syncMemoryTokenFromSessionState(
+              sessionState,
+              requestOptions: error.requestOptions,
+            );
+          }
 
           if (!skipAuthCheck &&
               data is Map &&

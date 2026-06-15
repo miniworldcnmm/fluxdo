@@ -42,6 +42,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   final _service = DiscourseService();
   final _cookieJar = CookieJarService();
   final _credentialStore = CredentialStoreService();
+  final int _flowGeneration = AuthSession().generation;
   final Uri _baseUri = Uri.parse(AppConstants.baseUrl);
   InAppWebViewController? _controller;
   bool _isLoading = true;
@@ -496,7 +497,9 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       await BoundarySyncService.instance.syncFromWebView(
         currentUrl: currentUrl,
         controller: controller,
-        allowLowConfidenceSessionCookies: true,
+        cookieNames: null,
+        excludeCookieNames: CookieJarService.sessionCookieNames,
+        requestGeneration: _flowGeneration,
       );
       final tToken = await _readTTokenFromWebView(
         controller,
@@ -511,6 +514,16 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
         }
         debugPrint('[Login] 已检测到 currentUser=$username，但尚未读到 _t，等待后续同步');
         _scheduleLoginRecheck(controller);
+        return;
+      }
+      if (!AuthSession().isValid(_flowGeneration)) {
+        if (mounted && _isCompletingLogin) {
+          setState(() {
+            _isCompletingLogin = false;
+            _isLoading = false;
+          });
+        }
+        debugPrint('[Login] 登录 WebView 流程已过期，跳过会话同步');
         return;
       }
 
@@ -561,12 +574,14 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
     // 先切断旧请求，防止登录收口期间旧响应的 Set-Cookie 写入竞争
     AuthSession().advance();
+    final loginGeneration = AuthSession().generation;
 
     await BoundarySyncService.instance.syncFromWebView(
       currentUrl: currentUrl,
       controller: controller,
       cookieNames: CookieJarService.sessionCookieNames,
       allowLowConfidenceSessionCookies: true,
+      requestGeneration: loginGeneration,
     );
 
     final jarToken = await _cookieJar.getTToken();
