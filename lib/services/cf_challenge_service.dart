@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection' show UnmodifiableListView;
 import 'dart:io' as io;
 import 'dart:math' as math;
 
@@ -187,11 +188,14 @@ class CfChallengeService {
   /// 用于在 onReceivedHttpError 不可靠的平台上识别 Discourse 404 等非挑战页面
   static bool isOriginNotFound(String html) {
     if (html.isEmpty) return false;
+    final lower = html.toLowerCase();
     // 仅保留稳定的 Discourse 自身特征，避免论坛名含 "404" 等场景误判
-    return html.contains('page-not-found') ||
-        html.contains('discourse-no-results') ||
-        html.contains('"errorType":"notFound"') ||
-        html.contains('404-body');
+    return lower.contains('page-not-found') ||
+        lower.contains('discourse-no-results') ||
+        lower.contains('"errortype":"notfound"') ||
+        lower.contains('404-body') ||
+        lower.contains('exist or is private') ||
+        lower.contains('page you requested');
   }
 
   /// 显示手动验证页面
@@ -466,9 +470,11 @@ class _CfChallengePageState extends State<CfChallengePage> {
   late bool _isBackground;
   late bool _needsManualAttention;
   bool _challengeWebViewVisible = false;
+  bool _hasSeenChallenge = false;
   bool _hideOriginFallbackPage = false;
   bool _checkingOriginFallback = false;
   bool _originFallbackNeedsAction = false;
+  bool _finishingFromVerifyResponse = false;
   int _loadGeneration = 0;
   int _challengeRevealProbeGeneration = 0;
   bool _hasTimedOut = false;
@@ -483,6 +489,8 @@ class _CfChallengePageState extends State<CfChallengePage> {
   static const _revealStateWatchInterval = Duration(milliseconds: 150);
   static const _loadStopFallbackDelay = Duration(milliseconds: 1200);
   static const _pageReadyFallbackDelay = Duration(seconds: 4);
+  static const _completionProbeTimeout = Duration(seconds: 8);
+  static const _noChallengeProbeTimeout = Duration(milliseconds: 1800);
 
   /// 验证页面加载时 WebView 中的 cf_clearance 快照
   /// 用于区分「旧值残留」和「验证后新设的值」
@@ -709,6 +717,117 @@ class _CfChallengePageState extends State<CfChallengePage> {
     return '#${rgb.toRadixString(16).padLeft(6, '0')}';
   }
 
+  UnmodifiableListView<UserScript> _initialChallengeScripts() {
+    final maskColorHex = _resolveMaskColorHex();
+    return UnmodifiableListView([
+      UserScript(
+        source: _documentStartMaskScript(maskColorHex),
+        injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START,
+        forMainFrameOnly: true,
+      ),
+      ...WebViewSettings.compatPolyfillScripts,
+    ]);
+  }
+
+  String _documentStartMaskScript(String maskColorHex) {
+    return '''
+(function() {
+  if (window.__fluxdoCfDocumentMaskInstalled) return;
+  window.__fluxdoCfDocumentMaskInstalled = true;
+  window.__fluxdoCfMaskColor = '$maskColorHex';
+
+  function root() {
+    return document.body || document.documentElement;
+  }
+
+  function ensureMask() {
+    var r = root();
+    if (!r) return null;
+    var mask = document.getElementById('__fluxdoCfMask');
+    if (!mask) {
+      mask = document.createElement('div');
+      mask.id = '__fluxdoCfMask';
+      mask.style.cssText = 'position:fixed!important;top:0!important;left:0!important;right:0!important;bottom:0!important;width:100vw!important;height:100vh!important;margin:0!important;padding:0!important;background:' +
+        (window.__fluxdoCfMaskColor || '#ffffff') +
+        '!important;z-index:2147483647!important;pointer-events:auto!important;';
+      r.appendChild(mask);
+    }
+    return mask;
+  }
+
+  window.__fluxdoCfMaskSuppressed = false;
+
+  window.__fluxdoShowCfMask = function(force) {
+    if (window.__fluxdoCfMaskSuppressed && !force) return;
+    window.__fluxdoCfMaskSuppressed = false;
+    var mask = ensureMask();
+    if (mask) mask.style.display = 'block';
+  };
+
+  window.__fluxdoHideCfMask = function() {
+    window.__fluxdoCfMaskSuppressed = true;
+    var mask = document.getElementById('__fluxdoCfMask');
+    if (mask) mask.style.display = 'none';
+  };
+
+  function notifyNav(reason) {
+    window.__fluxdoShowCfMask(true);
+    try {
+      window.flutter_inappwebview.callHandler('onChallengeNavigation', reason);
+    } catch(e) {}
+  }
+
+  function looksLikeOrigin404() {
+    try {
+      var html = document.documentElement ? document.documentElement.innerHTML : '';
+      var title = document.title || '';
+      var haystack = (html + ' ' + title).toLowerCase();
+      return haystack.indexOf('page-not-found') !== -1 ||
+        haystack.indexOf('discourse-no-results') !== -1 ||
+        haystack.indexOf('"errortype":"notfound"') !== -1 ||
+        haystack.indexOf('404-body') !== -1 ||
+        haystack.indexOf('exist or is private') !== -1 ||
+        haystack.indexOf('page you requested') !== -1 ||
+        title.indexOf('404') !== -1;
+    } catch(e) {
+      return false;
+    }
+  }
+
+  var origin404Notified = false;
+  function probeOrigin404() {
+    if (origin404Notified || !looksLikeOrigin404()) return;
+    origin404Notified = true;
+    notifyNav('origin-404-dom');
+  }
+
+  function installOrigin404Observer() {
+    probeOrigin404();
+    try {
+      var observer = new MutationObserver(probeOrigin404);
+      observer.observe(document.documentElement || document, {
+        childList: true,
+        subtree: true,
+        characterData: true
+      });
+    } catch(e) {}
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+      window.__fluxdoShowCfMask(false);
+      installOrigin404Observer();
+    }, { once: true });
+  } else {
+    window.__fluxdoShowCfMask();
+    installOrigin404Observer();
+  }
+  window.addEventListener('beforeunload', function(){ notifyNav('beforeunload'); });
+  window.addEventListener('pagehide', function(){ notifyNav('pagehide'); });
+})();
+''';
+  }
+
   /// challenge-platform 响应到达时的回调
   ///
   /// 不再主动 reveal WebView：reveal 完全交给 _startChallengeRevealProbe，
@@ -780,7 +899,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
   /// 对部分 location.replace 跳转触发时机晚于 PlatformView 渲染，导致 404 闪现。
   /// 借助 JS 在跳走的最早时刻通知 Flutter，立即重置 reveal 状态、覆盖 WebView。
   Future<void> _onChallengeNavigation(List<dynamic> args) async {
-    if (_hasPopped || !mounted) return;
+    if (_hasPopped || !mounted || _finishingFromVerifyResponse) return;
     final reason = args.isNotEmpty ? args.first.toString() : 'unknown';
     if (!_challengeWebViewVisible && _hideOriginFallbackPage) {
       // 已经覆盖中，不必重复触发 fallback 流程
@@ -791,6 +910,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
     await _handleVerifyOriginFallback(
       _loadGeneration,
       reason: 'js navigation: $reason',
+      completionLikely: true,
     );
   }
 
@@ -803,7 +923,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
     _checkCount = 0;
     _hasTimedOut = false;
     _timeoutTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
+      if (!mounted || _finishingFromVerifyResponse) {
         timer.cancel();
         return;
       }
@@ -847,11 +967,20 @@ class _CfChallengePageState extends State<CfChallengePage> {
     _noChallengeCheckTimer?.cancel();
     final generation = _loadGeneration;
     _noChallengeCheckTimer = Timer(_noChallengeCheckDelay, () async {
-      if (_hasPopped || !mounted || generation != _loadGeneration) return;
+      if (_hasPopped ||
+          !mounted ||
+          _finishingFromVerifyResponse ||
+          generation != _loadGeneration) {
+        return;
+      }
 
       try {
         final hasChallenge = await _hasVisibleChallenge(controller);
-        if (_hasPopped || generation != _loadGeneration) return;
+        if (_hasPopped ||
+            _finishingFromVerifyResponse ||
+            generation != _loadGeneration) {
+          return;
+        }
         if (hasChallenge) {
           _revealChallengeWebView();
           return; // 页面有盾，等待正常验证流程
@@ -860,7 +989,9 @@ class _CfChallengePageState extends State<CfChallengePage> {
         // 页面无盾：统一交给 fallback 处理（先轮询 cf_clearance，无果再给重试）
         await _handleVerifyOriginFallback(
           generation,
-          reason: 'no challenge after ${_noChallengeCheckDelay.inMilliseconds}ms',
+          reason:
+              'no challenge after ${_noChallengeCheckDelay.inMilliseconds}ms',
+          completionLikely: _hasSeenChallenge,
         );
       } catch (e) {
         debugPrint('[CfChallenge] 检测 challenge 状态异常: $e');
@@ -876,48 +1007,56 @@ class _CfChallengePageState extends State<CfChallengePage> {
   Future<void> _handleVerifyOriginFallback(
     int generation, {
     String? reason,
+    bool completionLikely = false,
   }) async {
-    if (_hasPopped || _checkingOriginFallback) return;
+    if (_hasPopped || _finishingFromVerifyResponse) return;
+    _coverWebViewForOriginFallback();
+    if (_checkingOriginFallback) return;
 
     _checkingOriginFallback = true;
+    final isCompletionProbe = completionLikely || _hasSeenChallenge;
     // 取消其余探测路径：状态已经收敛到 fallback，避免重复 evaluateJavascript
     _challengeRevealProbeGeneration++;
     _noChallengeCheckTimer?.cancel();
-    if (mounted) {
-      setState(() {
-        _challengeWebViewVisible = false;
-        _hideOriginFallbackPage = true;
-        _originFallbackNeedsAction = false;
-        _needsManualAttention = false;
-        _isLoading = false;
-      });
-    }
     if (reason != null) {
       debugPrint('[CfChallenge] fallback triggered: $reason');
     }
 
     try {
-      for (var i = 0; i < 6; i++) {
-        if (_hasPopped || generation != _loadGeneration) return;
+      final startedAt = DateTime.now();
+      var attempt = 0;
+      while (DateTime.now().difference(startedAt) <
+          (isCompletionProbe
+              ? _completionProbeTimeout
+              : _noChallengeProbeTimeout)) {
+        if (_hasPopped || _finishingFromVerifyResponse) return;
+        if (!isCompletionProbe && generation != _loadGeneration) return;
         final cookieValue = await _readCookieValue('cf_clearance');
         if (_isFreshClearance(cookieValue)) {
-          debugPrint('[CfChallenge] fallback 期间检测到新 cf_clearance，自动完成');
+          debugPrint(
+            '[CfChallenge] fallback/completion 期间检测到新 cf_clearance，自动完成',
+          );
           CfChallengeLogger.logVerifyResult(
             success: true,
-            reason: reason ?? 'fresh cf_clearance during fallback',
+            reason: reason ?? 'fresh cf_clearance during completion probe',
           );
           await _syncLiveCookiesToCookieJar(freshClearance: cookieValue);
           _timeoutTimer?.cancel();
           if (mounted) _finish(true);
           return;
         }
-        await Future.delayed(const Duration(milliseconds: 250));
+        attempt++;
+        await Future.delayed(
+          attempt < 12
+              ? const Duration(milliseconds: 150)
+              : const Duration(milliseconds: 400),
+        );
       }
 
-      debugPrint('[CfChallenge] fallback 结束仍无新 cf_clearance');
+      debugPrint('[CfChallenge] fallback/completion 结束仍无新 cf_clearance');
       CfChallengeLogger.logVerifyResult(
         success: false,
-        reason: reason ?? 'no fresh cf_clearance after fallback probe',
+        reason: reason ?? 'no fresh cf_clearance after completion probe',
       );
       if (_isBackground) {
         _timeoutTimer?.cancel();
@@ -934,20 +1073,40 @@ class _CfChallengePageState extends State<CfChallengePage> {
       debugPrint('[CfChallenge] 处理 fallback 异常: $e');
     } finally {
       _checkingOriginFallback = false;
-      if (mounted && !_hasPopped && generation == _loadGeneration) {
+      if (mounted &&
+          !_hasPopped &&
+          (isCompletionProbe || generation == _loadGeneration)) {
         setState(() {});
       }
     }
   }
 
+  void _coverWebViewForOriginFallback() {
+    if (!mounted || _hasPopped) return;
+    if (!_challengeWebViewVisible &&
+        _hideOriginFallbackPage &&
+        !_originFallbackNeedsAction &&
+        !_needsManualAttention &&
+        !_isLoading) {
+      return;
+    }
+    setState(() {
+      _challengeWebViewVisible = false;
+      _hideOriginFallbackPage = true;
+      _originFallbackNeedsAction = false;
+      _needsManualAttention = false;
+      _isLoading = false;
+    });
+  }
+
   /// 轮询检测 cf_clearance 变化（兜底 JS 回调被重定向吞掉的场景）
   bool _polling = false;
   Future<void> _pollCfClearance() async {
-    if (_hasPopped || _polling) return;
+    if (_hasPopped || _finishingFromVerifyResponse || _polling) return;
     _polling = true;
     try {
       final cookieValue = await _readCookieValue('cf_clearance');
-      if (_hasPopped) return;
+      if (_hasPopped || _finishingFromVerifyResponse) return;
       if (!_isFreshClearance(cookieValue)) return;
 
       debugPrint(
@@ -1004,9 +1163,11 @@ class _CfChallengePageState extends State<CfChallengePage> {
     _hasTimedOut = false;
     _needsManualAttention = true;
     _challengeWebViewVisible = false;
+    _hasSeenChallenge = false;
     _hideOriginFallbackPage = false;
     _checkingOriginFallback = false;
     _originFallbackNeedsAction = false;
+    _finishingFromVerifyResponse = false;
     setState(() {
       _isLoading = true;
       _progress = 0;
@@ -1093,6 +1254,38 @@ class _CfChallengePageState extends State<CfChallengePage> {
         actual.path == expected.path;
   }
 
+  bool _isBareVerifyUrl(WebUri? url) {
+    if (!_isVerifyUrl(url)) return false;
+    final actual = Uri.tryParse(url.toString());
+    if (actual == null) return false;
+    return actual.query.isEmpty;
+  }
+
+  Future<NavigationActionPolicy> _shouldOverrideVerifyNavigation(
+    InAppWebViewController controller,
+    NavigationAction navigationAction,
+  ) async {
+    final url = navigationAction.request.url;
+    if (navigationAction.isForMainFrame == true &&
+        _hasSeenChallenge &&
+        _isBareVerifyUrl(url)) {
+      debugPrint('[CfChallenge] 验证完成后准备加载 /challenge，提前覆盖并等待状态码');
+      CfChallengeLogger.log(
+        '[VERIFY] Post-challenge navigation to ${url?.toString() ?? ''}',
+      );
+      _coverWebViewForOriginFallback();
+      unawaited(
+        _handleVerifyOriginFallback(
+          _loadGeneration,
+          reason: 'post-challenge /challenge navigation pending status',
+          completionLikely: true,
+        ),
+      );
+    }
+
+    return NavigationActionPolicy.ALLOW;
+  }
+
   bool _isVerifyOriginFallback(
     WebResourceRequest request,
     WebResourceResponse response,
@@ -1100,6 +1293,102 @@ class _CfChallengePageState extends State<CfChallengePage> {
     if (response.statusCode != 404) return false;
     if (request.isForMainFrame != true) return false;
     return _isVerifyUrl(request.url);
+  }
+
+  bool _isCfMitigatedChallengeHeaders(Map<String, String>? headers) {
+    if (headers == null || headers.isEmpty) return false;
+    for (final entry in headers.entries) {
+      if (entry.key.toLowerCase() == 'cf-mitigated' &&
+          entry.value.toLowerCase().contains('challenge')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _isVerifyPassedResponse(
+    WebResourceRequest request,
+    WebResourceResponse response,
+  ) {
+    if (request.isForMainFrame != true) return false;
+    if (!_isBareVerifyUrl(request.url)) return false;
+    if (_isCfMitigatedChallengeHeaders(response.headers)) return false;
+
+    // /challenge 是站点专用的 CF 验证入口：
+    // 未通过时 Cloudflare 接管并返回 challenge；通过后请求会落到源站，
+    // 源站没有这个业务页面，所以 404 本身就是“已通过 CF”的完成信号。
+    return response.statusCode == 404;
+  }
+
+  bool _isVerifyPassedNavigationResponse(NavigationResponse response) {
+    final urlResponse = response.response;
+    if (response.isForMainFrame != true || urlResponse == null) return false;
+    if (!_isBareVerifyUrl(urlResponse.url)) return false;
+    if (_isCfMitigatedChallengeHeaders(urlResponse.headers)) return false;
+
+    return urlResponse.statusCode == 404;
+  }
+
+  Future<NavigationResponseAction> _handleVerifyNavigationResponse(
+    InAppWebViewController controller,
+    NavigationResponse navigationResponse,
+  ) async {
+    final response = navigationResponse.response;
+    if (navigationResponse.isForMainFrame == true &&
+        _isVerifyUrl(response?.url)) {
+      CfChallengeLogger.log(
+        '[VERIFY] Main frame /challenge navigation response: '
+        'status=${response?.statusCode}, '
+        'headers=${response?.headers}',
+      );
+    }
+
+    if (_isVerifyPassedNavigationResponse(navigationResponse)) {
+      await _finishVerifiedFromNetworkStatus(
+        reason: 'main frame /challenge navigation response returned source 404',
+        headers: response?.headers,
+      );
+      return NavigationResponseAction.CANCEL;
+    }
+
+    return NavigationResponseAction.ALLOW;
+  }
+
+  Future<void> _finishVerifiedFromNetworkStatus({
+    required String reason,
+    Map<String, String>? headers,
+  }) async {
+    if (_hasPopped || _finishingFromVerifyResponse) return;
+    _finishingFromVerifyResponse = true;
+    _coverWebViewForOriginFallback();
+    _timeoutTimer?.cancel();
+    _noChallengeCheckTimer?.cancel();
+    _loadStopFallbackTimer?.cancel();
+    _pageReadyFallbackTimer?.cancel();
+    _challengeRevealProbeGeneration++;
+    _revealStateWatchGeneration++;
+
+    debugPrint('[CfChallenge] $reason，按网络状态判定验证完成');
+    CfChallengeLogger.logVerifyResult(success: true, reason: reason);
+    if (headers != null) {
+      CfChallengeLogger.log('[VERIFY] Passed response headers: $headers');
+    }
+
+    unawaited(_syncVerifiedCookiesBestEffort());
+    if (mounted && !_hasPopped) _finish(true);
+  }
+
+  Future<void> _syncVerifiedCookiesBestEffort() async {
+    try {
+      final freshClearance = await _readCookieValue('cf_clearance');
+      await _syncLiveCookiesToCookieJar(
+        freshClearance: _isFreshClearance(freshClearance)
+            ? freshClearance
+            : null,
+      );
+    } catch (e) {
+      debugPrint('[CfChallenge] 按网络状态完成时后台同步 cookie 失败: $e');
+    }
   }
 
   Future<bool> _hasVisibleChallenge(InAppWebViewController controller) async {
@@ -1114,7 +1403,21 @@ class _CfChallengePageState extends State<CfChallengePage> {
   int _revealStateWatchGeneration = 0;
 
   void _revealChallengeWebView() {
-    if (_hasPopped || !mounted || _challengeWebViewVisible) return;
+    if (_hasPopped ||
+        !mounted ||
+        _finishingFromVerifyResponse ||
+        _challengeWebViewVisible) {
+      return;
+    }
+    _hasSeenChallenge = true;
+    unawaited(
+      _controller
+              ?.evaluateJavascript(source: 'window.__fluxdoHideCfMask?.();')
+              .catchError((Object e) {
+                debugPrint('[CfChallenge] 隐藏 DOM mask 失败: $e');
+              }) ??
+          Future<void>.value(),
+    );
     setState(() {
       _challengeWebViewVisible = true;
       _hideOriginFallbackPage = false;
@@ -1133,7 +1436,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
     unawaited(() async {
       while (true) {
         await Future.delayed(_revealStateWatchInterval);
-        if (_hasPopped || !mounted) return;
+        if (_hasPopped || !mounted || _finishingFromVerifyResponse) return;
         if (watcherGeneration != _revealStateWatchGeneration) return;
         if (loadGeneration != _loadGeneration) return;
         if (!_challengeWebViewVisible) return;
@@ -1148,7 +1451,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
             source:
                 'document.documentElement ? document.documentElement.innerHTML : ""',
           );
-          if (_hasPopped || !mounted) return;
+          if (_hasPopped || !mounted || _finishingFromVerifyResponse) return;
           if (watcherGeneration != _revealStateWatchGeneration) return;
           if (loadGeneration != _loadGeneration) return;
           if (html == null) continue;
@@ -1163,6 +1466,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
             _handleVerifyOriginFallback(
               loadGeneration,
               reason: 'reveal watcher: page lost CF challenge markers',
+              completionLikely: true,
             ),
           );
           return;
@@ -1182,6 +1486,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
       for (var i = 0; i < 20; i++) {
         if (_hasPopped ||
             !mounted ||
+            _finishingFromVerifyResponse ||
             generation != _loadGeneration ||
             probeGeneration != _challengeRevealProbeGeneration) {
           return;
@@ -1317,7 +1622,9 @@ class _CfChallengePageState extends State<CfChallengePage> {
   }
 
   void _handlePageReady(InAppWebViewController controller, {String? reason}) {
-    if (_hasMarkedPageReady || _hasPopped) return;
+    if (_hasMarkedPageReady || _hasPopped || _finishingFromVerifyResponse) {
+      return;
+    }
     _hasMarkedPageReady = true;
     final generation = _loadGeneration;
     _loadStopFallbackTimer?.cancel();
@@ -1348,14 +1655,19 @@ class _CfChallengePageState extends State<CfChallengePage> {
     InAppWebViewController controller,
     int generation,
   ) async {
-    if (_hasPopped || !mounted) return;
+    if (_hasPopped || !mounted || _finishingFromVerifyResponse) return;
     if (generation != _loadGeneration) return;
     try {
       final html = await controller.evaluateJavascript(
         source:
             'document.documentElement ? document.documentElement.innerHTML : ""',
       );
-      if (_hasPopped || !mounted || generation != _loadGeneration) return;
+      if (_hasPopped ||
+          !mounted ||
+          _finishingFromVerifyResponse ||
+          generation != _loadGeneration) {
+        return;
+      }
       if (html == null) return;
       final htmlStr = html.toString();
       if (CfChallengeService.hasActiveCfChallenge(htmlStr)) {
@@ -1366,6 +1678,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
         await _handleVerifyOriginFallback(
           generation,
           reason: 'immediate probe: origin 404 markers',
+          completionLikely: _hasSeenChallenge,
         );
       }
     } catch (e) {
@@ -1381,7 +1694,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
     _pageReadyFallbackTimer?.cancel();
     _pageReadyFallbackTimer = Timer(_pageReadyFallbackDelay, () {
       _pageReadyFallbackTimer = null;
-      if (_hasMarkedPageReady || _hasPopped) {
+      if (_hasMarkedPageReady || _hasPopped || _finishingFromVerifyResponse) {
         return;
       }
       _handlePageReady(controller, reason: 'timed fallback');
@@ -1399,7 +1712,10 @@ class _CfChallengePageState extends State<CfChallengePage> {
     }
     _loadStopFallbackTimer ??= Timer(_loadStopFallbackDelay, () {
       _loadStopFallbackTimer = null;
-      if (_hasMarkedPageReady || _hasPopped || _progress < 0.95) {
+      if (_hasMarkedPageReady ||
+          _hasPopped ||
+          _finishingFromVerifyResponse ||
+          _progress < 0.95) {
         return;
       }
       _handlePageReady(controller, reason: 'progress fallback');
@@ -1419,8 +1735,12 @@ class _CfChallengePageState extends State<CfChallengePage> {
             javaScriptEnabled: true,
             userAgent: AppConstants.webViewUserAgentOverride,
             mediaPlaybackRequiresUserGesture: false,
+            useShouldOverrideUrlLoading: true,
+            useOnNavigationResponse: true,
           ),
-          initialUserScripts: WebViewSettings.compatPolyfillScripts,
+          initialUserScripts: _initialChallengeScripts(),
+          shouldOverrideUrlLoading: _shouldOverrideVerifyNavigation,
+          onNavigationResponse: _handleVerifyNavigationResponse,
           onReceivedServerTrustAuthRequest: (_, challenge) =>
               WebViewSettings.handleServerTrustAuthRequest(challenge),
           onWebViewCreated: (controller) {
@@ -1438,6 +1758,8 @@ class _CfChallengePageState extends State<CfChallengePage> {
             );
           },
           onLoadStart: (controller, url) {
+            if (_hasPopped || _finishingFromVerifyResponse) return;
+            final isCompletionNavigation = _hasSeenChallenge;
             _loadGeneration++;
             _challengeRevealProbeGeneration++;
             _loadStopFallbackTimer?.cancel();
@@ -1446,19 +1768,32 @@ class _CfChallengePageState extends State<CfChallengePage> {
             _hasTimedOut = false;
             _needsManualAttention = false;
             _challengeWebViewVisible = false;
-            _hideOriginFallbackPage = false;
-            _checkingOriginFallback = false;
+            _hideOriginFallbackPage = isCompletionNavigation;
+            if (!isCompletionNavigation) {
+              _checkingOriginFallback = false;
+            }
             _originFallbackNeedsAction = false;
             _schedulePageReadyFallback(controller);
             setState(() {
               _isLoading = true;
               _progress = 0;
             });
+            if (isCompletionNavigation) {
+              unawaited(
+                _handleVerifyOriginFallback(
+                  _loadGeneration,
+                  reason: 'loadStart after challenge: ${url?.toString() ?? ''}',
+                  completionLikely: true,
+                ),
+              );
+            }
           },
           onPageCommitVisible: (controller, url) {
+            if (_finishingFromVerifyResponse) return;
             _handlePageReady(controller, reason: 'onPageCommitVisible');
           },
           onProgressChanged: (controller, progress) {
+            if (_finishingFromVerifyResponse) return;
             _progress = progress / 100;
             _scheduleLoadStopFallback(controller, progress);
             if (showUi) {
@@ -1466,10 +1801,12 @@ class _CfChallengePageState extends State<CfChallengePage> {
             }
           },
           onLoadStop: (controller, url) {
+            if (_finishingFromVerifyResponse) return;
             WebViewSettings.injectScrollFix(controller);
             _handlePageReady(controller, reason: 'onLoadStop');
           },
           onReceivedError: (controller, request, error) {
+            if (_finishingFromVerifyResponse) return;
             _pageReadyFallbackTimer?.cancel();
             if (mounted) {
               setState(() => _isLoading = false);
@@ -1479,8 +1816,31 @@ class _CfChallengePageState extends State<CfChallengePage> {
             }
           },
           onReceivedHttpError: (controller, request, errorResponse) {
+            if (_hasPopped || _finishingFromVerifyResponse) return;
+            if (request.isForMainFrame == true && _isVerifyUrl(request.url)) {
+              CfChallengeLogger.log(
+                '[VERIFY] Main frame /challenge HTTP response: '
+                'status=${errorResponse.statusCode}, '
+                'headers=${errorResponse.headers}',
+              );
+            }
+            if (_isVerifyPassedResponse(request, errorResponse)) {
+              unawaited(
+                _finishVerifiedFromNetworkStatus(
+                  reason: 'main frame /challenge returned source 404',
+                  headers: errorResponse.headers,
+                ),
+              );
+              return;
+            }
             if (_isVerifyOriginFallback(request, errorResponse)) {
-              unawaited(_handleVerifyOriginFallback(_loadGeneration));
+              unawaited(
+                _handleVerifyOriginFallback(
+                  _loadGeneration,
+                  reason: 'main frame /challenge returned 404',
+                  completionLikely: _hasSeenChallenge,
+                ),
+              );
             }
           },
         ),
@@ -1508,11 +1868,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
               onPressed: showExitConfirmation,
             ),
             const SizedBox(width: 4),
-            Icon(
-              Icons.shield_outlined,
-              size: 16,
-              color: colorScheme.primary,
-            ),
+            Icon(Icons.shield_outlined, size: 16, color: colorScheme.primary),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -1568,10 +1924,8 @@ class _CfChallengePageState extends State<CfChallengePage> {
                       key: const ValueKey('loading'),
                       value: _progress > 0 ? _progress : null,
                       minHeight: 2,
-                      backgroundColor:
-                          colorScheme.surfaceContainerHighest.withValues(
-                            alpha: 0.4,
-                          ),
+                      backgroundColor: colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.4),
                       color: colorScheme.primary.withValues(alpha: 0.75),
                     )
                   : SizedBox.shrink(
@@ -1585,33 +1939,48 @@ class _CfChallengePageState extends State<CfChallengePage> {
             ),
           ),
           Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: Offstage(
-                    offstage: _shouldCoverWebView,
-                    child: _buildChallengeWebView(showUi: true),
-                  ),
-                ),
-                Positioned.fill(
-                  child: IgnorePointer(
-                    ignoring: !_shouldCoverWebView,
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 200),
-                      opacity: _shouldCoverWebView ? 1 : 0,
-                      curve: Curves.easeOut,
-                      child: _buildOriginFallbackOverlay(theme),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final coverWebView = _shouldCoverWebView;
+                final webViewWidth = math.max(1.0, constraints.maxWidth);
+                final webViewHeight = math.max(1.0, constraints.maxHeight);
+                final screenWidth = MediaQuery.sizeOf(context).width;
+                final hiddenLeft = -(screenWidth + webViewWidth + 64);
+
+                return Stack(
+                  clipBehavior: Clip.hardEdge,
+                  children: [
+                    Positioned(
+                      left: coverWebView ? hiddenLeft : 0,
+                      top: 0,
+                      width: webViewWidth,
+                      height: webViewHeight,
+                      child: IgnorePointer(
+                        ignoring: coverWebView,
+                        child: _buildChallengeWebView(showUi: true),
+                      ),
                     ),
-                  ),
-                ),
-                if (!_shouldCoverWebView && _shouldShowStatusBanner)
-                  Positioned(
-                    left: 12,
-                    right: 12,
-                    bottom: 12,
-                    child: _buildStatusBanner(theme),
-                  ),
-              ],
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        ignoring: !coverWebView,
+                        child: AnimatedOpacity(
+                          duration: const Duration(milliseconds: 200),
+                          opacity: coverWebView ? 1 : 0,
+                          curve: Curves.easeOut,
+                          child: _buildOriginFallbackOverlay(theme),
+                        ),
+                      ),
+                    ),
+                    if (!coverWebView && _shouldShowStatusBanner)
+                      Positioned(
+                        left: 12,
+                        right: 12,
+                        bottom: 12,
+                        child: _buildStatusBanner(theme),
+                      ),
+                  ],
+                );
+              },
             ),
           ),
         ],
@@ -1730,11 +2099,12 @@ class _CfChallengePageState extends State<CfChallengePage> {
         if (showUi)
           Positioned.fill(child: _buildContextualVerifyLayer(theme))
         else
-          Positioned.fill(
-            child: Offstage(
-              offstage: true,
-              child: _buildChallengeWebView(showUi: false),
-            ),
+          Positioned(
+            left: -100000,
+            top: -100000,
+            width: 1,
+            height: 1,
+            child: _buildChallengeWebView(showUi: false),
           ),
 
         // 内部弹窗层
