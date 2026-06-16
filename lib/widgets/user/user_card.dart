@@ -50,6 +50,21 @@ const double _kAvatarOverflow = 24.0;
 /// [anchorRect] 头像在屏幕坐标系中的矩形（桌面端浮层定位用）。
 /// [topicId]/[postNumber] 话题上下文，用于「基于话题的私信」（正文携带帖子链接）。
 /// [avatarFallbackUrl]/[nameFallback]/flair* 来自 Post，用于在网络返回前秒显头部。
+bool canShowUserCardPreview(BuildContext context) {
+  final preloaded = PreloadedDataService();
+  final hideProfilesFromPublic =
+      preloaded.siteSettingsSync?['hide_user_profiles_from_public'] == true;
+  if (!hideProfilesFromPublic) {
+    return true;
+  }
+
+  final currentUser = ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(currentUserProvider).value;
+  return currentUser != null || preloaded.currentUserSync != null;
+}
+
 void showUserCard({
   required BuildContext context,
   required Rect anchorRect,
@@ -65,32 +80,26 @@ void showUserCard({
   String? flairBgColor,
   String? flairColor,
 }) {
-  final preloaded = PreloadedDataService();
-  final hideProfilesFromPublic =
-      preloaded.siteSettingsSync?['hide_user_profiles_from_public'] == true;
-  if (hideProfilesFromPublic) {
-    final currentUser = ProviderScope.containerOf(context, listen: false)
-        .read(currentUserProvider)
-        .value;
-    if (currentUser == null && preloaded.currentUserSync == null) return;
+  if (!canShowUserCardPreview(context)) {
+    return;
   }
 
   final anchorContext = context;
 
-  Widget buildCard(VoidCallback onClose) => _UserCardContent(
-        username: username,
-        topicId: topicId,
-        topicTitle: topicTitle,
-        postNumber: postNumber,
-        avatarFallbackUrl: avatarFallbackUrl,
-        nameFallback: nameFallback,
-        flairUrl: flairUrl,
-        flairName: flairName,
-        flairBgColor: flairBgColor,
-        flairColor: flairColor,
-        anchorContext: anchorContext,
-        onClose: onClose,
-      );
+  Widget buildCard(VoidCallback onClose) => UserCardContent(
+    username: username,
+    topicId: topicId,
+    topicTitle: topicTitle,
+    postNumber: postNumber,
+    avatarFallbackUrl: avatarFallbackUrl,
+    nameFallback: nameFallback,
+    flairUrl: flairUrl,
+    flairName: flairName,
+    flairBgColor: flairBgColor,
+    flairColor: flairColor,
+    anchorContext: anchorContext,
+    onClose: onClose,
+  );
 
   if (PlatformUtils.isDesktop) {
     // 桌面端：非模态浮层，不挡背景滚动（对齐网页版 PC）。
@@ -151,10 +160,14 @@ void showUserCard({
       barrierDismissible: true,
       barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
       transitionDuration: const Duration(milliseconds: 200),
-      pageBuilder: (dialogContext, _, _) =>
-          _DockedLayer(child: buildCard(() => Navigator.of(dialogContext).pop())),
+      pageBuilder: (dialogContext, _, _) => _DockedLayer(
+        child: buildCard(() => Navigator.of(dialogContext).pop()),
+      ),
       transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
         return FadeTransition(
           opacity: curved,
           child: ScaleTransition(
@@ -183,8 +196,10 @@ class _CardEntryAnimationState extends State<_CardEntryAnimation>
     duration: const Duration(milliseconds: 180),
     vsync: this,
   )..forward();
-  late final Animation<double> _anim =
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic);
+  late final Animation<double> _anim = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOutCubic,
+  );
 
   @override
   void dispose() {
@@ -220,9 +235,16 @@ class _DockedLayer extends StatelessWidget {
         child: Padding(
           // 顶部多留出头像戳出的高度，避免被状态栏/安全区裁剪
           padding: const EdgeInsets.fromLTRB(
-              _kScreenMargin, _kAvatarOverflow + 6, _kScreenMargin, _kScreenMargin),
+            _kScreenMargin,
+            _kAvatarOverflow + 6,
+            _kScreenMargin,
+            _kScreenMargin,
+          ),
           child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: _kDockedMaxWidth, maxHeight: maxHeight),
+            constraints: BoxConstraints(
+              maxWidth: _kDockedMaxWidth,
+              maxHeight: maxHeight,
+            ),
             child: child,
           ),
         ),
@@ -259,8 +281,12 @@ class _FloatingLayoutDelegate extends SingleChildLayoutDelegate {
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
-    final maxWidth = math.min(_kFloatingWidth, constraints.maxWidth - _kScreenMargin * 2);
-    final maxHeight = constraints.maxHeight - safeInsets.vertical - _kScreenMargin * 2;
+    final maxWidth = math.min(
+      _kFloatingWidth,
+      constraints.maxWidth - _kScreenMargin * 2,
+    );
+    final maxHeight =
+        constraints.maxHeight - safeInsets.vertical - _kScreenMargin * 2;
     return BoxConstraints(
       minWidth: 0,
       maxWidth: maxWidth,
@@ -289,8 +315,10 @@ class _FloatingLayoutDelegate extends SingleChildLayoutDelegate {
       return Offset(leftX, clampY(anchorRect.top));
     }
     // 再次下方/上方，水平以锚点居中并 clamp
-    final dx = (anchorRect.center.dx - childSize.width / 2)
-        .clamp(_kScreenMargin, size.width - childSize.width - _kScreenMargin);
+    final dx = (anchorRect.center.dx - childSize.width / 2).clamp(
+      _kScreenMargin,
+      size.width - childSize.width - _kScreenMargin,
+    );
     final belowTop = anchorRect.bottom + _kGap;
     if (belowTop + childSize.height <= bottomLimit) {
       return Offset(dx, belowTop);
@@ -301,11 +329,12 @@ class _FloatingLayoutDelegate extends SingleChildLayoutDelegate {
 
   @override
   bool shouldRelayout(_FloatingLayoutDelegate oldDelegate) =>
-      anchorRect != oldDelegate.anchorRect || safeInsets != oldDelegate.safeInsets;
+      anchorRect != oldDelegate.anchorRect ||
+      safeInsets != oldDelegate.safeInsets;
 }
 
 /// 用户卡片内容
-class _UserCardContent extends ConsumerStatefulWidget {
+class UserCardContent extends ConsumerStatefulWidget {
   final String username;
   final int? topicId;
   final String? topicTitle;
@@ -319,7 +348,8 @@ class _UserCardContent extends ConsumerStatefulWidget {
   final BuildContext anchorContext;
   final VoidCallback onClose;
 
-  const _UserCardContent({
+  const UserCardContent({
+    super.key,
     required this.username,
     required this.topicId,
     required this.topicTitle,
@@ -335,10 +365,10 @@ class _UserCardContent extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_UserCardContent> createState() => _UserCardContentState();
+  ConsumerState<UserCardContent> createState() => _UserCardContentState();
 }
 
-class _UserCardContentState extends ConsumerState<_UserCardContent> {
+class _UserCardContentState extends ConsumerState<UserCardContent> {
   User? _user;
   bool _loading = true;
 
@@ -356,7 +386,9 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
 
   Future<void> _load() async {
     try {
-      final user = await ref.read(discourseServiceProvider).getUserCard(widget.username);
+      final user = await ref
+          .read(discourseServiceProvider)
+          .getUserCard(widget.username);
       if (!mounted) return;
       setState(() {
         _user = user;
@@ -364,8 +396,8 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
         _notificationLevel = user.ignored == true
             ? 'ignore'
             : user.muted == true
-                ? 'mute'
-                : 'normal';
+            ? 'mute'
+            : 'normal';
         _loading = false;
       });
     } catch (e, s) {
@@ -378,7 +410,9 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
   void _openProfile() {
     widget.onClose();
     Navigator.of(widget.anchorContext).push(
-      MaterialPageRoute(builder: (_) => UserProfilePage(username: widget.username)),
+      MaterialPageRoute(
+        builder: (_) => UserProfilePage(username: widget.username),
+      ),
     );
   }
 
@@ -395,7 +429,8 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
       );
     }
     // 标题优先用传入的 topicTitle，否则从话题会话状态读取（基于话题的私信预填「回复:标题」）
-    final topicTitle = widget.topicTitle ??
+    final topicTitle =
+        widget.topicTitle ??
         (widget.topicId != null
             ? ref.read(topicSessionProvider(widget.topicId!)).topicTitle
             : null);
@@ -529,7 +564,10 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
       child: hasBg
           ? DecoratedBox(
               decoration: BoxDecoration(
-                image: DecorationImage(image: discourseImageProvider(bg), fit: BoxFit.cover),
+                image: DecorationImage(
+                  image: discourseImageProvider(bg),
+                  fit: BoxFit.cover,
+                ),
               ),
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -567,7 +605,6 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
 
   bool _hasBio(User user) => user.bio != null && user.bio!.trim().isNotEmpty;
 
-
   /// 大头像（带白色描边 + flair），点击进个人页
   Widget _buildAvatar(ThemeData theme, User? user) {
     // 与各调用方传入的 fallback 尺寸保持一致（144），保证 loading 前后 URL 相同、命中缓存不重载
@@ -597,12 +634,14 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
     final displayName = (user?.name?.isNotEmpty ?? false)
         ? user!.name!
         : (widget.nameFallback?.isNotEmpty ?? false)
-            ? widget.nameFallback!
-            : widget.username;
+        ? widget.nameFallback!
+        : widget.username;
 
     // 背景图上给文字加阴影，保证可读
     final shadows = hasBg
-        ? <Shadow>[Shadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 6)]
+        ? <Shadow>[
+            Shadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 6),
+          ]
         : null;
 
     return Padding(
@@ -642,7 +681,10 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
               if (user != null) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 1,
+                  ),
                   decoration: BoxDecoration(
                     color: theme.colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(4),
@@ -688,11 +730,15 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
     final color = isSuspended ? theme.colorScheme.error : Colors.orange;
     final label = isSuspended
         ? (user.isSuspendedForever
-            ? S.current.userProfile_permanentlySuspended
-            : S.current.userProfile_suspendedUntil(TimeUtils.formatFullDate(user.suspendedTill)))
+              ? S.current.userProfile_permanentlySuspended
+              : S.current.userProfile_suspendedUntil(
+                  TimeUtils.formatFullDate(user.suspendedTill),
+                ))
         : (user.isSilencedForever
-            ? S.current.userProfile_permanentlySilenced
-            : S.current.userProfile_silencedUntil(TimeUtils.formatFullDate(user.silencedTill)));
+              ? S.current.userProfile_permanentlySilenced
+              : S.current.userProfile_silencedUntil(
+                  TimeUtils.formatFullDate(user.silencedTill),
+                ));
     return Container(
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.all(10),
@@ -703,12 +749,19 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
       ),
       child: Row(
         children: [
-          Icon(isSuspended ? Icons.block_rounded : Icons.mic_off_rounded, size: 16, color: color),
+          Icon(
+            isSuspended ? Icons.block_rounded : Icons.mic_off_rounded,
+            size: 16,
+            color: color,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               label,
-              style: theme.textTheme.bodySmall?.copyWith(color: color, fontWeight: FontWeight.w500),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ],
@@ -720,22 +773,26 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
   Widget _buildLocationWebsite(ThemeData theme, User user) {
     final items = <Widget>[];
     void add(IconData icon, String text) {
-      items.add(Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: 4),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 220),
-            child: Text(
-              text,
-              style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+      items.add(
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(width: 4),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 220),
+              child: Text(
+                text,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-        ],
-      ));
+          ],
+        ),
+      );
     }
 
     if (user.location?.isNotEmpty ?? false) {
@@ -744,8 +801,8 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
     final site = (user.websiteName?.isNotEmpty ?? false)
         ? user.websiteName!
         : (user.website?.isNotEmpty ?? false)
-            ? user.website!
-            : null;
+        ? user.website!
+        : null;
     if (site != null) add(Icons.link_rounded, site);
 
     if (items.isEmpty) return const SizedBox.shrink();
@@ -759,16 +816,31 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
   Widget _buildFacts(ThemeData theme, User user) {
     final items = <Widget>[];
     if (user.lastPostedAt != null) {
-      items.add(_metaItem(theme, S.current.userCard_lastPosted,
-          TimeUtils.formatRelativeTime(user.lastPostedAt!)));
+      items.add(
+        _metaItem(
+          theme,
+          S.current.userCard_lastPosted,
+          TimeUtils.formatRelativeTime(user.lastPostedAt!),
+        ),
+      );
     }
     if (user.createdAt != null) {
-      items.add(_metaItem(theme, S.current.userProfile_joinDate,
-          TimeUtils.formatShortDate(user.createdAt)));
+      items.add(
+        _metaItem(
+          theme,
+          S.current.userProfile_joinDate,
+          TimeUtils.formatShortDate(user.createdAt),
+        ),
+      );
     }
     if ((user.timeRead ?? 0) > 0) {
-      items.add(_metaItem(theme, S.current.profileStats_timeRead,
-          NumberUtils.formatDurationLong(user.timeRead!)));
+      items.add(
+        _metaItem(
+          theme,
+          S.current.profileStats_timeRead,
+          NumberUtils.formatDurationLong(user.timeRead!),
+        ),
+      );
     }
 
     if (items.isEmpty) return const SizedBox.shrink();
@@ -782,17 +854,35 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
   Widget _buildStatsRow(ThemeData theme, User user) {
     final items = <Widget>[];
     if (user.totalFollowing != null) {
-      items.add(_metaItem(theme, S.current.userProfile_following,
-          NumberUtils.formatCount(user.totalFollowing!), bold: true));
+      items.add(
+        _metaItem(
+          theme,
+          S.current.userProfile_following,
+          NumberUtils.formatCount(user.totalFollowing!),
+          bold: true,
+        ),
+      );
     }
     if (user.totalFollowers != null) {
-      items.add(_metaItem(theme, S.current.userProfile_followers,
-          NumberUtils.formatCount(user.totalFollowers!), bold: true));
+      items.add(
+        _metaItem(
+          theme,
+          S.current.userProfile_followers,
+          NumberUtils.formatCount(user.totalFollowers!),
+          bold: true,
+        ),
+      );
     }
     if (user.gamificationScore != null) {
-      items.add(_metaItem(theme, S.current.userCard_score,
+      items.add(
+        _metaItem(
+          theme,
+          S.current.userCard_score,
           NumberUtils.formatCount(user.gamificationScore!),
-          bold: true, valueColor: theme.colorScheme.primary));
+          bold: true,
+          valueColor: theme.colorScheme.primary,
+        ),
+      );
     }
 
     if (items.isEmpty) return const SizedBox.shrink();
@@ -803,14 +893,21 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
   }
 
   /// 标签（灰）+ 值 的行内项
-  Widget _metaItem(ThemeData theme, String label, String value,
-      {bool bold = false, Color? valueColor}) {
+  Widget _metaItem(
+    ThemeData theme,
+    String label,
+    String value, {
+    bool bold = false,
+    Color? valueColor,
+  }) {
     return Text.rich(
       TextSpan(
         children: [
           TextSpan(
             text: '$label ',
-            style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
           TextSpan(
             text: value,
@@ -856,28 +953,32 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
 
     final primary = <Widget>[];
     if (canMessage) {
-      primary.add(Expanded(
-        child: FilledButton.icon(
-          onPressed: _composeMessage,
-          icon: const Icon(Icons.mail_outline_rounded, size: 18),
-          label: Text(S.current.userProfile_message),
+      primary.add(
+        Expanded(
+          child: FilledButton.icon(
+            onPressed: _composeMessage,
+            icon: const Icon(Icons.mail_outline_rounded, size: 18),
+            label: Text(S.current.userProfile_message),
+          ),
         ),
-      ));
+      );
     }
     if (canFollow) {
-      primary.add(Expanded(
-        child: _isFollowed
-            ? OutlinedButton.icon(
-                onPressed: _followLoading ? null : _toggleFollow,
-                icon: const Icon(Icons.how_to_reg_rounded, size: 18),
-                label: Text(S.current.userProfile_followed),
-              )
-            : FilledButton.tonalIcon(
-                onPressed: _followLoading ? null : _toggleFollow,
-                icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
-                label: Text(S.current.userProfile_follow),
-              ),
-      ));
+      primary.add(
+        Expanded(
+          child: _isFollowed
+              ? OutlinedButton.icon(
+                  onPressed: _followLoading ? null : _toggleFollow,
+                  icon: const Icon(Icons.how_to_reg_rounded, size: 18),
+                  label: Text(S.current.userProfile_followed),
+                )
+              : FilledButton.tonalIcon(
+                  onPressed: _followLoading ? null : _toggleFollow,
+                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                  label: Text(S.current.userProfile_follow),
+                ),
+        ),
+      );
     }
 
     return Column(
@@ -918,7 +1019,9 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
       tooltip: '',
       icon: const Icon(Icons.more_horiz_rounded),
       style: IconButton.styleFrom(
-        side: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.5)),
+        side: BorderSide(
+          color: theme.colorScheme.outline.withValues(alpha: 0.5),
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         minimumSize: const Size(48, 40),
       ),
@@ -926,12 +1029,28 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
       itemBuilder: (context) => [
         if (canMute)
           _notificationLevel == 'mute'
-              ? _menuItem('normal', Icons.volume_up_rounded, S.current.userProfile_restored)
-              : _menuItem('mute', Icons.volume_off_rounded, S.current.userCard_mute),
+              ? _menuItem(
+                  'normal',
+                  Icons.volume_up_rounded,
+                  S.current.userProfile_restored,
+                )
+              : _menuItem(
+                  'mute',
+                  Icons.volume_off_rounded,
+                  S.current.userCard_mute,
+                ),
         if (canIgnore)
           _notificationLevel == 'ignore'
-              ? _menuItem('normal', Icons.visibility_rounded, S.current.userProfile_restored)
-              : _menuItem('ignore', Icons.visibility_off_rounded, S.current.userCard_ignore),
+              ? _menuItem(
+                  'normal',
+                  Icons.visibility_rounded,
+                  S.current.userProfile_restored,
+                )
+              : _menuItem(
+                  'ignore',
+                  Icons.visibility_off_rounded,
+                  S.current.userCard_ignore,
+                ),
       ],
     );
   }

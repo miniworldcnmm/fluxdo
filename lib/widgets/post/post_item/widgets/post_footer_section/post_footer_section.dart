@@ -27,6 +27,7 @@ import '../post_reaction_users_sheet.dart';
 import '../post_replies_list.dart';
 import '../post_solution_banner.dart';
 import '../../../../post/post_replies_sheet.dart';
+import '../../../../user/user_card.dart';
 import '../../../../../utils/dialog_utils.dart';
 
 part 'actions/bookmark_actions.dart';
@@ -314,7 +315,8 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
           );
           await _refreshBoostAfterFlag(boost);
         },
-        onSuccess: () => ToastService.showSuccess(S.current.boost_flagSubmitted),
+        onSuccess: () =>
+            ToastService.showSuccess(S.current.boost_flagSubmitted),
       ),
     );
   }
@@ -324,78 +326,143 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
   /// 提供给外层(PostItem)的公开入口，方便弹幕浮层复用同一份 boost actions。
   Future<void> showBoostActions(Boost boost) async {
     final currentUsername = ref.read(currentUserProvider).value?.username;
-    if (currentUsername == null || currentUsername.isEmpty) {
-      return;
-    }
-    Boost resolvedBoost;
-    try {
-      resolvedBoost = await _resolveBoostActionState(
-        boost: boost,
-        currentUsername: currentUsername,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      ToastService.showError(S.current.common_loadFailed);
-      return;
+    Boost resolvedBoost = boost;
+    var boostActionStateLoadFailed = false;
+    if (currentUsername != null && currentUsername.isNotEmpty) {
+      try {
+        resolvedBoost = await _resolveBoostActionState(
+          boost: boost,
+          currentUsername: currentUsername,
+        );
+      } catch (_) {
+        boostActionStateLoadFailed = true;
+      }
     }
     if (!mounted) return;
-    final canDelete = canDeleteBoostAction(
-      boost: resolvedBoost,
-      currentUsername: currentUsername,
-    );
-    if (boostAlreadyReportedByCurrentUser(
-          boost: resolvedBoost,
-          currentUsername: currentUsername,
-        ) &&
-        !canDelete) {
-      ToastService.showInfo(S.current.boost_flagAlreadyReported);
+
+    final canEmbedAuthorPreview =
+        canViewBoostAuthor(boost: resolvedBoost) &&
+        canShowUserCardPreview(context);
+    final canDelete =
+        boostActionStateLoadFailed ||
+            currentUsername == null ||
+            currentUsername.isEmpty
+        ? false
+        : canDeleteBoostAction(
+            boost: resolvedBoost,
+            currentUsername: currentUsername,
+          );
+    final canFlag =
+        boostActionStateLoadFailed ||
+            currentUsername == null ||
+            currentUsername.isEmpty
+        ? false
+        : canFlagBoostAction(
+            boost: resolvedBoost,
+            currentUsername: currentUsername,
+          );
+    final alreadyReported = currentUsername == null || currentUsername.isEmpty
+        ? false
+        : boostAlreadyReportedByCurrentUser(
+            boost: resolvedBoost,
+            currentUsername: currentUsername,
+          );
+    final canShowSheet = canEmbedAuthorPreview || canFlag || canDelete;
+    if (boostActionStateLoadFailed) {
+      ToastService.showError(S.current.common_loadFailed);
+    }
+    if (!canShowSheet) {
       return;
     }
-    final canFlag = canFlagBoostAction(
-      boost: resolvedBoost,
-      currentUsername: currentUsername,
-    );
-    if (!canOpenBoostActionMenu(
-      boost: resolvedBoost,
-      currentUsername: currentUsername,
-    )) {
-      return;
+    if (alreadyReported && !canDelete) {
+      ToastService.showInfo(S.current.boost_flagAlreadyReported);
     }
 
-    showModalBottomSheet(
+    showAppBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
+        final theme = Theme.of(ctx);
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (canFlag)
-                ListTile(
-                  leading: const Icon(Icons.flag_outlined, color: Colors.red),
-                  title: Text(
-                    S.current.common_report,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _showBoostFlagSheet(resolvedBoost);
-                  },
-                ),
-              if (canDelete)
-                ListTile(
-                  leading: const Icon(Icons.delete_outline, color: Colors.red),
-                  title: Text(S.current.common_delete),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _deleteBoost(resolvedBoost);
-                  },
-                ),
-              ListTile(
-                leading: const Icon(Icons.close),
-                title: Text(S.current.common_cancel),
-                onTap: () => Navigator.pop(ctx),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(ctx).size.height * 0.86,
               ),
-            ],
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (canEmbedAuthorPreview)
+                      UserCardContent(
+                        username: resolvedBoost.user.username,
+                        topicId: widget.topicId,
+                        topicTitle: widget.topicTitle,
+                        postNumber: widget.post.postNumber,
+                        avatarFallbackUrl:
+                            resolvedBoost.user.avatarTemplate.isEmpty
+                            ? null
+                            : resolvedBoost.user.getAvatarUrl(size: 144),
+                        nameFallback: resolvedBoost.user.name,
+                        flairUrl: null,
+                        flairName: null,
+                        flairBgColor: null,
+                        flairColor: null,
+                        anchorContext: context,
+                        onClose: () => Navigator.pop(ctx),
+                      ),
+                    Container(
+                      margin: EdgeInsets.only(
+                        top: canEmbedAuthorPreview ? 12 : 0,
+                      ),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surface,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (canFlag)
+                            ListTile(
+                              leading: const Icon(
+                                Icons.flag_outlined,
+                                color: Colors.red,
+                              ),
+                              title: Text(
+                                S.current.common_report,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                _showBoostFlagSheet(resolvedBoost);
+                              },
+                            ),
+                          if (canDelete)
+                            ListTile(
+                              leading: const Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                              ),
+                              title: Text(S.current.common_delete),
+                              onTap: () {
+                                Navigator.pop(ctx);
+                                _deleteBoost(resolvedBoost);
+                              },
+                            ),
+                          ListTile(
+                            leading: const Icon(Icons.close),
+                            title: Text(S.current.common_cancel),
+                            onTap: () => Navigator.pop(ctx),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         );
       },
@@ -505,12 +572,10 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
             onAddBoost: _openBoostInput,
             canBoost: _canBoost,
             // 弹幕模式下 BoostList 不显示，把"+ Boost"按钮的位置让给 action bar
-            hasBoosts: _boosts.isNotEmpty &&
-                !(widget.danmakuActive == true),
+            hasBoosts: _boosts.isNotEmpty && !(widget.danmakuActive == true),
           ),
           // Boost 气泡列表 / 弹幕
-          if (_boosts.isNotEmpty)
-            _buildBoostArea(context),
+          if (_boosts.isNotEmpty) _buildBoostArea(context),
           ValueListenableBuilder<bool>(
             valueListenable: _showRepliesNotifier,
             builder: (context, showReplies, _) {

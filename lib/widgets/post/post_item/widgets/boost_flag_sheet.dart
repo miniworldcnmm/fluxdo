@@ -56,23 +56,34 @@ bool canOpenBoostActionMenu({
   required Boost boost,
   required String? currentUsername,
 }) {
-  return canDeleteBoostAction(
-        boost: boost,
-        currentUsername: currentUsername,
-      ) ||
+  return canDeleteBoostAction(boost: boost, currentUsername: currentUsername) ||
       canFlagBoostAction(boost: boost, currentUsername: currentUsername);
+}
+
+bool canViewBoostAuthor({required Boost boost}) {
+  return boost.user.username.trim().isNotEmpty;
+}
+
+bool canShowBoostActionSheet({
+  required Boost boost,
+  required String? currentUsername,
+}) {
+  return canViewBoostAuthor(boost: boost) ||
+      canOpenBoostActionMenu(boost: boost, currentUsername: currentUsername);
 }
 
 List<FlagType> filterBoostFlagTypes({
   required List<FlagType> allFlagTypes,
   List<String>? availableFlags,
 }) {
-  final enabledTypes = allFlagTypes.where((f) => f.isFlag && f.enabled).toList();
+  final enabledTypes = allFlagTypes
+      .where((f) => f.isFlag && f.enabled)
+      .toList();
   if (availableFlags == null || availableFlags.isEmpty) {
     return const [];
   }
   final allowedKeys = availableFlags
-      ?.map((flag) => flag.trim())
+      .map((flag) => flag.trim())
       .where((flag) => flag.isNotEmpty)
       .toSet();
 
@@ -82,11 +93,13 @@ List<FlagType> filterBoostFlagTypes({
     return sorted;
   }
 
-  if (allowedKeys == null || allowedKeys.isEmpty) {
+  if (allowedKeys.isEmpty) {
     return const [];
   }
 
-  final baseTypes = enabledTypes.isNotEmpty ? enabledTypes : FlagType.defaultTypes;
+  final baseTypes = enabledTypes.isNotEmpty
+      ? enabledTypes
+      : FlagType.defaultTypes;
   final matchedTypes = baseTypes
       .where((type) => allowedKeys.contains(type.nameKey))
       .toList();
@@ -197,10 +210,7 @@ class _BoostFlagSheetState extends State<BoostFlagSheet> {
 
     setState(() => _isSubmitting = true);
     try {
-      await submitter(
-        _selectedType!.id,
-        message.isNotEmpty ? message : null,
-      );
+      await submitter(_selectedType!.id, message.isNotEmpty ? message : null);
       if (!mounted) return;
       Navigator.pop(context);
       widget.onSuccess?.call();
@@ -378,30 +388,26 @@ class _BoostFlagSheetState extends State<BoostFlagSheet> {
         decoration: BoxDecoration(
           color: isSelected
               ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              : theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.3,
+                ),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected
-                ? theme.colorScheme.primary
-                : Colors.transparent,
+            color: isSelected ? theme.colorScheme.primary : Colors.transparent,
           ),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
-              isSelected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_off,
+              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
               size: 20,
               color: isSelected
                   ? theme.colorScheme.primary
                   : theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 12),
-            Expanded(
-              child: _buildDescriptionText(description, theme),
-            ),
+            Expanded(child: _buildDescriptionText(description, theme)),
           ],
         ),
       ),
