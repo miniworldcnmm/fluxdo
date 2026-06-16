@@ -2,6 +2,36 @@
 
 所有版本的变更记录。beta / rc 版本提交在 stable 发版时会折叠并入对应 stable 版本。
 
+## [0.2.19] - 2026-06-16
+
+
+### 🐛 修复
+
+- 修复 LDC 余额趋势符号显示 by @Lingyan000
+
+- 修复实时 Boost 权限误判 by @Lingyan000
+
+- Harden WebView session cookie sync by @Lingyan000
+
+- Fix: 修复 Windows 登录验证和加载卡住 by @Lingyan000
+
+- Fix: 兼容伪装成 PNG 的 SVG 头像 by @Lingyan000
+
+
+### ♻️ 重构
+
+- 抽象分页加载状态 by @Lingyan000
+
+
+### 🔧 其他
+
+- :bug: fix: 收敛 Discourse 登录态与上报逻辑 by @Lingyan000
+
+
+
+
+**Full Changelog**: https://github.com/lingyan000/fluxdo/compare/v0.2.18...v0.2.19
+
 ## [0.2.18] - 2026-06-13
 
 
