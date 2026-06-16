@@ -294,6 +294,7 @@ class CookieJarService {
     DateTime? expires,
     bool secure = true,
     bool httpOnly = false,
+    bool trusted = false,
   }) async {
     if (!_initialized) await initialize();
 
@@ -314,7 +315,12 @@ class CookieJarService {
         cookie.expires = expires;
       }
 
-      await _cookieJar!.saveFromResponse(uri, [cookie]);
+      final jar = _cookieJar;
+      if (trusted && jar is EnhancedPersistCookieJar) {
+        await jar.saveFromResponseTrusted(uri, [cookie], trusted: true);
+      } else {
+        await _cookieJar!.saveFromResponse(uri, [cookie]);
+      }
     } catch (e) {
       debugPrint('[CookieJar] Failed to set cookie $name: $e');
     }
