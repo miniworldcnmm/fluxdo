@@ -48,6 +48,8 @@ class _TopicProgressGesturesState extends ConsumerState<TopicProgressGestures>
   Rect? _pressArea; // 悬浮条本体的全局矩形，菜单弹出后在此位置画替代显示
   int? _highlightedIndex;
   List<ProgressGestureAction> _menuItems = const [];
+  // true 表示已请求菜单收起：overlay 内部反向播放衍生动画，结束后才真正清理
+  bool _menuClosing = false;
 
   /// 缩短的长按触发阈值，让长按更早胜出，避免 swipe 与菜单视觉冲突
   static const Duration _longPressTimeout = Duration(milliseconds: 200);
@@ -111,6 +113,17 @@ class _TopicProgressGesturesState extends ConsumerState<TopicProgressGestures>
     _pressArea = null;
     _highlightedIndex = null;
     _menuItems = const [];
+    _menuClosing = false;
+  }
+
+  /// 触发菜单收起：先反向播放衍生动画，结束后再调用 [_disposeMenuOverlay]
+  void _beginMenuClose() {
+    if (_menuEntry == null || _menuClosing) {
+      _disposeMenuOverlay();
+      return;
+    }
+    _menuClosing = true;
+    _menuEntry?.markNeedsBuild();
   }
 
   double _radiusForCount(int count) {
@@ -127,6 +140,11 @@ class _TopicProgressGesturesState extends ConsumerState<TopicProgressGestures>
     if (!prefs.progressGestureLongPressEnabled) return;
     final items = prefs.progressGestureMenuActions;
     if (items.isEmpty) return;
+
+    // 如果上一轮菜单还在收回动画中，立刻强制清理，避免两个 overlay 叠加
+    if (_menuEntry != null) {
+      _disposeMenuOverlay();
+    }
 
     final box = context.findRenderObject() as RenderBox?;
     if (box == null || !box.hasSize) return;
@@ -160,16 +178,22 @@ class _TopicProgressGesturesState extends ConsumerState<TopicProgressGestures>
 
   void _handleLongPressEnd(LongPressEndDetails details) {
     final idx = _highlightedIndex;
-    final items = List<ProgressGestureAction>.from(_menuItems);
-    _disposeMenuOverlay();
-    if (idx != null && idx >= 0 && idx < items.length) {
+    final items = _menuItems;
+    final hit = (idx != null && idx >= 0 && idx < items.length)
+        ? items[idx]
+        : null;
+    // 清空高亮，让收回动画里所有项一起向中心回流（避免某一项保留放大态）
+    _highlightedIndex = null;
+    _beginMenuClose();
+    if (hit != null) {
       HapticFeedback.mediumImpact();
-      widget.onAction(items[idx]);
+      widget.onAction(hit);
     }
   }
 
   void _handleLongPressCancel() {
-    _disposeMenuOverlay();
+    _highlightedIndex = null;
+    _beginMenuClose();
   }
 
   void _updateHighlight(Offset pointer) {
@@ -209,6 +233,12 @@ class _TopicProgressGesturesState extends ConsumerState<TopicProgressGestures>
       items: _menuItems,
       highlightedIndex: _highlightedIndex,
       radius: _radiusForCount(_menuItems.length),
+      closing: _menuClosing,
+      onClosed: () {
+        // 收回动画跑完，由 overlay 通知我们真正清理资源
+        if (!mounted) return;
+        _disposeMenuOverlay();
+      },
     );
   }
 
@@ -477,6 +507,8 @@ class _RadialMenuOverlay extends StatefulWidget {
     required this.items,
     required this.highlightedIndex,
     required this.radius,
+    required this.closing,
+    required this.onClosed,
   });
 
   final Offset center;
@@ -485,14 +517,19 @@ class _RadialMenuOverlay extends StatefulWidget {
   final int? highlightedIndex;
   final double radius;
 
+  /// 父层请求收起菜单：动画从当前进度反向跑回 0，结束后调用 [onClosed]
+  final bool closing;
+  final VoidCallback onClosed;
+
   @override
   State<_RadialMenuOverlay> createState() => _RadialMenuOverlayState();
 }
 
 class _RadialMenuOverlayState extends State<_RadialMenuOverlay>
     with SingleTickerProviderStateMixin {
-  // 菜单整体入场 fade 动画时长
-  static const Duration _fadeInDuration = Duration(milliseconds: 180);
+  // 菜单整体衍生 / 收回动画时长（出场略快、收回略慢以表达"被吸回去"）
+  static const Duration _enterDuration = Duration(milliseconds: 220);
+  static const Duration _exitDuration = Duration(milliseconds: 180);
 
   // 顶部 tooltip 底部到半圆顶部之间的间隙（顶部项放大时直径 ~58dp）
   static const double _tooltipGap = 64.0;
@@ -501,15 +538,40 @@ class _RadialMenuOverlayState extends State<_RadialMenuOverlay>
   static const double _maxBlur = 8.0;
   static const double _maxDim = 0.22;
 
-  late final AnimationController _fadeController = AnimationController(
+  // 菜单项尺寸
+  static const double _itemSize = 48.0;
+
+  late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: _fadeInDuration,
+    duration: _enterDuration,
+    reverseDuration: _exitDuration,
   )..forward();
+
+  bool _closeDispatched = false;
+
+  @override
+  void didUpdateWidget(covariant _RadialMenuOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.closing && !oldWidget.closing) {
+      _controller.reverse().whenCompleteOrCancel(() {
+        if (!mounted || _closeDispatched) return;
+        _closeDispatched = true;
+        widget.onClosed();
+      });
+    }
+  }
 
   @override
   void dispose() {
-    _fadeController.dispose();
+    _controller.dispose();
     super.dispose();
+  }
+
+  /// 进度条本体中心：项的衍生起点
+  Offset get _emitterCenter {
+    final rect = widget.pressArea;
+    if (rect != null) return rect.center;
+    return widget.center;
   }
 
   @override
@@ -524,28 +586,34 @@ class _RadialMenuOverlayState extends State<_RadialMenuOverlay>
 
     return IgnorePointer(
       child: AnimatedBuilder(
-        animation: _fadeController,
+        animation: _controller,
         builder: (context, _) {
-          final t = Curves.easeOut.transform(_fadeController.value);
+          // 入场用 easeOutBack 让项"弹"出来一点；出场用 easeInCubic 让回缩干脆
+          final raw = _controller.value;
+          final t = widget.closing
+              ? Curves.easeInCubic.transform(raw)
+              : Curves.easeOutBack.transform(raw).clamp(0.0, 1.0);
+          // tooltip / 背景使用线性 t（避免 easeOutBack 的过冲让它跳动）
+          final fadeT = raw;
           return Stack(
             children: [
               Positioned.fill(
                 child: BackdropFilter(
                   filter: ImageFilter.blur(
-                    sigmaX: _maxBlur * t,
-                    sigmaY: _maxBlur * t,
+                    sigmaX: _maxBlur * fadeT,
+                    sigmaY: _maxBlur * fadeT,
                   ),
                   child: ColoredBox(
-                    color: Colors.black.withValues(alpha: _maxDim * t),
+                    color: Colors.black.withValues(alpha: _maxDim * fadeT),
                   ),
                 ),
               ),
               for (int i = 0; i < items.length; i++)
-                _buildItem(context, i, items[i], t),
+                _buildItem(context, i, items[i], t, fadeT),
               if (widget.pressArea != null)
-                _buildPressAreaIndicator(context, widget.pressArea!, t),
-              if (highlightedAction != null)
-                _buildHeaderTooltip(context, highlightedAction, t),
+                _buildPressAreaIndicator(context, widget.pressArea!, fadeT),
+              if (highlightedAction != null && !widget.closing)
+                _buildHeaderTooltip(context, highlightedAction, fadeT),
             ],
           );
         },
@@ -553,7 +621,8 @@ class _RadialMenuOverlayState extends State<_RadialMenuOverlay>
     );
   }
 
-  Offset _itemPosition(int index) {
+  /// 半圆目标位置：第 index 项最终落点
+  Offset _itemTargetPosition(int index) {
     final n = widget.items.length;
     final double angle;
     if (n == 1) {
@@ -572,25 +641,35 @@ class _RadialMenuOverlayState extends State<_RadialMenuOverlay>
     BuildContext context,
     int index,
     ProgressGestureAction action,
-    double opacity,
+    double t,
+    double fadeT,
   ) {
     final theme = Theme.of(context);
     final meta = progressGestureActionMeta(context, action);
     final isHighlighted = widget.highlightedIndex == index;
-    const size = 48.0;
-    final scale = isHighlighted ? 1.2 : 1.0;
-    final pos = _itemPosition(index);
+    final emitter = _emitterCenter;
+    final target = _itemTargetPosition(index);
+    // 衍生：项的中心从进度条 emitter 沿直线 lerp 到目标半圆位置
+    final pos = Offset.lerp(emitter, target, t)!;
+    // 衍生过程中，项尺寸从 0 长到正常；高亮再额外乘 1.2
+    final emergeScale = t.clamp(0.0, 1.0);
+    final highlightScale = isHighlighted ? 1.2 : 1.0;
+    final scale = emergeScale * highlightScale;
+    final renderSize = _itemSize * scale;
+    if (renderSize < 0.5) {
+      // 尺寸接近 0 时直接不渲染，避免一帧闪烁
+      return const SizedBox.shrink();
+    }
 
-    return AnimatedPositioned(
+    return Positioned(
       key: ValueKey('progress_gesture_item_$index'),
-      duration: const Duration(milliseconds: 140),
-      curve: Curves.easeOut,
-      left: pos.dx - size * scale / 2,
-      top: pos.dy - size * scale / 2,
-      width: size * scale,
-      height: size * scale,
+      left: pos.dx - renderSize / 2,
+      top: pos.dy - renderSize / 2,
+      width: renderSize,
+      height: renderSize,
       child: Opacity(
-        opacity: opacity,
+        // fadeT 让收回时图标也淡出，避免到最后才"啪"一下消失
+        opacity: fadeT.clamp(0.0, 1.0),
         child: Material(
           color: isHighlighted
               ? theme.colorScheme.primary
@@ -600,12 +679,14 @@ class _RadialMenuOverlayState extends State<_RadialMenuOverlay>
           shadowColor: isHighlighted
               ? theme.colorScheme.primary.withValues(alpha: 0.4)
               : Colors.black26,
-          child: Icon(
-            meta.icon,
-            size: 24 * scale,
-            color: isHighlighted
-                ? theme.colorScheme.onPrimary
-                : theme.colorScheme.onSurface,
+          child: Center(
+            child: Icon(
+              meta.icon,
+              size: 24 * highlightScale,
+              color: isHighlighted
+                  ? theme.colorScheme.onPrimary
+                  : theme.colorScheme.onSurface,
+            ),
           ),
         ),
       ),
