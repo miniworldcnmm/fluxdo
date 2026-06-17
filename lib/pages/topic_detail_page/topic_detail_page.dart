@@ -1391,7 +1391,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     final canShowDetailPane = MasterDetailLayout.canShowBothPanesFor(context);
 
     ref.listen<AsyncValue<void>>(authStateProvider, (_, _) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       final stillLoggedIn = ref.read(currentUserProvider).value != null;
       if (_controller.trackEnabled != stillLoggedIn) {
         _controller.trackEnabled = stillLoggedIn;
@@ -1410,7 +1410,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
 
     // 监听 MessageBus 事件
     ref.listen(topicChannelProvider(widget.topicId), (previous, next) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       // 1. reload_topic（话题状态变更：关闭/打开/固定等）
       if (next.reloadRequested && !(previous?.reloadRequested ?? false)) {
         ref
@@ -1473,7 +1473,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
 
     // 预解析帖子 HTML
     ref.listen(topicDetailProvider(params), (previous, next) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       final detail = next.value;
       // 记录话题标题到会话状态，供用户卡片「基于话题的私信」预填标题
       if (detail != null) {
