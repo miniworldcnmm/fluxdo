@@ -74,6 +74,10 @@ class ReactionPickerController {
   /// （否则桌面端鼠标不动、列表被滚动后 picker 会"飘"在原地）
   final List<ScrollPosition> _watchedPositions = [];
 
+  /// 监听屏幕尺寸变化(旋转/键盘弹起)和 App lifecycle(失焦/后台),
+  /// 任一发生都立即关闭 picker,避免 geometry 错位或 picker 残留
+  _ReactionPickerLifecycleObserver? _lifecycleObserver;
+
   // 上一次启动时计算好的几何数据
   Rect _buttonRect = Rect.zero;
   double _pickerLeft = 0;
@@ -146,6 +150,7 @@ class ReactionPickerController {
     overlay.insert(_entry!);
 
     _attachScrollListeners(context);
+    _attachLifecycleObserver();
 
     animation.forward(from: 0);
   }
@@ -170,6 +175,23 @@ class ReactionPickerController {
       p.isScrollingNotifier.removeListener(_onScrollingChanged);
     }
     _watchedPositions.clear();
+  }
+
+  /// 注册屏幕指标 / App 生命周期监听:
+  /// - didChangeMetrics: 屏幕旋转、键盘弹起 → 几何错位 → 关闭
+  /// - didChangeAppLifecycleState: 失焦/后台 → picker 残留 → 关闭
+  void _attachLifecycleObserver() {
+    _detachLifecycleObserver();
+    _lifecycleObserver = _ReactionPickerLifecycleObserver(onClose: close);
+    WidgetsBinding.instance.addObserver(_lifecycleObserver!);
+  }
+
+  void _detachLifecycleObserver() {
+    final obs = _lifecycleObserver;
+    if (obs != null) {
+      WidgetsBinding.instance.removeObserver(obs);
+      _lifecycleObserver = null;
+    }
   }
 
   void _onScrollingChanged() {
@@ -295,6 +317,7 @@ class ReactionPickerController {
     _inSelectionMode = false;
     _highlightIndex = null;
     _detachScrollListeners();
+    _detachLifecycleObserver();
   }
 
   // ============================== 桌面端 hover 安全区 ==============================
@@ -339,11 +362,28 @@ class ReactionPickerController {
     _disposed = true;
     _desktopLeaveTimer?.cancel();
     _detachScrollListeners();
+    _detachLifecycleObserver();
     _entry?.remove();
     _entry = null;
     _binding = null;
     // 仅在曾经触发过动画时 dispose,避免 dispose 流程中首次 lazy init
     _animation?.dispose();
+  }
+}
+
+/// 屏幕指标 / App 生命周期变化时关闭 picker。
+/// 由 [ReactionPickerController] 在 picker open 期间注册,close/dispose 时移除。
+class _ReactionPickerLifecycleObserver extends WidgetsBindingObserver {
+  _ReactionPickerLifecycleObserver({required this.onClose});
+
+  final VoidCallback onClose;
+
+  @override
+  void didChangeMetrics() => onClose();
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) onClose();
   }
 }
 

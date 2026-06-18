@@ -80,6 +80,12 @@ class _PostActionBarState extends State<PostActionBar>
   /// 用于区分 tap (timer 未触发 → toggleLike) 和长按 (timer 已触发 → 不要 toggleLike)。
   bool _pickerOpenedDuringPress = false;
 
+  /// 按下时的全局位置,用于 dead zone 期间做更严格的 slop 检测。
+  /// LongPress 默认 slop 是 18px,但滚动列表时手指前 80ms 可能只动 5-10px,
+  /// 这段位移就足以判断"用户在滚动,不是长按",picker 不该出现。
+  Offset? _pressStartGlobalPos;
+  static const double _kPickerOpenSlopTolerance = 4.0;
+
   late final ReactionPickerController _pickerController =
       ReactionPickerController(
     vsync: this,
@@ -108,6 +114,29 @@ class _PostActionBarState extends State<PostActionBar>
       box.size.width,
       box.size.height + 24,
     );
+  }
+
+  // ---------- Listener 层:dead zone 期间的严格 slop 监听 ----------
+
+  void _onAreaPointerDown(PointerDownEvent event) {
+    _pressStartGlobalPos = event.position;
+  }
+
+  void _onAreaPointerMove(PointerMoveEvent event) {
+    // 只在 dead zone 期间(timer 还在排队)有效:
+    // - timer 已 fire 后 (picker 已 open),交给 LongPress 默认 slop 处理
+    // - 否则手指滑动 emoji 选择时会被误判为 slop 超出
+    if (_pickerOpenTimer == null) return;
+    final start = _pressStartGlobalPos;
+    if (start == null) return;
+    if ((event.position - start).distance > _kPickerOpenSlopTolerance) {
+      _pickerOpenTimer?.cancel();
+      _pickerOpenTimer = null;
+    }
+  }
+
+  void _onAreaPointerEnd(PointerEvent _) {
+    _pressStartGlobalPos = null;
   }
 
   /// Tap 路径:按下时设默认状态,避免与上一轮残留状态混淆
@@ -166,6 +195,10 @@ class _PostActionBarState extends State<PostActionBar>
 
   void _handleLongPressStart(LongPressStartDetails details) {
     if (widget.isOwnPost) return;
+    // dead zone 期间被 slop tolerance cancel 的话,timer 已 cancel,picker 没 open。
+    // 此时 LongPress 自己仍会跑到 deadline → onLongPressStart 触发,
+    // 但既然 picker 没出现就不要 haptic,避免滚动列表时的莫名振动反馈。
+    if (!_pickerController.isOpen) return;
     // 长按 duration (260ms) = kReactionPickerOpenDelay (80ms) + 衍生动画 (180ms),
     // 到这里 picker 应该已经完整展开,haptic 与视觉完成同时发生
     HapticFeedback.mediumImpact();
@@ -466,19 +499,21 @@ class _PostActionBarState extends State<PostActionBar>
                 instance.onTapCancel = _handleTapCancel;
               },
             ),
-            LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<
-                LongPressGestureRecognizer>(
-              () => LongPressGestureRecognizer(
-                duration: kReactionPickerLongPressDuration,
+            // 桌面端通过 hover 触发 picker,不再注册长按避免与 hover 路径打架
+            if (!PlatformUtils.isDesktop)
+              LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<
+                  LongPressGestureRecognizer>(
+                () => LongPressGestureRecognizer(
+                  duration: kReactionPickerLongPressDuration,
+                ),
+                (instance) {
+                  instance.onLongPressDown = _handleLongPressDown;
+                  instance.onLongPressStart = _handleLongPressStart;
+                  instance.onLongPressMoveUpdate = _handleLongPressMoveUpdate;
+                  instance.onLongPressEnd = _handleLongPressEnd;
+                  instance.onLongPressCancel = _handleLongPressCancel;
+                },
               ),
-              (instance) {
-                instance.onLongPressDown = _handleLongPressDown;
-                instance.onLongPressStart = _handleLongPressStart;
-                instance.onLongPressMoveUpdate = _handleLongPressMoveUpdate;
-                instance.onLongPressEnd = _handleLongPressEnd;
-                instance.onLongPressCancel = _handleLongPressCancel;
-              },
-            ),
           },
           child: reactionStackContent,
         );
@@ -526,19 +561,21 @@ class _PostActionBarState extends State<PostActionBar>
               instance.onTapCancel = _handleTapCancel;
             },
           ),
-          LongPressGestureRecognizer:
-              GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
-            () => LongPressGestureRecognizer(
-              duration: const Duration(milliseconds: 180),
+          // 桌面端通过 hover 触发 picker,不再注册长按避免与 hover 路径打架
+          if (!PlatformUtils.isDesktop)
+            LongPressGestureRecognizer:
+                GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+              () => LongPressGestureRecognizer(
+                duration: kReactionPickerLongPressDuration,
+              ),
+              (instance) {
+                instance.onLongPressDown = _handleLongPressDown;
+                instance.onLongPressStart = _handleLongPressStart;
+                instance.onLongPressMoveUpdate = _handleLongPressMoveUpdate;
+                instance.onLongPressEnd = _handleLongPressEnd;
+                instance.onLongPressCancel = _handleLongPressCancel;
+              },
             ),
-            (instance) {
-              instance.onLongPressDown = _handleLongPressDown;
-              instance.onLongPressStart = _handleLongPressStart;
-              instance.onLongPressMoveUpdate = _handleLongPressMoveUpdate;
-              instance.onLongPressEnd = _handleLongPressEnd;
-              instance.onLongPressCancel = _handleLongPressCancel;
-            },
-          ),
         },
         child: likeIcon,
       );
@@ -566,6 +603,19 @@ class _PostActionBarState extends State<PostActionBar>
         ],
       ),
     );
+
+    // 触摸端:dead zone 内做更严格的 slop 检测,
+    // 滚动列表时手指即使只移动几像素也立即 cancel timer,picker 完全不显形
+    if (!PlatformUtils.isDesktop && !widget.isOwnPost) {
+      area = Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: _onAreaPointerDown,
+        onPointerMove: _onAreaPointerMove,
+        onPointerUp: _onAreaPointerEnd,
+        onPointerCancel: _onAreaPointerEnd,
+        child: area,
+      );
+    }
 
     // 桌面端：hover 延迟触发表情选择器
     if (PlatformUtils.isDesktop && !widget.isOwnPost) {
