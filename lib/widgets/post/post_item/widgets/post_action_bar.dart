@@ -71,14 +71,13 @@ class _PostActionBarState extends State<PostActionBar>
     with TickerProviderStateMixin {
   Timer? _hoverTimer;
 
-  /// 本次按下是否触发了 picker 衍生动画。
-  ///
-  /// Flutter 在同一 RawGestureDetector 上注册 Tap + LongPress 时：
-  /// - 按下立刻触发 onLongPressDown，picker 开始衍生
-  /// - 阈值前抬起 → Tap 胜出 → onLongPressCancel + onTap 都会触发
-  ///
-  /// iMessage Tapback 风格要求：阈值前抬起只反向收回 picker，不当作 tap，
-  /// 否则用户"按了一下又抬起"会意外触发 toggleLike。
+  /// 按下后延迟 _kTouchOpenDelay 才真正 open picker 的 timer。
+  /// 在此期间抬手 → cancel,picker 完全不出现,toggleLike 正常触发。
+  /// 超过这段时间仍按住 → 进入"长按意图",启动 picker 衍生动画。
+  Timer? _pickerOpenTimer;
+
+  /// 本次按下期间 picker 是否真的 open 过 (timer 触发后 open)。
+  /// 用于区分 tap (timer 未触发 → toggleLike) 和长按 (timer 已触发 → 不要 toggleLike)。
   bool _pickerOpenedDuringPress = false;
 
   late final ReactionPickerController _pickerController =
@@ -90,6 +89,7 @@ class _PostActionBarState extends State<PostActionBar>
   @override
   void dispose() {
     _hoverTimer?.cancel();
+    _pickerOpenTimer?.cancel();
     _pickerController.dispose();
     super.dispose();
   }
@@ -110,12 +110,12 @@ class _PostActionBarState extends State<PostActionBar>
     );
   }
 
-  /// Tap 路径：按下时设默认状态，避免与上一轮残留状态混淆
+  /// Tap 路径:按下时设默认状态,避免与上一轮残留状态混淆
   void _handleTapDown(TapDownDetails details) {
     _pickerOpenedDuringPress = false;
   }
 
-  /// Tap 真正胜出：只有当本次按下没有触发 picker 时，才算作有效 tap
+  /// Tap 真正胜出:只有当本次按下 picker 没有真正 open 时,才算作有效 tap
   void _handleTap() {
     if (_pickerOpenedDuringPress) {
       _pickerOpenedDuringPress = false;
@@ -125,7 +125,7 @@ class _PostActionBarState extends State<PostActionBar>
     widget.onToggleLike();
   }
 
-  /// reaction stack 上的 tap：未触发 picker 时打开"查看回应人"
+  /// reaction stack 上的 tap:picker 未 open 时打开"查看回应人"
   void _handleReactionStackTap() {
     if (_pickerOpenedDuringPress) {
       _pickerOpenedDuringPress = false;
@@ -135,29 +135,39 @@ class _PostActionBarState extends State<PostActionBar>
   }
 
   void _handleTapCancel() {
-    _pickerOpenedDuringPress = false;
+    // 只 cancel 延迟 Timer:如果 Timer 已经 fire 过 (picker 已 open),
+    // 不能把 _pickerOpenedDuringPress 重置为 false,否则后续 onTap 会误触发 toggleLike
+    _pickerOpenTimer?.cancel();
+    _pickerOpenTimer = null;
   }
 
-  /// 移动端长按：按下立即打开（动画与阈值同步推进）
+  /// 移动端长按:按下后排一个 80ms 延迟 Timer,延迟到点才真正 open picker。
+  /// 在延迟内抬手 (tap 路径) Timer 被 cancel,picker 完全不出现。
   void _handleLongPressDown(LongPressDownDetails details) {
     if (widget.isOwnPost) return;
-    final rect = _resolveButtonRect();
-    if (rect == null) return;
-    final reactions = DiscourseService().enabledReactionsSync;
-    if (reactions.isEmpty) return;
-    _pickerOpenedDuringPress = true;
-    _pickerController.open(
-      context: context,
-      buttonRect: rect,
-      reactions: reactions,
-      currentUserReaction: widget.currentUserReaction,
-      theme: Theme.of(context),
-      mode: ReactionPickerMode.touch,
-    );
+    _pickerOpenTimer?.cancel();
+    _pickerOpenTimer = Timer(kReactionPickerOpenDelay, () {
+      if (!mounted) return;
+      final rect = _resolveButtonRect();
+      if (rect == null) return;
+      final reactions = DiscourseService().enabledReactionsSync;
+      if (reactions.isEmpty) return;
+      _pickerOpenedDuringPress = true;
+      _pickerController.open(
+        context: context,
+        buttonRect: rect,
+        reactions: reactions,
+        currentUserReaction: widget.currentUserReaction,
+        theme: Theme.of(context),
+        mode: ReactionPickerMode.touch,
+      );
+    });
   }
 
   void _handleLongPressStart(LongPressStartDetails details) {
     if (widget.isOwnPost) return;
+    // 长按 duration (260ms) = kReactionPickerOpenDelay (80ms) + 衍生动画 (180ms),
+    // 到这里 picker 应该已经完整展开,haptic 与视觉完成同时发生
     HapticFeedback.mediumImpact();
     _pickerController.enterSelectionMode();
     _pickerController.updateHighlight(details.globalPosition);
@@ -176,6 +186,8 @@ class _PostActionBarState extends State<PostActionBar>
   }
 
   void _handleLongPressCancel() {
+    _pickerOpenTimer?.cancel();
+    _pickerOpenTimer = null;
     _pickerController.close();
   }
 
@@ -457,7 +469,7 @@ class _PostActionBarState extends State<PostActionBar>
             LongPressGestureRecognizer: GestureRecognizerFactoryWithHandlers<
                 LongPressGestureRecognizer>(
               () => LongPressGestureRecognizer(
-                duration: const Duration(milliseconds: 180),
+                duration: kReactionPickerLongPressDuration,
               ),
               (instance) {
                 instance.onLongPressDown = _handleLongPressDown;

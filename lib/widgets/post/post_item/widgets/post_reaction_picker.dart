@@ -23,6 +23,17 @@ const Duration _kEnterDuration = Duration(milliseconds: 180);
 const Duration _kExitDuration = Duration(milliseconds: 160);
 const Duration _kDesktopHoverLeaveDelay = Duration(milliseconds: 120);
 
+/// 移动端按下后等待多久才真正启动 picker 衍生动画。
+/// 这段时间内 picker 完全不存在(Timer 还在排队,Overlay 还没插入),
+/// 用户在此期间抬手 = pure tap,toggleLike 正常触发,无任何视觉残留。
+/// 超过这段时间仍按住才进入"长按意图",启动 picker 衍生。
+const Duration kReactionPickerOpenDelay = Duration(milliseconds: 80);
+
+/// 长按手势识别阈值:必须 ≥ kReactionPickerOpenDelay + _kEnterDuration,
+/// 保证 onLongPressStart 触发时 picker 动画已完整跑完,haptic 与视觉完成同时发生
+const Duration kReactionPickerLongPressDuration =
+    Duration(milliseconds: 260);
+
 // ============================== 控制器 ==============================
 
 /// picker 的工作模式：
@@ -40,11 +51,18 @@ class ReactionPickerController {
   final TickerProvider vsync;
   final void Function(String reactionId) onReactionSelected;
 
-  late final AnimationController animation = AnimationController(
-    vsync: vsync,
-    duration: _kEnterDuration,
-    reverseDuration: _kExitDuration,
-  );
+  // 用普通字段 + 显式 init,而不是 `late final ... = AnimationController(...)`。
+  // 后者会在 dispose 阶段被首次访问时触发 lazy init,这时 State 已 deactivated,
+  // AnimationController 构造函数走 TickerProviderStateMixin.createTicker →
+  // 查 TickerMode 这一 inherited widget,因为 element 已 inactive,抛
+  // "Looking up a deactivated widget's ancestor is unsafe"。
+  AnimationController? _animation;
+  AnimationController get animation =>
+      _animation ??= AnimationController(
+        vsync: vsync,
+        duration: _kEnterDuration,
+        reverseDuration: _kExitDuration,
+      );
 
   OverlayEntry? _entry;
   _OverlayBinding? _binding;
@@ -324,7 +342,8 @@ class ReactionPickerController {
     _entry?.remove();
     _entry = null;
     _binding = null;
-    animation.dispose();
+    // 仅在曾经触发过动画时 dispose,避免 dispose 流程中首次 lazy init
+    _animation?.dispose();
   }
 }
 

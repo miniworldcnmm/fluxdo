@@ -259,8 +259,20 @@ class _TopicPostListState extends State<TopicPostList> {
       final ctx = entry.value.context;
       if (!ctx.mounted) continue;
 
-      final renderBox = ctx.findRenderObject() as RenderBox?;
-      if (renderBox == null || !renderBox.hasSize) continue;
+      // ctx.mounted 仅意味着 element 不为 null,但 inactive 状态下
+      // (element 已从树中拆除,等待 unmount) findRenderObject 仍会抛
+      // "Cannot get renderObject of inactive element"。
+      // 唯一可靠的做法是 try-catch + 跳过,避免一条死 tag 中断整个循环
+      // 让进度卡在最后一次成功的 post。
+      final RenderBox? renderBox;
+      try {
+        renderBox = ctx.findRenderObject() as RenderBox?;
+      } catch (_) {
+        continue;
+      }
+      if (renderBox == null || !renderBox.hasSize || !renderBox.attached) {
+        continue;
+      }
 
       final topY = renderBox.localToGlobal(Offset.zero).dy;
       final bottomY = topY + renderBox.size.height;
