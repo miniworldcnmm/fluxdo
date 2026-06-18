@@ -1092,7 +1092,19 @@ extension _UserActions on _TopicDetailPageState {
 
   /// 切换嵌套视图
   void _toggleNestedView() {
-    setState(() => _isNestedView = !_isNestedView);
+    if (_isNestedView) {
+      setState(() => _isNestedView = false);
+      _scheduleCheckTitleVisibility();
+      return;
+    }
+    // 四项互斥单选：进入树形视图时清掉内容/顶层筛选，保证同时只有一项生效。
+    // （树形视图走独立的 nestedTopicProvider，取消筛选只把底层流恢复成未筛选。）
+    final notifier = ref.read(topicDetailProvider(_params).notifier);
+    final hadFilter = notifier.isSummaryMode || notifier.isAuthorOnlyMode || notifier.isTopLevelMode;
+    setState(() => _isNestedView = true);
+    if (hadFilter) {
+      unawaited(notifier.cancelFilter());
+    }
     _scheduleCheckTitleVisibility();
   }
 }

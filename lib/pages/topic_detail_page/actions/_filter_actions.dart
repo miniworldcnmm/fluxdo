@@ -70,7 +70,11 @@ extension _FilterActions on _TopicDetailPageState {
     final params = _params;
     final notifier = ref.read(topicDetailProvider(params).notifier);
 
-    setState(() => _isSwitchingMode = true);
+    // 四项互斥单选：激活内容筛选时退出树形视图
+    setState(() {
+      _isSwitchingMode = true;
+      _isNestedView = false;
+    });
 
     _controller.prepareJumpToPost(1);
     _controller.skipNextJumpHighlight = true;
@@ -113,7 +117,11 @@ extension _FilterActions on _TopicDetailPageState {
     final params = _params;
     final notifier = ref.read(topicDetailProvider(params).notifier);
 
-    setState(() => _isSwitchingMode = true);
+    // 四项互斥单选：激活内容筛选时退出树形视图
+    setState(() {
+      _isSwitchingMode = true;
+      _isNestedView = false;
+    });
 
     _controller.prepareJumpToPost(1);
     _controller.skipNextJumpHighlight = true;
@@ -137,7 +145,11 @@ extension _FilterActions on _TopicDetailPageState {
     final authorUsername = detail?.createdBy?.username;
     if (authorUsername == null || authorUsername.isEmpty) return;
 
-    setState(() => _isSwitchingMode = true);
+    // 四项互斥单选：激活内容筛选时退出树形视图
+    setState(() {
+      _isSwitchingMode = true;
+      _isNestedView = false;
+    });
 
     _controller.prepareJumpToPost(1);
     _controller.skipNextJumpHighlight = true;
