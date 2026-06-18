@@ -37,6 +37,7 @@ import '../../widgets/content/lazy_load_scope.dart';
 import '../../widgets/post/post_item_skeleton.dart';
 import '../../widgets/post/post_item/widgets/post_flag_sheet.dart';
 import '../../widgets/post/post_replies_sheet.dart';
+import '../../widgets/post/post_revision/revision_modal.dart';
 import '../../widgets/post/reply_sheet.dart';
 import '../../widgets/topic/topic_progress.dart';
 import '../../widgets/topic/topic_notification_button.dart';
@@ -93,6 +94,10 @@ class TopicDetailPage extends ConsumerStatefulWidget {
   final String? initialBookmarkName;
   final DateTime? initialBookmarkReminderAt;
   final String? initialBookmarkableType;
+  /// 从「编辑通知」跳转时,带上目标帖子的编号 + revision number,
+  /// 加载完成并滚动到位后自动弹出历史 modal 到对应版本。
+  final int? initialRevisionPostNumber;
+  final int? initialRevisionNumber;
   final VoidCallback? onEmbeddedBack;
   final VoidCallback? onEmbeddedClose;
   final int? embeddedTabCount;
@@ -117,6 +122,8 @@ class TopicDetailPage extends ConsumerStatefulWidget {
     this.initialBookmarkName,
     this.initialBookmarkReminderAt,
     this.initialBookmarkableType,
+    this.initialRevisionPostNumber,
+    this.initialRevisionNumber,
     this.onEmbeddedBack,
     this.onEmbeddedClose,
     this.embeddedTabCount,
@@ -177,6 +184,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   bool? _lastCanShowDetailPane;
   bool _isAutoSwitching = false;
   bool _autoOpenReplyHandled = false; // 是否已处理自动打开回复框
+  bool _autoOpenRevisionHandled = false; // 是否已处理自动打开编辑历史 modal
   bool _autoOpenAiChatHandled = false; // 是否已处理自动打开 AI 聊天
   late final TopicSearchNotifier _topicSearchNotifier;
   // AI 滑动入口相关
@@ -1527,6 +1535,29 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
               _handleReply(replyToPost);
             }
           });
+        }
+
+        // 自动打开编辑历史 modal(从编辑通知点击进入时)
+        if (widget.initialRevisionPostNumber != null &&
+            widget.initialRevisionNumber != null &&
+            !_autoOpenRevisionHandled) {
+          final targetPost = posts
+              .where((p) => p.postNumber == widget.initialRevisionPostNumber)
+              .firstOrNull;
+          if (targetPost != null) {
+            _autoOpenRevisionHandled = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              if (!mounted) return;
+              await _scrollToPost(widget.initialRevisionPostNumber!);
+              if (!mounted) return;
+              if (!context.mounted) return;
+              await showPostRevisionSheet(
+                context: context,
+                postId: targetPost.id,
+                initialRevision: widget.initialRevisionNumber,
+              );
+            });
+          }
         }
 
         // 自动打开 AI 聊天面板（从会话历史进入时）

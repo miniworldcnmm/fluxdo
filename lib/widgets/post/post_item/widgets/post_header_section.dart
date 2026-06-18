@@ -8,6 +8,8 @@ import 'package:dio/dio.dart';
 import '../../../../services/app_error_handler.dart';
 import '../../../../services/discourse/discourse_service.dart';
 import '../../../common/relative_time_text.dart';
+import '../../post_revision/edits_indicator.dart';
+import '../../post_revision/revision_modal.dart';
 import '../../small_action_item.dart';
 import 'post_header.dart';
 import 'post_reply_history.dart';
@@ -29,6 +31,8 @@ class PostHeaderSection extends ConsumerStatefulWidget {
   /// 弹幕开关：null = 不展示；true/false = 当前是否正在显示弹幕
   final bool? danmakuActive;
   final VoidCallback? onToggleDanmaku;
+  /// wiki 帖 version==1 时点击编辑指示器进入编辑器的回调(由上层 PostItem 传入)。
+  final VoidCallback? onEditWiki;
   const PostHeaderSection({
     super.key,
     required this.post,
@@ -42,6 +46,7 @@ class PostHeaderSection extends ConsumerStatefulWidget {
     this.hideReplyToPostNumber,
     this.danmakuActive,
     this.onToggleDanmaku,
+    this.onEditWiki,
   });
 
   @override
@@ -214,47 +219,64 @@ class _PostHeaderSectionState extends ConsumerState<PostHeaderSection> {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Stack(
-                      clipBehavior: Clip.none,
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        RelativeTimeText(
-                          dateTime: post.createdAt,
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
-                            fontSize: 11,
+                        if (post.showEditsIndicator) ...[
+                          EditsIndicator(
+                            post: post,
+                            onShowHistory: () => showPostRevisionSheet(
+                              context: context,
+                              postId: post.id,
+                            ),
+                            onEnterEditor: widget.onEditWiki,
                           ),
-                        ),
-                        Positioned(
-                          right: -6,
-                          top: -2,
-                          child: Consumer(
-                            builder: (context, ref, _) {
-                              final sessionState = ref.watch(topicSessionProvider(widget.topicId));
-                              final isNew = !widget.post.read;
-                              final isReadInSession = sessionState.readPostNumbers.contains(
-                                widget.post.postNumber,
-                              );
-                              final show = isNew && !isReadInSession;
+                          const SizedBox(width: 4),
+                        ],
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            RelativeTimeText(
+                              dateTime: post.displayDate,
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
+                                fontSize: 11,
+                              ),
+                            ),
+                            Positioned(
+                              right: -6,
+                              top: -2,
+                              child: Consumer(
+                                builder: (context, ref, _) {
+                                  final sessionState = ref.watch(topicSessionProvider(widget.topicId));
+                                  final isNew = !widget.post.read;
+                                  final isReadInSession = sessionState.readPostNumbers.contains(
+                                    widget.post.postNumber,
+                                  );
+                                  final show = isNew && !isReadInSession;
 
-                              return AnimatedOpacity(
-                                opacity: show ? 1.0 : 0.0,
-                                duration: const Duration(milliseconds: 500),
-                                curve: Curves.easeOut,
-                                child: Container(
-                                  width: 6,
-                                  height: 6,
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.primary,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: theme.colorScheme.surface,
-                                      width: 1,
+                                  return AnimatedOpacity(
+                                    opacity: show ? 1.0 : 0.0,
+                                    duration: const Duration(milliseconds: 500),
+                                    curve: Curves.easeOut,
+                                    child: Container(
+                                      width: 6,
+                                      height: 6,
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.primary,
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: theme.colorScheme.surface,
+                                          width: 1,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),

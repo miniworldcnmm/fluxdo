@@ -423,6 +423,31 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
           parent = parent.parent;
         }
 
+        // 编辑历史 diff 着色：识别后端 PostRevisionSerializer 返回的
+        // `<ins>/<del>` 标签与 `diff-ins/diff-del` class。普通帖子不会含这些
+        // 标记，因此普通渲染无副作用。
+        final classes = element.classes;
+        final isDiffIns =
+            element.localName == 'ins' || classes.contains('diff-ins');
+        final isDiffDel =
+            element.localName == 'del' || classes.contains('diff-del');
+        if (isDiffIns || isDiffDel) {
+          // 用语义色而非硬编码，跟随主题。alpha 取较低以便嵌套结构仍可读。
+          final insBg = isDark ? '#0f6b3a55' : '#c8f7c855';
+          final delBg = isDark ? '#7f1d1d55' : '#fecaca55';
+          final base = <String, String>{
+            'background-color': isDiffIns ? insBg : delBg,
+            // 保持原文颜色（避免 ins/del 的浏览器默认色覆盖父级主题色）
+            'color': 'inherit',
+          };
+          if (isDiffDel) {
+            base['text-decoration'] = 'line-through';
+          } else {
+            base['text-decoration'] = 'none';
+          }
+          return base;
+        }
+
         // img 垂直居中（与 Discourse 一致：img { vertical-align: middle }）
         if (element.localName == 'img') {
           if (element.classes.contains('emoji')) {

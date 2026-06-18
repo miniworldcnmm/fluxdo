@@ -644,6 +644,21 @@ class Post {
   final int? policyAcceptedByCount;
   final int? policyNotAcceptedByCount;
 
+  // 编辑历史（post revisions）相关字段
+  /// 帖子原始版本号（staff 可见），每次编辑递增；首次发布为 1。
+  final int version;
+  /// 对非 staff 暴露的版本号；当 staff 隐藏 revision 时会小于 [version]。
+  /// 缺省回退到 [version]。
+  final int? publicVersion;
+  /// 当前用户能否查看编辑历史（含权限计算）。
+  final bool canViewEditHistory;
+  /// 是否为 wiki 帖（任何人可编辑）。
+  final bool wiki;
+  /// wiki 帖首楼最后编辑时间（仅 wiki && first post && 有 revisions 时返回）。
+  final DateTime? lastWikiEdit;
+  /// 最近一次编辑原因。
+  final String? editReason;
+
   Post({
     required this.id,
     this.name,
@@ -712,6 +727,12 @@ class Post {
     this.policyNotAcceptedBy,
     this.policyAcceptedByCount,
     this.policyNotAcceptedByCount,
+    this.version = 1,
+    this.publicVersion,
+    this.canViewEditHistory = false,
+    this.wiki = false,
+    this.lastWikiEdit,
+    this.editReason,
   });
 
   factory Post.fromJson(Map<String, dynamic> json) {
@@ -832,6 +853,14 @@ class Post {
           .toList(),
       policyAcceptedByCount: json['policy_accepted_by_count'] as int?,
       policyNotAcceptedByCount: json['policy_not_accepted_by_count'] as int?,
+      version: json['version'] as int? ?? 1,
+      publicVersion: json['public_version'] as int?,
+      canViewEditHistory: json['can_view_edit_history'] as bool? ?? false,
+      wiki: json['wiki'] as bool? ?? false,
+      lastWikiEdit: TimeUtils.parseUtcTime(json['last_wiki_edit'] as String?),
+      editReason: (json['edit_reason'] as String?)?.isNotEmpty == true
+          ? json['edit_reason'] as String
+          : null,
     );
   }
 
@@ -846,6 +875,18 @@ class Post {
 
   /// 帖子是否已被删除
   bool get isDeleted => deletedAt != null;
+
+  /// 主时间字段：wiki 帖首楼有 [lastWikiEdit] 时显示最后编辑时间，
+  /// 其它情况显示 [createdAt]。对齐 discourse 网页版 `displayDate` getter。
+  DateTime get displayDate =>
+      (wiki && lastWikiEdit != null) ? lastWikiEdit! : createdAt;
+
+  /// 是否应展示编辑指示器（铅笔图标 + 编辑次数）。
+  /// 对齐 discourse 网页版 `edits-indicator` 显示条件：version > 1 或 wiki。
+  bool get showEditsIndicator => version > 1 || wiki;
+
+  /// 编辑次数 = version - 1（首次发布不计入编辑次数）。
+  int get editsCount => version > 1 ? version - 1 : 0;
 
   @override
   bool operator ==(Object other) =>
@@ -872,7 +913,12 @@ class Post {
           listEquals(reactions, other.reactions) &&
           currentUserReaction == other.currentUserReaction &&
           listEquals(boosts, other.boosts) &&
-          canBoost == other.canBoost;
+          canBoost == other.canBoost &&
+          version == other.version &&
+          publicVersion == other.publicVersion &&
+          wiki == other.wiki &&
+          lastWikiEdit == other.lastWikiEdit &&
+          editReason == other.editReason;
 
   @override
   int get hashCode => Object.hash(
@@ -883,6 +929,8 @@ class Post {
     acceptedAnswer,
     hidden,
     canBoost,
+    version,
+    wiki,
   );
 
   /// 复制并修改部分字段
@@ -957,6 +1005,14 @@ class Post {
     List<PolicyUser>? policyNotAcceptedBy,
     int? policyAcceptedByCount,
     int? policyNotAcceptedByCount,
+    int? version,
+    int? publicVersion,
+    bool? canViewEditHistory,
+    bool? wiki,
+    DateTime? lastWikiEdit,
+    bool clearLastWikiEdit = false,
+    String? editReason,
+    bool clearEditReason = false,
   }) {
     return Post(
       id: id ?? this.id,
@@ -1034,6 +1090,13 @@ class Post {
           policyAcceptedByCount ?? this.policyAcceptedByCount,
       policyNotAcceptedByCount:
           policyNotAcceptedByCount ?? this.policyNotAcceptedByCount,
+      version: version ?? this.version,
+      publicVersion: publicVersion ?? this.publicVersion,
+      canViewEditHistory: canViewEditHistory ?? this.canViewEditHistory,
+      wiki: wiki ?? this.wiki,
+      lastWikiEdit:
+          clearLastWikiEdit ? null : (lastWikiEdit ?? this.lastWikiEdit),
+      editReason: clearEditReason ? null : (editReason ?? this.editReason),
     );
   }
 }

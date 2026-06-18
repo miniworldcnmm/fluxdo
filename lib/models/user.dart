@@ -71,6 +71,10 @@ class User {
   final String? silenceReason;    // 禁言原因
   final DateTime? silencedTill;   // 禁言截止时间
 
+  // 角色（来自 /session/current.json 的 current_user）
+  final bool admin;
+  final bool moderator;
+
 
   User({
     required this.id,
@@ -118,6 +122,8 @@ class User {
     this.suspendedTill,
     this.silenceReason,
     this.silencedTill,
+    this.admin = false,
+    this.moderator = false,
   });
 
   User copyWith({
@@ -178,6 +184,8 @@ class User {
       suspendedTill: suspendedTill,
       silenceReason: silenceReason,
       silencedTill: silencedTill,
+      admin: admin,
+      moderator: moderator,
     );
   }
 
@@ -240,6 +248,8 @@ class User {
       suspendedTill: TimeUtils.parseUtcTime(json['suspended_till'] as String?),
       silenceReason: json['silence_reason'] as String?,
       silencedTill: TimeUtils.parseUtcTime(json['silenced_till'] as String?),
+      admin: json['admin'] as bool? ?? false,
+      moderator: json['moderator'] as bool? ?? false,
     );
   }
 
@@ -257,6 +267,8 @@ class User {
     'flair_bg_color': flairBgColor,
     'flair_color': flairColor,
     'gamification_score': gamificationScore,
+    'admin': admin,
+    'moderator': moderator,
   };
 
   /// 从缓存 JSON 恢复（不再调用 resolveUrl/fixHtml，直接读取）
@@ -274,6 +286,8 @@ class User {
       flairBgColor: json['flair_bg_color'] as String?,
       flairColor: json['flair_color'] as String?,
       gamificationScore: json['gamification_score'] as int?,
+      admin: json['admin'] as bool? ?? false,
+      moderator: json['moderator'] as bool? ?? false,
     );
   }
 
@@ -290,6 +304,10 @@ class User {
   /// 是否被永久禁言（超过 100 年）
   bool get isSilencedForever => silencedTill != null &&
       silencedTill!.difference(DateTime.now()).inDays > 36500;
+
+  /// 是否为站点 staff（admin 或 moderator）。
+  /// 对齐 discourse `Guardian#is_staff?`，用于编辑历史 staff 操作权限判断。
+  bool get isStaff => admin || moderator;
 
   /// 获取背景图 URL（优先 profile，其次 card）
   String? get backgroundUrl => profileBackgroundUploadUrl ?? cardBackgroundUploadUrl;

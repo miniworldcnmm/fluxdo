@@ -152,6 +152,7 @@ class _PostItemState extends ConsumerState<PostItem> {
                 showStamp: _acceptedAnswer,
                 padding: EdgeInsets.zero,
                 onJumpToPost: widget.onJumpToPost,
+                onEditWiki: widget.onEdit,
                 danmakuActive: showDanmakuToggle ? showDanmaku : null,
                 onToggleDanmaku: showDanmakuToggle
                     ? () => setState(() {

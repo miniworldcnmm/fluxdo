@@ -165,5 +165,99 @@
   "sharedIssue_authorTitle": "You started this topic",
   "sharedIssue_marked": "Marked as me too",
   "sharedIssue_unmarked": "Removed me too",
-  "sharedIssue_rateLimited": "Too many actions, please try again later"
+  "sharedIssue_rateLimited": "Too many actions, please try again later",
+  "postRevision_indicatorTooltipFirst": "Created at {time}",
+  "@postRevision_indicatorTooltipFirst": {
+    "placeholders": {
+      "time": {"type": "String"}
+    }
+  },
+  "postRevision_indicatorTooltipEdited": "Last edited at {time}",
+  "@postRevision_indicatorTooltipEdited": {
+    "placeholders": {
+      "time": {"type": "String"}
+    }
+  },
+  "postRevision_wikiEditTooltip": "Wiki · last edited at {time}",
+  "@postRevision_wikiEditTooltip": {
+    "placeholders": {
+      "time": {"type": "String"}
+    }
+  },
+  "postRevision_wikiAbout": "Wiki post, anyone can edit",
+  "postRevision_indicatorDisabled": "No permission to view edit history",
+  "postRevision_modalTitle": "Edit history",
+  "postRevision_versionLabel": "v{current} / {total}",
+  "@postRevision_versionLabel": {
+    "placeholders": {
+      "current": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "postRevision_editedBy": "Edited by {user}",
+  "@postRevision_editedBy": {
+    "placeholders": {
+      "user": {"type": "String"}
+    }
+  },
+  "postRevision_editReason": "Reason: {reason}",
+  "@postRevision_editReason": {
+    "placeholders": {
+      "reason": {"type": "String"}
+    }
+  },
+  "postRevision_editReasonEmpty": "No edit reason provided",
+  "postRevision_diffInline": "Inline",
+  "postRevision_diffSideBySide": "Side-by-side",
+  "postRevision_diffSideBySideMarkdown": "Side-by-side Markdown",
+  "postRevision_diffError": "Diff could not be computed",
+  "postRevision_emptyHistory": "No edit history",
+  "postRevision_titleChange": "Title",
+  "postRevision_categoryChange": "Category",
+  "postRevision_tagsChange": "Tags",
+  "postRevision_wikiChange": "Wiki",
+  "postRevision_postTypeChange": "Post type",
+  "postRevision_replyToChange": "Reply target",
+  "postRevision_userChange": "Author",
+  "postRevision_localeChange": "Locale",
+  "postRevision_hide": "Hide this revision",
+  "postRevision_show": "Show this revision",
+  "postRevision_revert": "Revert to this revision",
+  "postRevision_revertConfirmTitle": "Revert to revision {revision}",
+  "@postRevision_revertConfirmTitle": {
+    "placeholders": {
+      "revision": {"type": "int"}
+    }
+  },
+  "postRevision_revertConfirmBody": "Reverting creates a new edit using the chosen revision content. Continue?",
+  "postRevision_revertSuccess": "Reverted to revision {revision}",
+  "@postRevision_revertSuccess": {
+    "placeholders": {
+      "revision": {"type": "int"}
+    }
+  },
+  "postRevision_permanentlyDelete": "Permanently delete all revisions",
+  "postRevision_permanentlyDeleteTitle": "Permanently delete edit history",
+  "postRevision_permanentlyDeleteBody": "This is irreversible. All edit revisions for this post will be permanently deleted. Continue?",
+  "postRevision_revisionHidden": "This revision is hidden",
+  "postRevision_first": "First",
+  "postRevision_previous": "Previous",
+  "postRevision_next": "Next",
+  "postRevision_last": "Last",
+  "postRevision_loadFailed": "Failed to load edit history",
+  "postRevision_retry": "Retry",
+  "postRevision_actionFailed": "Action failed, please try again",
+  "postRevision_hideSuccess": "Hid revision {revision}",
+  "@postRevision_hideSuccess": {
+    "placeholders": {
+      "revision": {"type": "int"}
+    }
+  },
+  "postRevision_showSuccess": "Showed revision {revision}",
+  "@postRevision_showSuccess": {
+    "placeholders": {
+      "revision": {"type": "int"}
+    }
+  },
+  "postRevision_deleteAllSuccess": "All revisions permanently deleted"
 }
