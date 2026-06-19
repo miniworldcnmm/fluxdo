@@ -234,6 +234,7 @@ class RawCookieWriter {
               isHttpOnly: map['isHttpOnly'] as bool?,
               expiresMillis: map['expiresMillis'] as int?,
               sameSite: map['sameSite'] as String?,
+              isPartitioned: map['partitioned'] as bool?,
             );
           })
           .toList(growable: false);

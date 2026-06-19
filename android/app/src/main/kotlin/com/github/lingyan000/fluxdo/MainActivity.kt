@@ -208,25 +208,64 @@ class MainActivity : FlutterActivity() {
                                     result.success(0)
                                     return@post
                                 }
-                                val remaining = AtomicInteger(targets.size)
-                                val deletedCount = AtomicInteger(0)
-                                for ((domain, path) in targets) {
-                                    val attrs = mutableListOf(
+                                // 删除写入的属性变体:覆盖 普通 / Secure / Secure;SameSite=None。
+                                // 仅带 Path/Domain 无法覆盖 cf_clearance 这种
+                                // SameSite=None;Secure 的 cookie(覆盖判定不匹配 → 删不掉)。
+                                fun deleteRawVariants(domain: String?, path: String): List<String> {
+                                    val base = mutableListOf(
                                         "$name=",
                                         "Max-Age=0",
                                         "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
                                         "Path=$path"
                                     )
-                                    if (domain != null) attrs.add("Domain=$domain")
-                                    val rawCookie = attrs.joinToString("; ")
-                                    mgr.setCookie(url, rawCookie) { success ->
-                                        if (success == true) deletedCount.incrementAndGet()
-                                        if (remaining.decrementAndGet() == 0) {
-                                            mgr.flush()
-                                            result.success(deletedCount.get())
+                                    if (domain != null) base.add("Domain=$domain")
+                                    val plain = base.joinToString("; ")
+                                    return listOf(
+                                        plain,
+                                        "$plain; Secure",
+                                        "$plain; Secure; SameSite=None"
+                                    )
+                                }
+                                fun countName(): Int {
+                                    val cs = mgr.getCookie(url) ?: ""
+                                    return cs.split(";").count { entry ->
+                                        val t = entry.trim()
+                                        val i = t.indexOf('=')
+                                        i > 0 && t.substring(0, i).trim() == name
+                                    }
+                                }
+                                val deletedTotal = AtomicInteger(0)
+                                // 同 (name,domain,path) 多份时,单次 setCookie 只覆盖一份,
+                                // 需"删除→数→再删"多轮逐份清净,带硬上限防死循环。
+                                val maxRounds = 5
+                                fun runRound(round: Int, prevAfter: Int) {
+                                    val raws = targets.flatMap { (domain, path) ->
+                                        deleteRawVariants(domain, path)
+                                    }
+                                    val remaining = AtomicInteger(raws.size)
+                                    for (raw in raws) {
+                                        mgr.setCookie(url, raw) { success ->
+                                            if (success == true) deletedTotal.incrementAndGet()
+                                            if (remaining.decrementAndGet() == 0) {
+                                                mgr.flush()
+                                                val after = countName()
+                                                Log.d(
+                                                    "RawCookie",
+                                                    "nukeAllVariants name=$name round=$round after=$after"
+                                                )
+                                                // after>0 但相比上轮没减少 → 删不动了(如 CHIPS 分区 cookie),
+                                                // 提前停,别白跑剩余轮次。
+                                                val stuck = round > 1 && after >= prevAfter
+                                                if (after > 0 && round < maxRounds && !stuck) {
+                                                    mainHandler.post { runRound(round + 1, after) }
+                                                } else {
+                                                    result.success(deletedTotal.get())
+                                                }
+                                            }
                                         }
                                     }
                                 }
+                                runRound(1, Int.MAX_VALUE)
                             } catch (e: Exception) {
                                 Log.e("RawCookie", "nukeAllVariants failed: ${e.message}", e)
                                 result.success(0)
@@ -247,17 +286,30 @@ class MainActivity : FlutterActivity() {
                     if (url != null && name != null && path != null) {
                         try {
                             val mgr = WebCookieManager.getInstance()
-                            val attrs = mutableListOf(
+                            val base = mutableListOf(
                                 "$name=",
                                 "Max-Age=0",
                                 "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
                                 "Path=$path"
                             )
-                            if (domain != null) attrs.add("Domain=$domain")
-                            val rawCookie = attrs.joinToString("; ")
-                            mgr.setCookie(url, rawCookie) { success ->
-                                mgr.flush()
-                                result.success(success ?: false)
+                            if (domain != null) base.add("Domain=$domain")
+                            val plain = base.joinToString("; ")
+                            // 带全属性变体,覆盖 Secure / SameSite=None;Secure 的 cookie。
+                            val raws = listOf(
+                                plain,
+                                "$plain; Secure",
+                                "$plain; Secure; SameSite=None"
+                            )
+                            val remaining = AtomicInteger(raws.size)
+                            val anySuccess = java.util.concurrent.atomic.AtomicBoolean(false)
+                            for (raw in raws) {
+                                mgr.setCookie(url, raw) { success ->
+                                    if (success == true) anySuccess.set(true)
+                                    if (remaining.decrementAndGet() == 0) {
+                                        mgr.flush()
+                                        result.success(anySuccess.get())
+                                    }
+                                }
                             }
                         } catch (e: Exception) {
                             Log.e("RawCookie", "deleteExactCookie failed: ${e.message}", e)
@@ -289,6 +341,7 @@ class MainActivity : FlutterActivity() {
                                     var isHttpOnly: Boolean? = null
                                     var expiresMillis: Long? = null
                                     var sameSite: String? = null
+                                    var isPartitioned: Boolean? = null
 
                                     fun parseExpires(value: String): Long? {
                                         val patterns = listOf(
@@ -322,7 +375,19 @@ class MainActivity : FlutterActivity() {
                                             key.equals("HttpOnly", ignoreCase = true) -> isHttpOnly = true
                                             key.equals("Expires", ignoreCase = true) -> expiresMillis = parseExpires(value)
                                             key.equals("SameSite", ignoreCase = true) -> sameSite = value
+                                            key.equals("Partitioned", ignoreCase = true) -> isPartitioned = true
                                         }
+                                    }
+
+                                    // 诊断:cf_clearance 是否被 CF 设为 Partitioned(CHIPS)。
+                                    // 只打属性,绝不打 value——cf_clearance 是有效凭证,不能进 logcat。
+                                    if (cookieName == "cf_clearance") {
+                                        Log.d(
+                                            "RawCookie",
+                                            "cf_clearance attrs: partitioned=$isPartitioned " +
+                                                "secure=$isSecure samesite=$sameSite " +
+                                                "domain=$domain path=$path"
+                                        )
                                     }
 
                                     return mapOf<String, Any?>(
@@ -334,6 +399,7 @@ class MainActivity : FlutterActivity() {
                                         "isHttpOnly" to isHttpOnly,
                                         "expiresMillis" to expiresMillis,
                                         "sameSite" to sameSite,
+                                        "partitioned" to isPartitioned,
                                     )
                                 }
 

@@ -335,13 +335,13 @@ class SessionCookieSentinel {
     }
 
     final after = await _writer.countCookiesByName(url, name);
-    if (after == 0) {
+    if (after == 0 || await _residualIsAcceptable(url, name, 0)) {
       _markSweepSuccess(name);
       final result = SweepResult(
         name: name,
         status: SweepStatus.swept,
         variantsBefore: variantsBefore,
-        variantsAfter: 0,
+        variantsAfter: after,
         elapsed: stopwatch.elapsed,
       );
       _eventController.add(SweepCompleted(result: result));
@@ -351,7 +351,7 @@ class SessionCookieSentinel {
         name: name,
         intent: 'delete',
         variantsBefore: variantsBefore,
-        variantsAfter: 0,
+        variantsAfter: after,
         elapsedMs: stopwatch.elapsedMilliseconds,
       );
       return result;
@@ -419,7 +419,7 @@ class SessionCookieSentinel {
     }
 
     final after = await _writer.countCookiesByName(url, name);
-    if (after <= 1) {
+    if (after <= 1 || await _residualIsAcceptable(url, name, 1)) {
       _markSweepSuccess(name);
 
       // 反向同步 jar（仅当 winner 来自 webview，避免覆写 jar 的最新值）
@@ -456,6 +456,42 @@ class SessionCookieSentinel {
       variantsBefore,
       stopwatch,
     );
+  }
+
+  /// 会被 CF 设为 Partitioned(CHIPS)的 cookie 名单:分区那份在 Android WebView
+  /// 删不掉(Chromium partition-key bug)、又是合法的跨站共存,不应被当"重复"反复清。
+  static const _chipsCookieNames = {'cf_clearance'};
+
+  /// 删除/去重后仍有残留时,判断是否为"可接受的不可删残留"(CHIPS 分区)。
+  /// 是则视为成功,停止 sweep_failed 与 nuclear reset 空转——不删除、不影响功能,
+  /// 分区那份本就是 CF Turnstile 需要的合法 cookie。
+  Future<bool> _residualIsAcceptable(
+    String url,
+    String name,
+    int expectedMaxAfter,
+  ) async {
+    if (!_chipsCookieNames.contains(name)) return false;
+    final variants = (await _writer.getAllCookieInfos(url))
+        .where((c) => c.name == name)
+        .toList(growable: false);
+    if (variants.isEmpty) return true;
+    final partitioned = variants.where((c) => c.isPartitioned == true).length;
+    final nonPartitioned = variants.length - partitioned;
+    // ① 精确(WebView 提供 Partitioned 属性时):分区那份豁免,非分区变体已达标 → 接受。
+    final acceptByPartition = nonPartitioned <= expectedMaxAfter;
+    // ② 兜底(WebView 未给 Partitioned 属性时):残留全部同值,视为同一 clearance 的
+    //    不可删副本(CHIPS 分区 / CF 未轮换)→ 接受。覆盖 getCookieInfo 不带属性的设备。
+    final firstVal = variants.first.value;
+    final acceptBySameValue = variants.every((c) => c.value == firstVal);
+    final accepted = acceptByPartition || acceptBySameValue;
+    if (accepted) {
+      debugPrint(
+        '[Sentinel] residual $name accepted: total=${variants.length} '
+        'partitioned=$partitioned nonPartitioned=$nonPartitioned '
+        'byPartition=$acceptByPartition bySameValue=$acceptBySameValue',
+      );
+    }
+    return accepted;
   }
 
   /// 执行删除：穷举 (domain, path) 组合。
@@ -765,7 +801,8 @@ class SessionCookieSentinel {
     );
     final after = await _writer.countCookiesByName(url, name);
     final expectedMaxAfter = intent == SweepIntent.delete ? 0 : 1;
-    final targetSatisfied = after <= expectedMaxAfter;
+    final targetSatisfied =
+        after <= expectedMaxAfter || await _residualIsAcceptable(url, name, expectedMaxAfter);
     final status = targetSatisfied
         ? SweepStatus.nuclearReset
         : SweepStatus.failed;
