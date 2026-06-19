@@ -592,12 +592,14 @@ document.close();
       final controller = _controller;
       var bootstrapped = false;
       if (controller != null) {
-        bootstrapped = await WebViewSessionCookieRefreshService.instance
+        final bootstrapResult = await WebViewSessionCookieRefreshService
+            .instance
             .runOnController(
               controller,
               reason: 'native_login_success',
               pluginCandidates: PreloadedDataService().pluginCandidatesSync,
             );
+        bootstrapped = bootstrapResult.ok;
       }
       await BoundarySyncService.instance.syncFromWebView(
         controller: controller,

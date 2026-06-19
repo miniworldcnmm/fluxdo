@@ -685,13 +685,15 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
       if (!hasRuntimeCookie) {
         bootstrapAttempted = true;
-        bootstrapOk = await WebViewSessionCookieRefreshService.instance
+        final bootstrapResult = await WebViewSessionCookieRefreshService
+            .instance
             .runOnController(
               controller,
               reason: 'webview_login_success',
               pluginCandidates: PreloadedDataService().pluginCandidatesSync,
               timeout: bootstrapTimeout,
             );
+        bootstrapOk = bootstrapResult.ok;
 
         if (AuthSession().isValid(requestGeneration)) {
           await BoundarySyncService.instance.syncFromWebView(

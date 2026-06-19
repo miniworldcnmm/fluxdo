@@ -7,7 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../constants.dart';
+import 'app_logger.dart';
 import 'cf_challenge_logger.dart';
+import 'cf_challenge_service.dart';
 import 'cf_clearance_refresh_service.dart';
 import 'discourse/discourse_service.dart';
 import 'network/cookie/boundary_sync_service.dart';
@@ -46,11 +48,31 @@ class BrowserTrustCoordinator {
   Timer? _backgroundPauseTimer;
   String? _pendingClearanceRefreshReason;
 
+  /// 导航 context,供 bootstrap 被 CF 挡下时主动发起 CF 验证(showManualVerify)。
+  BuildContext? _navigatorContext;
+
+  /// 服务端最近一次以 CF(403/429)拒绝 cf_clearance 的时刻。在此窗口内,即使本地
+  /// cf_clearance 的 TTL 仍足够,也视为不可信——避免冷启动盲信本地 clearance 再撞墙。
+  DateTime? _lastClearanceRejectedAt;
+  static const Duration _clearanceRejectionTtl = Duration(minutes: 2);
+
+  /// 最近是否被服务端以 CF 拒绝过(带自动过期清理)。
+  bool get _clearanceRecentlyRejected {
+    final at = _lastClearanceRejectedAt;
+    if (at == null) return false;
+    if (DateTime.now().difference(at) >= _clearanceRejectionTtl) {
+      _lastClearanceRejectedAt = null;
+      return false;
+    }
+    return true;
+  }
+
   BrowserTrustPreloadPath? _lastPreloadPath;
 
   BrowserTrustPreloadPath? get lastPreloadPath => _lastPreloadPath;
 
   void setNavigatorContext(BuildContext context) {
+    _navigatorContext = context;
     DiscourseService().setNavigatorContext(context);
     _preload.setNavigatorContext(context);
   }
@@ -296,11 +318,21 @@ class BrowserTrustCoordinator {
       'browser trust session bootstrap begin reason=$reason '
       'force=$forceSessionSync',
     );
-    final synced = await WebViewSessionCookieRefreshService.instance
+    var bootstrap = await WebViewSessionCookieRefreshService.instance
         .ensureSynced(reason: reason, force: forceSessionSync);
+    // bootstrap 被 CF(403/429)挡下:作废本地假阳性信任,复用/发起 CF 验证拿到
+    // 新 cf_clearance 后 force 重跑一次,避免与 Dio 侧的 CF 自愈各自为政。
+    if (bootstrap.cfBlocked) {
+      bootstrap = await _recoverBootstrapFromCfBlock(
+        reason: reason,
+        blocked: bootstrap,
+      );
+    }
+    final synced = bootstrap.ok;
     _log(
       'browser trust session bootstrap end reason=$reason '
-      'synced=$synced elapsedMs=${stopwatch.elapsedMilliseconds} '
+      'synced=$synced cfBlocked=${bootstrap.cfBlocked} '
+      'elapsedMs=${stopwatch.elapsedMilliseconds} '
       'sessionElapsedMs=${stopwatch.elapsedMilliseconds - sessionStartedAt}',
       level: synced ? 'info' : 'warning',
     );
@@ -310,6 +342,99 @@ class BrowserTrustCoordinator {
     );
     _startClearanceRefreshIfLoggedIn();
     return synced;
+  }
+
+  /// WebView session bootstrap 被 CF(403/429)挡下后的统一恢复:
+  /// 作废本地假阳性信任 → 复用 Dio 侧正在进行的验证(没有则主动发起)→
+  /// 成功后 force 重跑一次 bootstrap。只重试一次,避免与 CF 拉锯/死循环。
+  Future<SessionBootstrapResult> _recoverBootstrapFromCfBlock({
+    required String reason,
+    required SessionBootstrapResult blocked,
+  }) async {
+    final cycleStartAt = DateTime.now();
+    _lastClearanceRejectedAt = cycleStartAt;
+    _log(
+      'bootstrap blocked by CF status=${blocked.status} phase=${blocked.phase}; '
+      'invalidate native trust, coordinate clearance reason=$reason',
+      level: 'warning',
+    );
+    AppLogger.warning(
+      'WebView bootstrap 被 CF 挡下(status=${blocked.status}),开始统一恢复',
+      tag: 'BrowserTrust',
+    );
+
+    final cf = CfChallengeService();
+    var gotClearance = false;
+
+    final resolvedAt = cf.clearanceResolvedAt.value;
+    if (resolvedAt != null && resolvedAt.isAfter(cycleStartAt)) {
+      // Dio 侧在本周期内已经把 cf_clearance 重新拿到,直接重跑即可。
+      gotClearance = true;
+    } else if (cf.inProgressNotifier.value) {
+      // Dio 侧(或其它入口)正在验证 → 等它广播 clearance 解决,不重复弹验证。
+      gotClearance = await _awaitClearanceResolved(cf, after: cycleStartAt);
+    } else if (cf.autoVerifyEnabled && !cf.isInCooldown) {
+      // 没有进行中的验证 → coordinator 主动发起(showManualVerify 内部会复用任何
+      // 期间出现的进行中验证)。
+      final ok = await cf.showManualVerify(_navigatorContext, true);
+      gotClearance = ok == true;
+    }
+
+    if (!gotClearance) {
+      _log(
+        'CF clearance not obtained, give up bootstrap retry reason=$reason',
+        level: 'warning',
+      );
+      AppLogger.warning(
+        'CF 未拿到新 clearance,放弃 bootstrap 重跑',
+        tag: 'BrowserTrust',
+      );
+      return blocked;
+    }
+
+    _lastClearanceRejectedAt = null;
+    _log('CF clearance obtained, force re-run bootstrap reason=$reason');
+    final retry = await WebViewSessionCookieRefreshService.instance.ensureSynced(
+      reason: '$reason:cf_recover',
+      force: true,
+    );
+    _log(
+      'bootstrap re-run after CF: ok=${retry.ok} cfBlocked=${retry.cfBlocked} '
+      'reason=$reason',
+      level: retry.ok ? 'info' : 'warning',
+    );
+    AppLogger.warning(
+      'CF 恢复后 bootstrap 重跑 ok=${retry.ok} cfBlocked=${retry.cfBlocked}',
+      tag: 'BrowserTrust',
+    );
+    // 即使重跑仍被 CF 挡下也直接返回,不再递归(本周期只恢复一次)。
+    return retry;
+  }
+
+  /// 等待 [CfChallengeService.clearanceResolvedAt] 出现晚于 [after] 的新值,
+  /// 表示 cf_clearance 已被(Dio 侧或并发的手动验证)重新拿到。带超时兜底。
+  Future<bool> _awaitClearanceResolved(
+    CfChallengeService cf, {
+    required DateTime after,
+    Duration timeout = const Duration(seconds: 12),
+  }) async {
+    final current = cf.clearanceResolvedAt.value;
+    if (current != null && current.isAfter(after)) return true;
+
+    final completer = Completer<bool>();
+    void listener() {
+      final v = cf.clearanceResolvedAt.value;
+      if (v != null && v.isAfter(after) && !completer.isCompleted) {
+        completer.complete(true);
+      }
+    }
+
+    cf.clearanceResolvedAt.addListener(listener);
+    try {
+      return await completer.future.timeout(timeout, onTimeout: () => false);
+    } finally {
+      cf.clearanceResolvedAt.removeListener(listener);
+    }
   }
 
   void _completeRequestGate(Completer<bool>? gate, bool ready) {
@@ -403,12 +528,14 @@ class BrowserTrustCoordinator {
       final tToken = await _jar.getTToken();
       if (tToken != null && tToken.isNotEmpty) {
         _log('startup WebView session bootstrap begin reason=$reason');
-        final bootstrapped = await WebViewSessionCookieRefreshService.instance
+        final bootstrapResult = await WebViewSessionCookieRefreshService
+            .instance
             .runOnController(
               c,
               reason: '$reason:startup_webview',
               pluginCandidates: _preload.pluginCandidatesSync,
             );
+        final bootstrapped = bootstrapResult.ok;
         await _syncCookiesFromController(c);
         final runtimeDetails = await _jar.getCookieDiagnosticsForRequest(
           Uri.parse(AppConstants.baseUrl),
@@ -494,6 +621,13 @@ class BrowserTrustCoordinator {
   }
 
   Future<bool> _isNativePreloadTrusted() async {
+    if (_clearanceRecentlyRejected) {
+      _log(
+        'native trust check: untrusted, clearance recently rejected by server',
+        level: 'warning',
+      );
+      return false;
+    }
     if (!_jar.isInitialized) {
       await _jar.initialize();
     }
@@ -523,6 +657,13 @@ class BrowserTrustCoordinator {
   }
 
   Future<bool> _isRequestGateTrusted() async {
+    if (_clearanceRecentlyRejected) {
+      _log(
+        'request gate trust check: untrusted, clearance recently rejected by server',
+        level: 'warning',
+      );
+      return false;
+    }
     if (!_jar.isInitialized) {
       await _jar.initialize();
     }

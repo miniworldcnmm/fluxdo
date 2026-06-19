@@ -14,6 +14,43 @@ import 'preloaded_data_service.dart';
 import 'webview_settings.dart';
 import 'windows_webview_environment_service.dart';
 
+/// WebView session bootstrap 的执行结果。
+///
+/// 在成功/失败之外额外携带"是否被 Cloudflare 挡下(403/429)"的信号,
+/// 供 [BrowserTrustCoordinator] 区分"普通失败"与"CF 失败",据此触发统一的
+/// CF 处理(等待/发起验证 → force 重跑 bootstrap),避免 bootstrap 这条线把
+/// CF 403 静默吞掉、与 Dio 侧的 CF 自愈各自为政。
+class SessionBootstrapResult {
+  const SessionBootstrapResult.success()
+    : ok = true,
+      cfBlocked = false,
+      status = null,
+      phase = null;
+
+  const SessionBootstrapResult.failure({
+    this.cfBlocked = false,
+    this.status,
+    this.phase,
+  }) : ok = false;
+
+  /// bootstrap 是否成功(fingerprint POST 成功且 session cookie 已落 jar)。
+  final bool ok;
+
+  /// 失败是否由 CF 挑战(403/429)导致。
+  final bool cfBlocked;
+
+  /// 触发失败的 HTTP 状态码(如有)。
+  final int? status;
+
+  /// 失败阶段(home/post/exception/timeout/controller 等),便于诊断。
+  final String? phase;
+
+  @override
+  String toString() =>
+      'SessionBootstrapResult(ok: $ok, cfBlocked: $cfBlocked, '
+      'status: $status, phase: $phase)';
+}
+
 /// 让 WebView 浏览器会话与 native CookieJar 保持一致。
 ///
 /// 一些站点会在登录后的普通页面里由 JS/XHR 产生额外的 HttpOnly/session
@@ -35,7 +72,7 @@ class WebViewSessionCookieRefreshService {
 
   final CookieJarService _jar = CookieJarService();
 
-  Future<bool>? _activeRefresh;
+  Future<SessionBootstrapResult>? _activeRefresh;
   DateTime? _lastAttemptAt;
   DateTime? _lastSuccessAt;
   String? _lastSuccessToken;
@@ -70,7 +107,7 @@ class WebViewSessionCookieRefreshService {
   }
 
   /// 确保当前进程已经让 WebView 登录页面跑过一次并同步 cookie。
-  Future<bool> ensureSynced({
+  Future<SessionBootstrapResult> ensureSynced({
     String reason = 'unknown',
     bool force = false,
   }) async {
@@ -93,7 +130,7 @@ class WebViewSessionCookieRefreshService {
         level: 'info',
         extra: {'skipReason': 'no_t'},
       );
-      return false;
+      return const SessionBootstrapResult.failure(phase: 'no_t');
     }
 
     final lastSuccessAt = _lastSuccessAt;
@@ -112,7 +149,7 @@ class WebViewSessionCookieRefreshService {
               .inMilliseconds,
         },
       );
-      return true;
+      return const SessionBootstrapResult.success();
     }
 
     final active = _activeRefresh;
@@ -139,23 +176,25 @@ class WebViewSessionCookieRefreshService {
           'lastAttemptAgeMs': now.difference(lastAttemptAt).inMilliseconds,
         },
       );
-      return false;
+      return const SessionBootstrapResult.failure(phase: 'attempt_cooldown');
     }
 
     _lastAttemptAt = now;
-    late final Future<bool> future;
+    late final Future<SessionBootstrapResult> future;
     future = _refreshBrowserSession(reason: reason)
-        .then((ok) {
+        .then((result) {
           _logEnsureEvent(
             event: 'webview_session_sync_completed',
             reason: reason,
-            level: ok ? 'info' : 'warning',
+            level: result.ok ? 'info' : 'warning',
             extra: {
-              'ok': ok,
+              'ok': result.ok,
+              if (result.cfBlocked) 'cfBlocked': true,
+              if (result.status != null) 'status': result.status,
               'elapsedMs': DateTime.now().difference(startedAt).inMilliseconds,
             },
           );
-          return ok;
+          return result;
         })
         .whenComplete(() {
           if (identical(_activeRefresh, future)) {
@@ -170,12 +209,14 @@ class WebViewSessionCookieRefreshService {
     unawaited(
       ensureSynced(reason: reason, force: force).catchError((Object e) {
         debugPrint('[WebViewSessionSync] 后台同步失败: $e');
-        return false;
+        return const SessionBootstrapResult.failure(phase: 'exception');
       }),
     );
   }
 
-  Future<bool> _refreshBrowserSession({required String reason}) async {
+  Future<SessionBootstrapResult> _refreshBrowserSession({
+    required String reason,
+  }) async {
     debugPrint('[WebViewSessionSync] 开始运行轻量会话 bootstrap: reason=$reason');
 
     try {
@@ -235,7 +276,7 @@ class WebViewSessionCookieRefreshService {
       final c = webView.webViewController;
       if (c == null) {
         debugPrint('[WebViewSessionSync] Headless WebView controller 为空');
-        return false;
+        return const SessionBootstrapResult.failure(phase: 'controller');
       }
 
       if (io.Platform.isWindows) {
@@ -261,16 +302,20 @@ class WebViewSessionCookieRefreshService {
         await _writeBootstrapHtml(c);
       }
 
-      final bootstrapped = await runOnController(
+      final bootstrap = await runOnController(
         c,
         reason: reason,
         pluginCandidates: PreloadedDataService().pluginCandidatesSync,
       );
-      if (!bootstrapped) {
+      if (!bootstrap.ok) {
         await syncCookies();
         await logCookieSummary(reason: reason, bootstrapOk: false);
         debugPrint('[WebViewSessionSync] 站点会话 bootstrap 未完成');
-        return false;
+        return SessionBootstrapResult.failure(
+          cfBlocked: bootstrap.cfBlocked,
+          status: bootstrap.status,
+          phase: bootstrap.phase,
+        );
       }
 
       await syncCookies();
@@ -280,14 +325,14 @@ class WebViewSessionCookieRefreshService {
         _lastSuccessAt = DateTime.now();
         _lastSuccessToken = tToken;
         debugPrint('[WebViewSessionSync] 浏览器会话 cookie 已同步');
-        return true;
+        return const SessionBootstrapResult.success();
       }
 
       debugPrint('[WebViewSessionSync] 同步后未找到有效 _t');
-      return false;
+      return const SessionBootstrapResult.failure(phase: 'no_t_after_sync');
     } catch (e) {
       debugPrint('[WebViewSessionSync] 刷新浏览器会话 cookie 失败: $e');
-      return false;
+      return const SessionBootstrapResult.failure(phase: 'exception');
     } finally {
       try {
         await webView.dispose();
@@ -362,7 +407,7 @@ class WebViewSessionCookieRefreshService {
   /// `PreloadedDataService.pluginCandidatesSync`）。传入后 bootstrap 脚本会
   /// 跳过自己的首页 fetch，直接用这个列表查找 fingerprint 插件。未传或为空
   /// 时降级到脚本内的 discover 流程，行为与历史版本一致。
-  Future<bool> runOnController(
+  Future<SessionBootstrapResult> runOnController(
     InAppWebViewController controller, {
     String reason = 'unknown',
     List<String>? pluginCandidates,
@@ -399,11 +444,13 @@ class WebViewSessionCookieRefreshService {
       await controller.evaluateJavascript(source: script);
       final result = await completer.future.timeout(timeout);
       final ok = result['ok'] == true;
+      final cfBlocked = result['cfBlocked'] == true;
       final endpoint = result['endpoint']?.toString();
       final status = (result['status'] as num?)?.toInt();
+      final phase = result['phase']?.toString();
       debugPrint(
-        '[WebViewSessionSync] bootstrap result: ok=$ok '
-        'reason=$reason phase=${result['phase']} '
+        '[WebViewSessionSync] bootstrap result: ok=$ok cfBlocked=$cfBlocked '
+        'reason=$reason phase=$phase '
         'plugin=${result['plugin']} endpoint=$endpoint status=$status '
         'error=${result['error']}',
       );
@@ -415,19 +462,26 @@ class WebViewSessionCookieRefreshService {
         'message': 'WebView session bootstrap 执行结果',
         'reason': reason,
         'ok': ok,
-        'phase': result['phase']?.toString(),
+        if (cfBlocked) 'cfBlocked': true,
+        'phase': phase,
         'plugin': result['plugin']?.toString(),
         'endpoint': endpoint,
         'status': status,
         'error': result['error']?.toString(),
       });
-      return ok;
+      return ok
+          ? const SessionBootstrapResult.success()
+          : SessionBootstrapResult.failure(
+              cfBlocked: cfBlocked,
+              status: status,
+              phase: phase,
+            );
     } on TimeoutException {
       debugPrint('[WebViewSessionSync] bootstrap 超时: reason=$reason');
-      return false;
+      return const SessionBootstrapResult.failure(phase: 'timeout');
     } catch (e) {
       debugPrint('[WebViewSessionSync] bootstrap 执行失败: reason=$reason $e');
-      return false;
+      return const SessionBootstrapResult.failure(phase: 'controller_error');
     } finally {
       try {
         controller.removeJavaScriptHandler(handlerName: handlerName);
@@ -657,7 +711,12 @@ document.close();
       endpoint: post && post.endpoint
     });
   } catch (e) {
-    return done({ ok: false, phase: 'exception', error: String(e && e.message ? e.message : e) });
+    var msg = String(e && e.message ? e.message : e);
+    // home fetch / postForm 失败时 throw 的 message 形如 "... -> 403: ...",
+    // 从中解析出 HTTP status,把 403/429 标记为 CF 拦截,供 dart 侧统一处理。
+    var statusMatch = msg.match(/->\\s*(\\d{3})/);
+    var st = statusMatch ? parseInt(statusMatch[1], 10) : null;
+    return done({ ok: false, phase: 'exception', error: msg, status: st, cfBlocked: st === 403 || st === 429 });
   }
 })();
 ''';

@@ -231,6 +231,9 @@ class CfChallengeInterceptor extends Interceptor {
             success: true,
             statusCode: response.statusCode,
           );
+          // 广播:Dio 侧重试成功 = 新 cf_clearance 已生效。供 BrowserTrustCoordinator
+          // 感知"CF 已解决",从而 force 重跑因同一 CF 失败的 WebView session bootstrap。
+          cfService.clearanceResolvedAt.value = DateTime.now();
           return handler.resolve(response);
         } catch (e) {
           // 诊断：记录完整的重试失败信息

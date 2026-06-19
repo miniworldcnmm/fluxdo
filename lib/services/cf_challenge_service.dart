@@ -40,6 +40,13 @@ class CfChallengeService {
   /// 拦截器 / ScreenTrack 等订阅它来在 CF 期间冻结业务流量与数据采集。
   final ValueNotifier<bool> inProgressNotifier = ValueNotifier<bool>(false);
 
+  /// CF 挑战被成功解决、新 cf_clearance 已落 CookieJar 的时刻广播。
+  /// [BrowserTrustCoordinator] 订阅它:WebView session bootstrap 因 CF 失败后,
+  /// 等待 Dio 侧(或主动发起的)验证完成,再 force 重跑 bootstrap,避免两条线各自为政。
+  final ValueNotifier<DateTime?> clearanceResolvedAt = ValueNotifier<DateTime?>(
+    null,
+  );
+
   void _setVerifying(bool value) {
     if (_isVerifying == value) return;
     _isVerifying = value;
@@ -398,6 +405,8 @@ class CfChallengeService {
     // 验证成功后重置冷却期
     if (result == true) {
       resetCooldown();
+      // 广播:一次 CF 挑战被成功解决,新 cf_clearance 已落 jar。
+      clearanceResolvedAt.value = DateTime.now();
       CfChallengeLogger.logVerifyResult(
         success: true,
         reason: 'user completed',
