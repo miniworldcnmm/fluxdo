@@ -10,13 +10,18 @@ import 'message_bus_service_provider.dart';
 import 'topic_tracking_providers.dart';
 
 /// 通知计数 Notifier
-/// 优先使用 MessageBus 推送的计数，初始值从 currentUser 获取。
-/// build 保持纯函数：push 来的实时值通过 update() 写入 state，
-/// 只有 currentUser 真正 invalidate 时才会用服务端值重置（与 AppStateRefresher 行为一致）。
+/// 优先使用 MessageBus 推送的实时计数，初始值从 currentUser 获取。
+///
+/// 关键：只对 currentUser 的「身份」(user.id) 建立依赖。
+/// 仅在登入 / 登出 / 切换账号（id 变化）时，才用服务端值重置计数；
+/// 同一用户的数据刷新（refreshSilently / invalidate）不会触发 rebuild，
+/// 从而保留 MessageBus 推送累积的实时计数，避免页面刷新把徽章刷回初值。
 class NotificationCountNotifier extends Notifier<NotificationCountState> {
   @override
   NotificationCountState build() {
-    final user = ref.watch(currentUserProvider).value;
+    // 仅依赖 user.id：刷新同一用户不会重建，保留实时计数。
+    ref.watch(currentUserProvider.select((s) => s.value?.id));
+    final user = ref.read(currentUserProvider).value;
     if (user == null) return const NotificationCountState();
     return NotificationCountState(
       allUnread: user.allUnreadNotificationsCount,
