@@ -13,6 +13,7 @@ import '../../utils/code_selection_context.dart';
 import '../../utils/html_text_mapper.dart';
 import '../../utils/html_to_markdown.dart';
 import '../../utils/quote_builder.dart';
+import '../common/app_bottom_sheet.dart';
 import '../common/loading_spinner.dart';
 import '../content/discourse_html_content/discourse_html_content.dart';
 import 'post_item/quote_selection_helper.dart';
@@ -32,11 +33,7 @@ void showPostRepliesSheet({
   showAppBottomSheet(
     context: context,
     isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
+    backgroundColor: Colors.transparent,
     builder: (context) => _PostRepliesSheetContent(
       post: post,
       topicId: topicId,
@@ -304,51 +301,14 @@ class _PostRepliesSheetContentState
       maxChildSize: 0.95,
       expand: false,
       builder: (context, scrollController) {
-        return Column(
-          children: [
-            _buildHandle(theme),
-            _buildTitleBar(context, theme),
-            const Divider(height: 1),
-            Expanded(child: _buildContent(context, theme, scrollController)),
-          ],
+        return AppSheetScaffold(
+          expandToFill: true,
+          showTitleDivider: true,
+          contentPadding: EdgeInsets.zero,
+          title: '#${widget.post.postNumber} ${context.l10n.post_detail}',
+          child: _buildContent(context, theme, scrollController),
         );
       },
-    );
-  }
-
-  Widget _buildHandle(ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 4),
-      child: Container(
-        width: 36,
-        height: 4,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTitleBar(BuildContext context, ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Text(
-            '#${widget.post.postNumber} ${context.l10n.post_detail}',
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.close, size: 20),
-            onPressed: () => Navigator.of(context).pop(),
-            visualDensity: VisualDensity.compact,
-          ),
-        ],
-      ),
     );
   }
 

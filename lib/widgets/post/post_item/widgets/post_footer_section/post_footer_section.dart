@@ -27,6 +27,7 @@ import '../post_replies_list.dart';
 import '../post_solution_banner.dart';
 import '../../../../post/post_replies_sheet.dart';
 import '../../../../../utils/dialog_utils.dart';
+import '../../../../common/app_bottom_sheet.dart';
 
 part 'actions/bookmark_actions.dart';
 part 'actions/manage_actions.dart';
@@ -303,6 +304,7 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      enableDrag: false, // 举报表单(card):禁止下滑误关
       builder: (context) => BoostFlagSheet(
         boost: boost,
         submitFlag: (flagTypeId, message) async {
@@ -313,7 +315,8 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
           );
           await _refreshBoostAfterFlag(boost);
         },
-        onSuccess: () => ToastService.showSuccess(S.current.boost_flagSubmitted),
+        onSuccess: () =>
+            ToastService.showSuccess(S.current.boost_flagSubmitted),
       ),
     );
   }
@@ -361,41 +364,40 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
       return;
     }
 
-    showModalBottomSheet(
+    AppBottomSheet.show(
       context: context,
+      contentPadding: EdgeInsets.zero,
       builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (canFlag)
-                ListTile(
-                  leading: const Icon(Icons.flag_outlined, color: Colors.red),
-                  title: Text(
-                    S.current.common_report,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _showBoostFlagSheet(resolvedBoost);
-                  },
-                ),
-              if (canDelete)
-                ListTile(
-                  leading: const Icon(Icons.delete_outline, color: Colors.red),
-                  title: Text(S.current.common_delete),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _deleteBoost(resolvedBoost);
-                  },
-                ),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (canFlag)
               ListTile(
-                leading: const Icon(Icons.close),
-                title: Text(S.current.common_cancel),
-                onTap: () => Navigator.pop(ctx),
+                leading: const Icon(Icons.flag_outlined, color: Colors.red),
+                title: Text(
+                  S.current.common_report,
+                  style: const TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showBoostFlagSheet(resolvedBoost);
+                },
               ),
-            ],
-          ),
+            if (canDelete)
+              ListTile(
+                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                title: Text(S.current.common_delete),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _deleteBoost(resolvedBoost);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.close),
+              title: Text(S.current.common_cancel),
+              onTap: () => Navigator.pop(ctx),
+            ),
+          ],
         );
       },
     );
@@ -504,12 +506,10 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
             onAddBoost: _openBoostInput,
             canBoost: _canBoost,
             // 弹幕模式下 BoostList 不显示，把"+ Boost"按钮的位置让给 action bar
-            hasBoosts: _boosts.isNotEmpty &&
-                !(widget.danmakuActive == true),
+            hasBoosts: _boosts.isNotEmpty && !(widget.danmakuActive == true),
           ),
           // Boost 气泡列表 / 弹幕
-          if (_boosts.isNotEmpty)
-            _buildBoostArea(context),
+          if (_boosts.isNotEmpty) _buildBoostArea(context),
           ValueListenableBuilder<bool>(
             valueListenable: _showRepliesNotifier,
             builder: (context, showReplies, _) {

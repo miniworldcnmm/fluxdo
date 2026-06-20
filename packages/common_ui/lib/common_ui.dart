@@ -4,4 +4,5 @@
 /// 替代原生 [PopupMenuButton] / showMenu,统一全局菜单交互。
 library;
 
+export 'src/app_sheet_scaffold.dart';
 export 'src/dismissible_popup_menu.dart';

@@ -8,7 +8,7 @@ import '../../models/topic.dart';
 import '../../pages/image_viewer_page.dart';
 import '../../services/discourse_cache_manager.dart';
 import '../../services/toast_service.dart';
-import '../../utils/dialog_utils.dart';
+import 'app_bottom_sheet.dart';
 import '../../utils/platform_utils.dart';
 import '../../utils/quote_builder.dart';
 import '../content/discourse_html_content/image_utils.dart';
@@ -179,93 +179,92 @@ class ImageContextMenu {
     void Function(String quote, Post post)? onQuoteImage,
     VoidCallback? onClose,
   }) {
-    showAppBottomSheet(
+    AppBottomSheet.show(
       context: context,
+      contentPadding: EdgeInsets.zero,
       builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showViewFullImage)
-                ListTile(
-                  leading: const Icon(Icons.zoom_in),
-                  title: Text(S.current.image_viewFull),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    ImageViewerPage.open(
-                      context,
-                      originalUrl,
-                      thumbnailUrl: imageUrl,
-                    );
-                  },
-                ),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (showViewFullImage)
               ListTile(
-                leading: const Icon(Icons.copy),
-                title: Text(S.current.image_copyImage),
+                leading: const Icon(Icons.zoom_in),
+                title: Text(S.current.image_viewFull),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _copyImage(originalUrl);
+                  ImageViewerPage.open(
+                    context,
+                    originalUrl,
+                    thumbnailUrl: imageUrl,
+                  );
                 },
               ),
+            ListTile(
+              leading: const Icon(Icons.copy),
+              title: Text(S.current.image_copyImage),
+              onTap: () {
+                Navigator.pop(ctx);
+                _copyImage(originalUrl);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: Text(S.current.image_copyLink),
+              onTap: () {
+                Navigator.pop(ctx);
+                Clipboard.setData(ClipboardData(text: originalUrl));
+                ToastService.showSuccess(S.current.common_linkCopied);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share),
+              title: Text(S.current.common_shareImage),
+              onTap: () {
+                Navigator.pop(ctx);
+                _shareImage(originalUrl);
+              },
+            ),
+            if (post != null && topicId != null && onQuoteImage != null)
               ListTile(
-                leading: const Icon(Icons.link),
-                title: Text(S.current.image_copyLink),
+                leading: const Icon(Icons.format_quote),
+                title: Text(S.current.common_quote),
                 onTap: () {
                   Navigator.pop(ctx);
-                  Clipboard.setData(ClipboardData(text: originalUrl));
-                  ToastService.showSuccess(S.current.common_linkCopied);
+                  final quote = QuoteBuilder.build(
+                    markdown: '![image]($originalUrl)',
+                    username: post.username,
+                    postNumber: post.postNumber,
+                    topicId: topicId,
+                  );
+                  onQuoteImage(quote, post);
                 },
               ),
+            if (post != null && topicId != null)
               ListTile(
-                leading: const Icon(Icons.share),
-                title: Text(S.current.common_shareImage),
+                leading: const Icon(Icons.copy_all),
+                title: Text(S.current.common_copyQuote),
                 onTap: () {
                   Navigator.pop(ctx);
-                  _shareImage(originalUrl);
+                  final quote = QuoteBuilder.build(
+                    markdown: '![image]($originalUrl)',
+                    username: post.username,
+                    postNumber: post.postNumber,
+                    topicId: topicId,
+                  );
+                  Clipboard.setData(ClipboardData(text: quote));
+                  ToastService.showSuccess(S.current.common_quoteCopied);
                 },
               ),
-              if (post != null && topicId != null && onQuoteImage != null)
-                ListTile(
-                  leading: const Icon(Icons.format_quote),
-                  title: Text(S.current.common_quote),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    final quote = QuoteBuilder.build(
-                      markdown: '![image]($originalUrl)',
-                      username: post.username,
-                      postNumber: post.postNumber,
-                      topicId: topicId,
-                    );
-                    onQuoteImage(quote, post);
-                  },
-                ),
-              if (post != null && topicId != null)
-                ListTile(
-                  leading: const Icon(Icons.copy_all),
-                  title: Text(S.current.common_copyQuote),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    final quote = QuoteBuilder.build(
-                      markdown: '![image]($originalUrl)',
-                      username: post.username,
-                      postNumber: post.postNumber,
-                      topicId: topicId,
-                    );
-                    Clipboard.setData(ClipboardData(text: quote));
-                    ToastService.showSuccess(S.current.common_quoteCopied);
-                  },
-                ),
-              if (onClose != null)
-                ListTile(
-                  leading: const Icon(Icons.close),
-                  title: Text(S.current.common_close),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    onClose();
-                  },
-                ),
-            ],
-          ),
+            if (onClose != null)
+              ListTile(
+                leading: const Icon(Icons.close),
+                title: Text(S.current.common_close),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onClose();
+                },
+              ),
+          ],
         );
       },
     );

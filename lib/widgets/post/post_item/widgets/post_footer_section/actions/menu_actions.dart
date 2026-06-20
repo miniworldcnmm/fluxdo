@@ -2,7 +2,8 @@ part of '../post_footer_section.dart';
 
 extension _PostFooterMenuActions on _PostFooterSectionState {
   Future<void> _sharePost() async {
-    final url = '${AppConstants.baseUrl}/t/${widget.topicId}/${widget.post.postNumber}';
+    final url =
+        '${AppConstants.baseUrl}/t/${widget.topicId}/${widget.post.postNumber}';
     await SharePlus.instance.share(ShareParams(text: url));
   }
 
@@ -11,6 +12,7 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      enableDrag: false, // 举报表单(card):禁止下滑误关
       builder: (context) => PostFlagSheet(
         postId: widget.post.id,
         postUsername: widget.post.username,
@@ -53,27 +55,25 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (ctx) => Container(
-        margin: const EdgeInsets.all(16),
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.7,
-        ),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            child: Column(
+      builder: (ctx) => AppSheetScaffold(
+        showCloseButton: false,
+        maxHeightFactor: 0.7,
+        contentPadding: EdgeInsets.zero,
+        child: SingleChildScrollView(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               if (widget.onShowPostDetail != null)
                 ListTile(
                   leading: Icon(
-                    widget.postDetailLabel != null ? Icons.open_in_new : Icons.article_outlined,
+                    widget.postDetailLabel != null
+                        ? Icons.open_in_new
+                        : Icons.article_outlined,
                     color: theme.colorScheme.onSurface,
                   ),
-                  title: Text(widget.postDetailLabel ?? context.l10n.post_detail),
+                  title: Text(
+                    widget.postDetailLabel ?? context.l10n.post_detail,
+                  ),
                   onTap: () {
                     Navigator.pop(ctx);
                     widget.onShowPostDetail!();
@@ -81,7 +81,10 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                 ),
               if (widget.onReply != null)
                 ListTile(
-                  leading: Icon(Icons.reply, color: theme.colorScheme.onSurface),
+                  leading: Icon(
+                    Icons.reply,
+                    color: theme.colorScheme.onSurface,
+                  ),
                   title: Text(context.l10n.common_reply),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -90,15 +93,24 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                 ),
               if (widget.post.canEdit && widget.onEdit != null)
                 ListTile(
-                  leading: Icon(Icons.edit_outlined, color: theme.colorScheme.primary),
-                  title: Text(context.l10n.common_edit, style: TextStyle(color: theme.colorScheme.primary)),
+                  leading: Icon(
+                    Icons.edit_outlined,
+                    color: theme.colorScheme.primary,
+                  ),
+                  title: Text(
+                    context.l10n.common_edit,
+                    style: TextStyle(color: theme.colorScheme.primary),
+                  ),
                   onTap: () {
                     Navigator.pop(ctx);
                     widget.onEdit!();
                   },
                 ),
               ListTile(
-                leading: Icon(Icons.share_outlined, color: theme.colorScheme.onSurface),
+                leading: Icon(
+                  Icons.share_outlined,
+                  color: theme.colorScheme.onSurface,
+                ),
                 title: Text(context.l10n.common_shareLink),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -107,7 +119,10 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
               ),
               if (widget.onShareAsImage != null)
                 ListTile(
-                  leading: Icon(Icons.image_outlined, color: theme.colorScheme.onSurface),
+                  leading: Icon(
+                    Icons.image_outlined,
+                    color: theme.colorScheme.onSurface,
+                  ),
                   title: Text(context.l10n.post_generateShareImage),
                   onTap: () {
                     Navigator.pop(ctx);
@@ -119,9 +134,14 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                   builder: (context) {
                     final currentUser = ref.read(currentUserProvider).value;
                     final isOwnPost =
-                        currentUser != null && currentUser.username == widget.post.username;
-                    final credentials = ref.read(ldcRewardCredentialsProvider).value;
-                    if (isOwnPost || widget.post.userId == null || credentials == null) {
+                        currentUser != null &&
+                        currentUser.username == widget.post.username;
+                    final credentials = ref
+                        .read(ldcRewardCredentialsProvider)
+                        .value;
+                    if (isOwnPost ||
+                        widget.post.userId == null ||
+                        credentials == null) {
                       return const SizedBox.shrink();
                     }
                     return ListTile(
@@ -147,16 +167,26 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                     );
                   },
                 ),
-              if (!isGuest && (widget.post.canAcceptAnswer || widget.post.canUnacceptAnswer))
+              if (!isGuest &&
+                  (widget.post.canAcceptAnswer ||
+                      widget.post.canUnacceptAnswer))
                 ListTile(
                   leading: Icon(
-                    _isAcceptedAnswer ? Icons.check_box : Icons.check_box_outline_blank,
-                    color: _isAcceptedAnswer ? Colors.green : theme.colorScheme.onSurface,
+                    _isAcceptedAnswer
+                        ? Icons.check_box
+                        : Icons.check_box_outline_blank,
+                    color: _isAcceptedAnswer
+                        ? Colors.green
+                        : theme.colorScheme.onSurface,
                   ),
                   title: Text(
-                    _isAcceptedAnswer ? context.l10n.post_unacceptSolution : context.l10n.post_acceptSolution,
+                    _isAcceptedAnswer
+                        ? context.l10n.post_unacceptSolution
+                        : context.l10n.post_acceptSolution,
                     style: TextStyle(
-                      color: _isAcceptedAnswer ? Colors.green : theme.colorScheme.onSurface,
+                      color: _isAcceptedAnswer
+                          ? Colors.green
+                          : theme.colorScheme.onSurface,
                     ),
                   ),
                   onTap: _isTogglingAnswer
@@ -174,7 +204,11 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                         ? theme.colorScheme.primary
                         : theme.colorScheme.onSurface,
                   ),
-                  title: Text(_isBookmarked ? context.l10n.bookmark_editBookmark : context.l10n.common_addBookmark),
+                  title: Text(
+                    _isBookmarked
+                        ? context.l10n.bookmark_editBookmark
+                        : context.l10n.common_addBookmark,
+                  ),
                   onTap: () {
                     Navigator.pop(ctx);
                     if (_isBookmarked) {
@@ -186,8 +220,14 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                 ),
               if (!isGuest)
                 ListTile(
-                  leading: Icon(Icons.flag_outlined, color: theme.colorScheme.error),
-                  title: Text(context.l10n.common_report, style: TextStyle(color: theme.colorScheme.error)),
+                  leading: Icon(
+                    Icons.flag_outlined,
+                    color: theme.colorScheme.error,
+                  ),
+                  title: Text(
+                    context.l10n.common_report,
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
                   onTap: () {
                     Navigator.pop(ctx);
                     _showFlagDialog(context);
@@ -195,8 +235,14 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                 ),
               if (!isGuest && widget.post.canRecover)
                 ListTile(
-                  leading: Icon(Icons.restore, color: theme.colorScheme.primary),
-                  title: Text(context.l10n.common_restore, style: TextStyle(color: theme.colorScheme.primary)),
+                  leading: Icon(
+                    Icons.restore,
+                    color: theme.colorScheme.primary,
+                  ),
+                  title: Text(
+                    context.l10n.common_restore,
+                    style: TextStyle(color: theme.colorScheme.primary),
+                  ),
                   onTap: _isDeleting
                       ? null
                       : () {
@@ -206,8 +252,14 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                 ),
               if (!isGuest && widget.post.canDelete && !widget.post.isDeleted)
                 ListTile(
-                  leading: Icon(Icons.delete_outline, color: theme.colorScheme.error),
-                  title: Text(context.l10n.common_delete, style: TextStyle(color: theme.colorScheme.error)),
+                  leading: Icon(
+                    Icons.delete_outline,
+                    color: theme.colorScheme.error,
+                  ),
+                  title: Text(
+                    context.l10n.common_delete,
+                    style: TextStyle(color: theme.colorScheme.error),
+                  ),
                   onTap: _isDeleting
                       ? null
                       : () {
@@ -215,7 +267,7 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                           _showDeleteConfirmDialog(context, theme);
                         },
                 ),
-              const SizedBox(height: 8),
+              const Divider(height: 1, indent: 16, endIndent: 16),
               ListTile(
                 title: Text(
                   context.l10n.common_cancel,
@@ -225,7 +277,6 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                 onTap: () => Navigator.pop(ctx),
               ),
             ],
-          ),
           ),
         ),
       ),

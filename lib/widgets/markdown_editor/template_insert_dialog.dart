@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/discourse/discourse_service.dart';
 import '../../models/template.dart';
 import '../../utils/dialog_utils.dart';
+import '../common/app_bottom_sheet.dart';
 import '../common/loading_spinner.dart';
 import '../../../../../l10n/s.dart';
 
@@ -76,47 +77,38 @@ class _TemplateInsertDialogState extends State<TemplateInsertDialog> {
       maxChildSize: 0.9,
       expand: false,
       builder: (context, scrollController) {
-        return Column(
-          children: [
-            // 拖拽指示器
-            Container(
-              margin: const EdgeInsets.only(top: 8, bottom: 4),
-              width: 32,
-              height: 4,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            // 标题
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                S.current.template_insertTitle,
-                style: theme.textTheme.titleMedium,
-              ),
-            ),
-            // 搜索框
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: S.current.template_searchHint,
-                  prefixIcon: const Icon(Icons.search, size: 20),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                  isDense: true,
+        return AppSheetScaffold(
+          expandToFill: true,
+          showCloseButton: false,
+          contentPadding: EdgeInsets.zero,
+          title: S.current.template_insertTitle,
+          child: Column(
+            children: [
+              // 搜索框
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
                 ),
-                onChanged: (value) => setState(() => _searchQuery = value),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: S.current.template_searchHint,
+                    prefixIcon: const Icon(Icons.search, size: 20),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                    isDense: true,
+                  ),
+                  onChanged: (value) => setState(() => _searchQuery = value),
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            // 内容
-            Expanded(child: _buildContent(scrollController, theme)),
-          ],
+              const SizedBox(height: 4),
+              // 内容
+              Expanded(child: _buildContent(scrollController, theme)),
+            ],
+          ),
         );
       },
     );
@@ -134,8 +126,10 @@ class _TemplateInsertDialogState extends State<TemplateInsertDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(S.current.template_loadError,
-                style: TextStyle(color: theme.colorScheme.error)),
+            Text(
+              S.current.template_loadError,
+              style: TextStyle(color: theme.colorScheme.error),
+            ),
             const SizedBox(height: 8),
             TextButton(
               onPressed: () {
@@ -184,9 +178,7 @@ class _TemplateInsertDialogState extends State<TemplateInsertDialog> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    isExpanded
-                        ? Icons.expand_less
-                        : Icons.expand_more,
+                    isExpanded ? Icons.expand_less : Icons.expand_more,
                     size: 20,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -214,8 +206,9 @@ class _TemplateInsertDialogState extends State<TemplateInsertDialog> {
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerHighest
-                        .withValues(alpha: 0.5),
+                    color: theme.colorScheme.surfaceContainerHighest.withValues(
+                      alpha: 0.5,
+                    ),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -247,10 +240,7 @@ Future<Template?> showTemplateInsertDialog(BuildContext context) {
   return showAppBottomSheet<Template>(
     context: context,
     isScrollControlled: true,
-    useSafeArea: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
+    backgroundColor: Colors.transparent,
     builder: (context) => const TemplateInsertDialog(),
   );
 }

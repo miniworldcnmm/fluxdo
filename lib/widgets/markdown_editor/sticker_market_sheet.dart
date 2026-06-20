@@ -6,6 +6,7 @@ import '../../models/sticker.dart';
 import '../../providers/sticker_provider.dart';
 import '../../services/discourse_cache_manager.dart';
 import '../../utils/load_more_coordinator.dart';
+import '../common/app_bottom_sheet.dart';
 import '../common/cached_image.dart';
 import '../common/loading_spinner.dart';
 import '../common/paged_list_footer.dart';
@@ -24,8 +25,10 @@ class StickerMarketSheet extends ConsumerStatefulWidget {
 
 class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
   final ScrollController _scrollController = ScrollController();
-  final LoadMoreCoordinator _loadMoreCoordinator =
-      LoadMoreCoordinator(triggerDistance: 600, releaseDistance: 600);
+  final LoadMoreCoordinator _loadMoreCoordinator = LoadMoreCoordinator(
+    triggerDistance: 600,
+    releaseDistance: 600,
+  );
 
   @override
   void initState() {
@@ -65,89 +68,35 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final mediaQuery = MediaQuery.of(context);
     final groupsAsync = ref.watch(marketGroupsProvider);
-    // 不再 watch subscribedStickerIdsProvider:每个 _StickerGroupTile 自己
-    // 用 select 监听自己 group.id 的订阅状态变化,避免任意 group 订阅状态
-    // 变化导致整个 ListView rebuild。
 
-    return Container(
-      height: mediaQuery.size.height * 0.8,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        children: [
-          // 顶部标题栏
-          Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.5,
-                  ),
-                  width: 0.5,
-                ),
-              ),
-            ),
-            child: Column(
-              children: [
-                // 拖拽条
-                Container(
-                  width: 32,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.5,
-                    ),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        S.current.sticker_marketTitle,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                      ),
-                      child: Text(S.current.common_done),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+    return AppSheetScaffold(
+      title: S.current.sticker_marketTitle,
+      showCloseButton: false,
+      showTitleDivider: true,
+      contentPadding: EdgeInsets.zero,
+      maxHeightFactor: 0.8,
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          style: TextButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
           ),
-
-          // 内容区域：优先使用已有数据，避免加载态闪烁
-          Expanded(
-            child: (() {
-              final groups = groupsAsync.value;
-              if (groups != null) {
-                return _buildGroupList(groups);
-              }
-              return groupsAsync.when(
-                data: (groups) => _buildGroupList(groups),
-                loading: () => const Center(child: LoadingSpinner()),
-                error: (err, stack) => _buildError(),
-              );
-            })(),
-          ),
-        ],
-      ),
+          child: Text(S.current.common_done),
+        ),
+      ],
+      child: (() {
+        final groups = groupsAsync.value;
+        if (groups != null) {
+          return _buildGroupList(groups);
+        }
+        return groupsAsync.when(
+          data: (groups) => _buildGroupList(groups),
+          loading: () => const Center(child: LoadingSpinner()),
+          error: (err, stack) => _buildError(),
+        );
+      })(),
     );
   }
 
@@ -159,7 +108,10 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
         children: [
           Icon(Icons.error_outline, size: 48, color: theme.colorScheme.outline),
           const SizedBox(height: 12),
-          Text(S.current.sticker_marketLoadFailed, style: TextStyle(color: theme.colorScheme.error)),
+          Text(
+            S.current.sticker_marketLoadFailed,
+            style: TextStyle(color: theme.colorScheme.error),
+          ),
           const SizedBox(height: 8),
           TextButton(
             onPressed: () {
@@ -207,10 +159,7 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
           );
         }
         final group = groups[index];
-        return _StickerGroupTile(
-          key: ValueKey(group.id),
-          group: group,
-        );
+        return _StickerGroupTile(key: ValueKey(group.id), group: group);
       },
     );
   }
@@ -224,10 +173,7 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
 class _StickerGroupTile extends ConsumerWidget {
   final StickerGroup group;
 
-  const _StickerGroupTile({
-    super.key,
-    required this.group,
-  });
+  const _StickerGroupTile({super.key, required this.group});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

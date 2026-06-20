@@ -67,6 +67,7 @@ import 'topic_more_menu_actions.dart';
 import 'widgets/ai_chat_page.dart';
 import 'widgets/ai_chat_guide.dart';
 import '../../utils/dialog_utils.dart';
+import '../../widgets/common/app_bottom_sheet.dart';
 import '../../utils/platform_utils.dart';
 import '../../models/shortcut_binding.dart';
 import '../../providers/shortcut_provider.dart';
@@ -94,6 +95,7 @@ class TopicDetailPage extends ConsumerStatefulWidget {
   final String? initialBookmarkName;
   final DateTime? initialBookmarkReminderAt;
   final String? initialBookmarkableType;
+
   /// 从「编辑通知」跳转时,带上目标帖子的编号 + revision number,
   /// 加载完成并滚动到位后自动弹出历史 modal 到对应版本。
   final int? initialRevisionPostNumber;
@@ -1052,7 +1054,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     final isInReadLater = ref
         .read(readLaterProvider.notifier)
         .contains(widget.topicId);
-    final hasFilter = notifier.isSummaryMode ||
+    final hasFilter =
+        notifier.isSummaryMode ||
         notifier.isAuthorOnlyMode ||
         notifier.isTopLevelMode ||
         _isNestedView;
@@ -1072,15 +1075,18 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         bookmarkId: traceTarget?.bookmarkId ?? detail.bookmarkId,
         bookmarkName: traceTarget?.initialName ?? detail.bookmarkName,
         bookmarked: detail.bookmarked,
-        hasReminder: traceTarget?.initialReminderAt != null ||
+        hasReminder:
+            traceTarget?.initialReminderAt != null ||
             detail.bookmarkReminderAt != null,
         selectedAction: 'bookmark',
       );
-      unawaited(_handleBookmark(
-        notifier,
-        traceId: traceId,
-        source: 'topic_detail_topic_menu',
-      ));
+      unawaited(
+        _handleBookmark(
+          notifier,
+          traceId: traceId,
+          source: 'topic_detail_topic_menu',
+        ),
+      );
     }
 
     void doSubscribe() {
@@ -1131,8 +1137,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                   label: level.label,
                   subtitle: level.description,
                   selected: level == detail.notificationLevel,
-                  onTap: () =>
-                      _handleNotificationLevelChanged(notifier, level),
+                  onTap: () => _handleNotificationLevelChanged(notifier, level),
                 ),
             ],
           ),
@@ -1150,9 +1155,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
           submenu: MenuQuickActionSubmenu(
             icon: Icons.filter_list,
             label: context.l10n.topicDetail_filter,
-            iconColor: hasFilter
-                ? Theme.of(context).colorScheme.primary
-                : null,
+            iconColor: hasFilter ? Theme.of(context).colorScheme.primary : null,
             children: [
               if (detail.hasSummary)
                 MenuQuickActionSubmenuChild(
@@ -1217,8 +1220,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         // 行内展开的订阅子项：value 形如 'subscribe_level_<int>'
         const subscribePrefix = 'subscribe_level_';
         if (value.startsWith(subscribePrefix)) {
-          final levelValue =
-              int.tryParse(value.substring(subscribePrefix.length));
+          final levelValue = int.tryParse(
+            value.substring(subscribePrefix.length),
+          );
           if (levelValue != null) {
             final level = TopicNotificationLevel.values.firstWhere(
               (e) => e.value == levelValue,
@@ -1228,10 +1232,12 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
           }
           return;
         }
-        final bookmarkTraceTarget =
-            value == 'bookmark' ? _bookmarkEditTarget(detail) : null;
-        final bookmarkTraceId =
-            value == 'bookmark' ? createBookmarkEditTraceId() : null;
+        final bookmarkTraceTarget = value == 'bookmark'
+            ? _bookmarkEditTarget(detail)
+            : null;
+        final bookmarkTraceId = value == 'bookmark'
+            ? createBookmarkEditTraceId()
+            : null;
         if (bookmarkTraceId != null) {
           writeBookmarkEditTrace(
             phase: 'menu_selected',
@@ -1534,7 +1540,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       final detail = next.value;
       // 记录话题标题到会话状态，供用户卡片「基于话题的私信」预填标题
       if (detail != null) {
-        ref.read(topicSessionProvider(widget.topicId).notifier).setTopicTitle(detail.title);
+        ref
+            .read(topicSessionProvider(widget.topicId).notifier)
+            .setTopicTitle(detail.title);
       }
       // 首次拿到 detail 后再决定是否应用默认嵌套视图：
       // 私信场景下树形视图 API 拉不到数据，跳过该配置
@@ -2188,10 +2196,7 @@ class _AiAssistantActionIcon extends StatelessWidget {
           SizedBox(
             width: 22,
             height: 22,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: color,
-            ),
+            child: CircularProgressIndicator(strokeWidth: 2, color: color),
           ),
           Icon(Icons.auto_awesome, size: 13, color: color),
         ],

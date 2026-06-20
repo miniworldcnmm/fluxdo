@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../l10n/s.dart';
 import '../../../models/emoji.dart';
 import '../../../utils/emoji_shortcodes.dart';
+import '../../../utils/dialog_utils.dart';
 import '../../../utils/platform_utils.dart';
 import '../../common/emoji_text.dart';
 import '../../markdown_editor/emoji_picker.dart';
@@ -27,7 +28,7 @@ class BoostInputReplyResult extends BoostInputResult {
 /// 以底部浮层方式显示 Boost 输入框
 /// 返回类型化提交结果，用户取消则返回 null
 Future<BoostInputResult?> showBoostInputSheet(BuildContext context) {
-  return showModalBottomSheet<BoostInputResult>(
+  return showAppBottomSheet<BoostInputResult>(
     context: context,
     isScrollControlled: true,
     builder: (ctx) => const _BoostInputSheet(),

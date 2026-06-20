@@ -318,7 +318,6 @@ class _TopicsPageState extends ConsumerState<TopicsPage>
     final categoryId = await showAppBottomSheet<int>(
       context: context,
       isScrollControlled: true,
-      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const CategoryTabManagerSheet(),
     );

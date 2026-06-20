@@ -6,6 +6,7 @@ import '../../../../utils/url_helper.dart';
 import '../../../../services/preloaded_data_service.dart';
 import '../../../../services/discourse/discourse_service.dart';
 import '../../../../services/toast_service.dart';
+import '../../../common/app_bottom_sheet.dart';
 
 /// 举报底部弹窗
 class PostFlagSheet extends StatefulWidget {
@@ -59,11 +60,12 @@ class _PostFlagSheetState extends State<PostFlagSheet> {
     if (mounted) {
       setState(() {
         if (types != null && types.isNotEmpty) {
-          _flagTypes = types
-              .map((t) => FlagType.fromJson(t))
-              .where((f) => f.isFlag && f.enabled && f.appliesToPost)
-              .toList()
-            ..sort((a, b) => a.position.compareTo(b.position));
+          _flagTypes =
+              types
+                  .map((t) => FlagType.fromJson(t))
+                  .where((f) => f.isFlag && f.enabled && f.appliesToPost)
+                  .toList()
+                ..sort((a, b) => a.position.compareTo(b.position));
         } else {
           _flagTypes = FlagType.defaultTypes;
         }
@@ -88,7 +90,9 @@ class _PostFlagSheetState extends State<PostFlagSheet> {
       await widget.service.flagPost(
         widget.postId,
         _selectedType!.id,
-        message: _messageController.text.isNotEmpty ? _messageController.text : null,
+        message: _messageController.text.isNotEmpty
+            ? _messageController.text
+            : null,
       );
 
       if (mounted) {
@@ -97,7 +101,9 @@ class _PostFlagSheetState extends State<PostFlagSheet> {
       }
     } catch (e) {
       if (mounted) {
-        final message = e is Exception ? e.toString().replaceFirst('Exception: ', '') : S.current.post_flagFailed;
+        final message = e is Exception
+            ? e.toString().replaceFirst('Exception: ', '')
+            : S.current.post_flagFailed;
         ToastService.showError(message);
       }
     } finally {
@@ -111,113 +117,92 @@ class _PostFlagSheetState extends State<PostFlagSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      margin: const EdgeInsets.all(16),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.7,
+    return AppSheetScaffold(
+      style: AppSheetStyle.card,
+      maxHeightFactor: 0.7,
+      contentPadding: EdgeInsets.zero,
+      titleWidget: Row(
+        children: [
+          Icon(Icons.flag_outlined, color: theme.colorScheme.error),
+          const SizedBox(width: 8),
+          Text(
+            context.l10n.post_flagTitle,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
+      footer: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed: _selectedType == null || _isSubmitting || _isLoading
+                ? null
+                : _submitFlag,
+            child: _isSubmitting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(context.l10n.post_submitFlag),
+          ),
+        ),
       ),
-      child: SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 标题（固定）
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
-              child: Row(
-                children: [
-                  Icon(Icons.flag_outlined, color: theme.colorScheme.error),
-                  const SizedBox(width: 8),
-                  Text(
-                    context.l10n.post_flagTitle,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-            ),
+            // 加载状态
+            if (_isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else ...[
+              // 向用户发送消息分组
+              if (_notifyUserTypes.isNotEmpty) ...[
+                _buildSectionHeader(
+                  context.l10n.post_flagMessageUser(widget.postUsername),
+                  theme,
+                ),
+                ..._notifyUserTypes.map(
+                  (type) => _buildFlagOption(type, theme),
+                ),
+                const SizedBox(height: 16),
+                Divider(color: theme.colorScheme.outlineVariant),
+                const SizedBox(height: 16),
+              ],
+              // 私下通知管理人员分组
+              if (_moderatorTypes.isNotEmpty) ...[
+                _buildSectionHeader(
+                  context.l10n.post_flagNotifyModerators,
+                  theme,
+                ),
+                ..._moderatorTypes.map((type) => _buildFlagOption(type, theme)),
+              ],
+            ],
 
-            // 可滚动内容
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // 加载状态
-                    if (_isLoading)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(20),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                    else ...[
-                      // 向用户发送消息分组
-                      if (_notifyUserTypes.isNotEmpty) ...[
-                        _buildSectionHeader(
-                          context.l10n.post_flagMessageUser(widget.postUsername),
-                          theme,
-                        ),
-                        ..._notifyUserTypes.map((type) => _buildFlagOption(type, theme)),
-                        const SizedBox(height: 16),
-                        Divider(color: theme.colorScheme.outlineVariant),
-                        const SizedBox(height: 16),
-                      ],
-                      // 私下通知管理人员分组
-                      if (_moderatorTypes.isNotEmpty) ...[
-                        _buildSectionHeader(context.l10n.post_flagNotifyModerators, theme),
-                        ..._moderatorTypes.map((type) => _buildFlagOption(type, theme)),
-                      ],
-                    ],
-
-                    // 补充说明输入框
-                    if (_selectedType?.requireMessage == true) ...[
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _messageController,
-                        maxLines: 3,
-                        decoration: InputDecoration(
-                          hintText: context.l10n.post_flagDescriptionHint,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          contentPadding: const EdgeInsets.all(12),
-                        ),
-                      ),
-                    ],
-                  ],
+            // 补充说明输入框
+            if (_selectedType?.requireMessage == true) ...[
+              const SizedBox(height: 16),
+              TextField(
+                controller: _messageController,
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: context.l10n.post_flagDescriptionHint,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  contentPadding: const EdgeInsets.all(12),
                 ),
               ),
-            ),
-
-            // 提交按钮（固定在底部）
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _selectedType == null || _isSubmitting || _isLoading ? null : _submitFlag,
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(context.l10n.post_submitFlag),
-                ),
-              ),
-            ),
+            ],
           ],
         ),
       ),
@@ -249,12 +234,12 @@ class _PostFlagSheetState extends State<PostFlagSheet> {
         decoration: BoxDecoration(
           color: isSelected
               ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
-              : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+              : theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.3,
+                ),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected
-                ? theme.colorScheme.primary
-                : Colors.transparent,
+            color: isSelected ? theme.colorScheme.primary : Colors.transparent,
           ),
         ),
         child: Row(
@@ -268,9 +253,7 @@ class _PostFlagSheetState extends State<PostFlagSheet> {
                   : theme.colorScheme.onSurfaceVariant,
             ),
             const SizedBox(width: 12),
-            Expanded(
-              child: _buildDescriptionText(description, theme),
-            ),
+            Expanded(child: _buildDescriptionText(description, theme)),
           ],
         ),
       ),

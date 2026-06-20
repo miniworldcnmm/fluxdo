@@ -5,6 +5,7 @@ import 'package:scroll_to_index/scroll_to_index.dart';
 
 import '../../l10n/s.dart';
 import '../../utils/dialog_utils.dart';
+import '../common/app_bottom_sheet.dart';
 
 /// 弹出模型选择 sheet
 ///
@@ -57,8 +58,6 @@ class _AiModelSelectSheetState extends ConsumerState<_AiModelSelectSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final mediaQuery = MediaQuery.of(context);
-    final maxHeight = mediaQuery.size.height * 0.85;
     final favoriteKeys = ref.watch(favoriteAiModelKeysProvider);
     final favoriteModels = ref.watch(favoriteAiModelsProvider(widget.mode));
     final canReorderFavorites = _query.trim().isEmpty;
@@ -67,79 +66,64 @@ class _AiModelSelectSheetState extends ConsumerState<_AiModelSelectSheet> {
     final visibleFavorites = _filterModels(favoriteModels);
     final sections = _buildSections(filtered, visibleFavorites);
 
-    return Container(
-      constraints: BoxConstraints(maxHeight: maxHeight),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 8),
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(999),
+    return AppSheetScaffold(
+      showCloseButton: false,
+      contentPadding: EdgeInsets.zero,
+      maxHeightFactor: 0.85,
+      footer: _shouldShowProviderDock(sections)
+          ? _buildProviderDock(sections, favoriteKeys, theme)
+          : null,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: TextField(
+              controller: _searchController,
+              autofocus: false,
+              onChanged: (value) => setState(() => _query = value),
+              decoration: InputDecoration(
+                hintText: context.l10n.ai_modelSearchHint,
+                prefixIcon: Icon(
+                  Icons.search,
+                  size: 20,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+                suffixIcon: _query.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _query = '');
+                        },
+                      ),
+                filled: true,
+                fillColor: theme.colorScheme.surfaceContainerHigh,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: TextField(
-                controller: _searchController,
-                autofocus: false,
-                onChanged: (value) => setState(() => _query = value),
-                decoration: InputDecoration(
-                  hintText: context.l10n.ai_modelSearchHint,
-                  prefixIcon: Icon(
-                    Icons.search,
-                    size: 20,
-                    color: theme.colorScheme.onSurfaceVariant,
+          ),
+          Flexible(
+            child: sections.isEmpty
+                ? _buildEmpty(theme)
+                : _buildScrollableContent(
+                    sections,
+                    favoriteKeys,
+                    theme,
+                    canReorderFavorites,
                   ),
-                  suffixIcon: _query.isEmpty
-                      ? null
-                      : IconButton(
-                          icon: const Icon(Icons.close, size: 18),
-                          visualDensity: VisualDensity.compact,
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() => _query = '');
-                          },
-                        ),
-                  filled: true,
-                  fillColor: theme.colorScheme.surfaceContainerHigh,
-                  isDense: true,
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ),
-            Flexible(
-              child: sections.isEmpty
-                  ? _buildEmpty(theme)
-                  : _buildScrollableContent(
-                      sections,
-                      favoriteKeys,
-                      theme,
-                      canReorderFavorites,
-                    ),
-            ),
-            if (_shouldShowProviderDock(sections))
-              _buildProviderDock(sections, favoriteKeys, theme),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -674,4 +658,3 @@ class _CapabilityBadge extends StatelessWidget {
     );
   }
 }
-

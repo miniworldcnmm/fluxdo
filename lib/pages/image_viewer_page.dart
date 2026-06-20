@@ -5,7 +5,6 @@ import 'package:jovial_svg/jovial_svg.dart';
 import 'package:gal/gal.dart';
 import 'package:super_clipboard/super_clipboard.dart';
 import '../services/discourse_cache_manager.dart';
-import '../utils/dialog_utils.dart';
 import '../utils/double_tap_zoom_controller.dart';
 import '../utils/hero_visibility_controller.dart';
 import '../utils/screenshot_utils.dart';
@@ -18,6 +17,7 @@ import '../providers/shortcut_provider.dart';
 import '../services/toast_service.dart';
 import '../utils/platform_utils.dart';
 import '../utils/share_utils.dart';
+import '../widgets/common/app_bottom_sheet.dart';
 import '../widgets/common/image_context_menu.dart';
 import '../widgets/common/loading_spinner.dart';
 import '../l10n/s.dart';
@@ -305,8 +305,9 @@ class _ImageViewerPageState extends State<ImageViewerPage>
     try {
       final hasAccess = await Gal.hasAccess() || await Gal.requestAccess();
       if (!hasAccess) {
-        if (mounted)
+        if (mounted) {
           ToastService.showInfo(S.current.imageViewer_grantPermission);
+        }
         return;
       }
       await Gal.putImageBytes(
@@ -315,8 +316,9 @@ class _ImageViewerPageState extends State<ImageViewerPage>
       );
       if (mounted) ToastService.showSuccess(S.current.imageViewer_imageSaved);
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ToastService.showError(S.current.imageViewer_saveFailedRetry);
+      }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
@@ -407,39 +409,38 @@ class _ImageViewerPageState extends State<ImageViewerPage>
       }
     }
 
-    showAppBottomSheet(
+    AppBottomSheet.show(
       context: context,
+      contentPadding: EdgeInsets.zero,
       builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: const Icon(Icons.save_alt),
-                title: Text(S.current.share_saveToGallery),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _saveMemoryImage();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.copy),
-                title: Text(S.current.image_copyImage),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _copyMemoryImage();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.share),
-                title: Text(S.current.common_shareImage),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _shareMemoryImage();
-                },
-              ),
-            ],
-          ),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.save_alt),
+              title: Text(S.current.share_saveToGallery),
+              onTap: () {
+                Navigator.pop(ctx);
+                _saveMemoryImage();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.copy),
+              title: Text(S.current.image_copyImage),
+              onTap: () {
+                Navigator.pop(ctx);
+                _copyMemoryImage();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.share),
+              title: Text(S.current.common_shareImage),
+              onTap: () {
+                Navigator.pop(ctx);
+                _shareMemoryImage();
+              },
+            ),
+          ],
         );
       },
     );

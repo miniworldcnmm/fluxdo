@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:common_ui/common_ui.dart';
 import '../utils/dialog_utils.dart';
 
 /// 滑动操作按钮数据
@@ -228,6 +229,7 @@ class _SwipeActionCellState extends State<SwipeActionCell>
           _animController.removeStatusListener(statusListener);
         }
       }
+
       _animController.addStatusListener(statusListener);
     }
 
@@ -243,36 +245,41 @@ class _SwipeActionCellState extends State<SwipeActionCell>
     _closeActions();
     final actions = widget.trailingActions;
     if (actions.isEmpty) return;
-    final theme = Theme.of(context);
 
     showAppBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Material(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(16),
-            clipBehavior: Clip.antiAlias,
-            child: SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: actions.map((action) {
-                  return ListTile(
-                    leading: Icon(action.icon, color: action.color),
-                    title: Text(
-                      action.label ?? '',
-                      style: TextStyle(color: action.color),
-                    ),
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      action.onPressed();
-                    },
-                  );
-                }).toList(),
+        final cs = Theme.of(ctx).colorScheme;
+        return AppSheetScaffold(
+          showCloseButton: false,
+          contentPadding: EdgeInsets.zero,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ...actions.map((action) {
+                return ListTile(
+                  leading: Icon(action.icon, color: action.color),
+                  title: Text(
+                    action.label ?? '',
+                    style: TextStyle(color: action.color),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    action.onPressed();
+                  },
+                );
+              }),
+              const Divider(height: 1, indent: 16, endIndent: 16),
+              ListTile(
+                title: Text(
+                  MaterialLocalizations.of(ctx).cancelButtonLabel,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: cs.onSurfaceVariant),
+                ),
+                onTap: () => Navigator.pop(ctx),
               ),
-            ),
+            ],
           ),
         );
       },
@@ -337,7 +344,8 @@ class _SwipeActionCellState extends State<SwipeActionCell>
   }
 
   /// 扩展模式下最后一个按钮的图标抖一下
-  Widget _buildActionIcon(SwipeAction action, bool isLast, double expandProgress) {
+  Widget _buildActionIcon(
+      SwipeAction action, bool isLast, double expandProgress) {
     final icon = Icon(action.icon, color: action.foregroundColor, size: 22);
     if (!isLast || expandProgress <= 0) return icon;
 
@@ -384,9 +392,7 @@ class _SwipeActionCellState extends State<SwipeActionCell>
       if (isExpanding) {
         if (isLast) {
           buttonWidth = revealWidth -
-              (actions.length - 1) *
-                  widget.actionWidth *
-                  (1 - expandProgress);
+              (actions.length - 1) * widget.actionWidth * (1 - expandProgress);
         } else {
           buttonWidth = widget.actionWidth * (1 - expandProgress);
         }

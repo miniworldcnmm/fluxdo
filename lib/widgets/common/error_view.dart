@@ -8,6 +8,7 @@ import '../../services/cf_challenge_service.dart';
 import '../../services/network/exceptions/api_exception.dart';
 import '../../services/toast_service.dart';
 import '../../utils/dialog_utils.dart';
+import 'app_bottom_sheet.dart';
 import '../../utils/error_utils.dart';
 
 /// 通用错误页面组件
@@ -190,9 +191,9 @@ class ErrorView extends StatelessWidget {
   }
 
   void _openNetworkSettings(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const NetworkSettingsPage()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const NetworkSettingsPage()));
   }
 
   void _showErrorDetails(BuildContext context) {
@@ -201,7 +202,6 @@ class ErrorView extends StatelessWidget {
     showAppBottomSheet(
       context: context,
       isScrollControlled: true,
-      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) => ErrorDetailsSheet(details: details),
     );
@@ -220,100 +220,43 @@ class ErrorDetailsSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final mediaQuery = MediaQuery.of(context);
-    final bottomInset = mediaQuery.viewInsets.bottom;
-    final maxSheetHeight =
-        mediaQuery.size.height -
-        mediaQuery.padding.top -
-        mediaQuery.padding.bottom -
-        bottomInset -
-        32;
 
-    return Container(
-      margin: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: 16 + bottomInset,
-      ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: SafeArea(
-        top: false,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: maxSheetHeight.clamp(280, double.infinity),
+    return AppSheetScaffold(
+      contentPadding: EdgeInsets.zero,
+      showTitleDivider: true,
+      titleWidget: Row(
+        children: [
+          Icon(
+            Icons.bug_report_outlined,
+            size: 20,
+            color: theme.colorScheme.error,
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // 拖拽指示条
-              Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.onSurfaceVariant.withValues(
-                      alpha: 0.4,
-                    ),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              // 标题栏
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 12, 4),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.bug_report_outlined,
-                      size: 20,
-                      color: theme.colorScheme.error,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      context.l10n.common_errorDetails,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.copy, size: 20),
-                      tooltip: context.l10n.common_copy,
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: details));
-                        ToastService.showSuccess(
-                          S.current.common_copiedToClipboard,
-                        );
-                      },
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close, size: 20),
-                      tooltip: context.l10n.common_close,
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-              ),
-              const Divider(height: 1),
-              // 详情内容
-              Flexible(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-                  child: SelectableText(
-                    details,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      fontFamily: 'monospace',
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          const SizedBox(width: 8),
+          Text(
+            context.l10n.common_errorDetails,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.copy, size: 20),
+          tooltip: context.l10n.common_copy,
+          onPressed: () {
+            Clipboard.setData(ClipboardData(text: details));
+            ToastService.showSuccess(S.current.common_copiedToClipboard);
+          },
+        ),
+      ],
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        child: SelectableText(
+          details,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontFamily: 'monospace',
+            height: 1.5,
           ),
         ),
       ),
@@ -408,22 +351,19 @@ class InlineErrorView extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(
-            errorInfo.icon,
-            size: iconSize,
-            color: theme.colorScheme.error,
-          ),
+          Icon(errorInfo.icon, size: iconSize, color: theme.colorScheme.error),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               message ?? errorInfo.title,
-              style: (compact
-                      ? theme.textTheme.bodySmall
-                      : theme.textTheme.bodyMedium)
-                  ?.copyWith(
-                color: theme.colorScheme.onSurface,
-                fontWeight: FontWeight.w500,
-              ),
+              style:
+                  (compact
+                          ? theme.textTheme.bodySmall
+                          : theme.textTheme.bodyMedium)
+                      ?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w500,
+                      ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -434,7 +374,10 @@ class InlineErrorView extends StatelessWidget {
               onPressed: onRetry,
               style: TextButton.styleFrom(
                 visualDensity: VisualDensity.compact,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 minimumSize: const Size(0, 32),
                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 foregroundColor: theme.colorScheme.primary,

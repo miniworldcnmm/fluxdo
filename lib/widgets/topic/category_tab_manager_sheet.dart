@@ -43,8 +43,9 @@ Widget _buildCategoryIcon(
         height: size,
         fit: BoxFit.contain,
         errorBuilder: (_, e, s) {
-          if (faIcon != null)
+          if (faIcon != null) {
             return FaIcon(faIcon, size: size * 0.7, color: color);
+          }
           return _buildColorDot(color, size * 0.5);
         },
       );
@@ -149,57 +150,23 @@ class CategoryTabManagerSheet extends ConsumerWidget {
     final pinnedIds = ref.watch(pinnedCategoriesProvider);
     final categoriesAsync = ref.watch(categoriesProvider);
     final categoryMapAsync = ref.watch(categoryMapProvider);
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 拖动柄
-          Center(
-            child: Container(
-              margin: const EdgeInsets.only(top: 12),
-              width: 32,
-              height: 4,
-              decoration: BoxDecoration(
-                color: colorScheme.outlineVariant.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          // 标题
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
-            child: Text(
-              S.current.category_browse,
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-          // 内容
-          Expanded(
-            child: categoriesAsync.when(
-              data: (categories) {
-                final categoryMap = categoryMapAsync.value ?? {};
-                return _BrowseContent(
-                  pinnedIds: pinnedIds,
-                  categories: categories,
-                  categoryMap: categoryMap,
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Text(S.current.category_loadFailed(e.toString())),
-              ),
-            ),
-          ),
-        ],
+    return AppSheetScaffold(
+      title: S.current.category_browse,
+      showCloseButton: false,
+      contentPadding: EdgeInsets.zero,
+      child: categoriesAsync.when(
+        data: (categories) {
+          final categoryMap = categoryMapAsync.value ?? {};
+          return _BrowseContent(
+            pinnedIds: pinnedIds,
+            categories: categories,
+            categoryMap: categoryMap,
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) =>
+            Center(child: Text(S.current.category_loadFailed(e.toString()))),
       ),
     );
   }
