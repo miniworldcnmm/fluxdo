@@ -119,6 +119,14 @@ class SelfHealingInterceptor extends Interceptor {
       return false;
     }
 
+    // 自愈只适用于 Discourse 主站会话 cookie (_t/_forum_session)。
+    // CDK/LDC 等业务子域的 401 代表各自 OAuth 授权态失效，重试主站
+    // session 修复没有意义，还会把一次过期放大成多次 user-info 请求。
+    if (response.requestOptions.uri.host.toLowerCase() !=
+        CookieJarService.appBaseHost) {
+      return false;
+    }
+
     final status = response.statusCode ?? 0;
     final hasLoggedOutHeader =
         response.headers.value('discourse-logged-out')?.isNotEmpty == true;

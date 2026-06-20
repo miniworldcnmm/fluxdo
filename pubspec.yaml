@@ -137,9 +137,9 @@ dependency_overrides:
   device_info_plus: 12.3.0
   flutter_inappwebview_linux:
     path: packages/flutter_inappwebview_linux
-  # 锁定 flutter_rust_bridge 版本，与 rhttp 插件的 codegen 版本保持一致
-  # rhttp 预编译原生库基于 2.11.1，升级会导致 rhttp.Rhttp.init() 失败
-  flutter_rust_bridge: 2.11.1
+  # 锁定 flutter_rust_bridge 版本，与 rhttp 插件的 codegen 版本保持一致。
+  # rhttp_plus 已同步 upstream 0.18.0，生成代码基于 2.12.0。
+  flutter_rust_bridge: 2.12.0
 
 dev_dependencies:
   flutter_test:

@@ -80,6 +80,9 @@ class EnhancedPersistCookieJar implements base.CookieJar {
           .indexWhere((existing) => existing.storageKey == resolved.storageKey);
       if (idx >= 0) {
         final existing = all[idx];
+        if (_isWebViewHostOnlyDowngrade(resolved, existing)) {
+          continue;
+        }
         if (trusted) {
           resolved = resolved.copyWith(
             version: existing.value == resolved.value
@@ -104,6 +107,21 @@ class EnhancedPersistCookieJar implements base.CookieJar {
       }
     }
     await _writeAll(all);
+  }
+
+  bool _isWebViewHostOnlyDowngrade(
+    CanonicalCookie next,
+    CanonicalCookie existing,
+  ) {
+    final fromWebView = next.source == CookieSource.webViewCdp ||
+        next.source == CookieSource.webViewManager;
+    return fromWebView &&
+        next.value == existing.value &&
+        next.hostOnly &&
+        !existing.hostOnly &&
+        next.normalizedDomain == existing.normalizedDomain &&
+        next.path == existing.path &&
+        next.partitionKey == existing.partitionKey;
   }
 
   Future<void> saveFromSetCookieHeaders(

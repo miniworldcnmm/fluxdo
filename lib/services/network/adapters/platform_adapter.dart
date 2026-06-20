@@ -174,6 +174,22 @@ AdapterType _resolveAdapterType(
   ).type;
 }
 
+AdapterType _resolveAdapterTypeForRequest(
+  RequestOptions options,
+  NetworkSettingsService settings,
+  ProxySettingsService proxySettings,
+  CronetFallbackService fallbackService,
+  RhttpSettingsService rhttpSettings,
+) {
+  return _resolveEffective(
+    settings,
+    proxySettings,
+    fallbackService,
+    rhttpSettings,
+    requestOptions: options,
+  ).type;
+}
+
 /// 实时解析当前生效的适配器及原因（UI 单一数据源）。
 ///
 /// 不依赖请求触发，读取各 service 当前状态即时推算，
@@ -191,10 +207,12 @@ EffectiveAdapter _resolveEffective(
   NetworkSettingsService settings,
   ProxySettingsService proxySettings,
   CronetFallbackService fallbackService,
-  RhttpSettingsService rhttpSettings,
-) {
+  RhttpSettingsService rhttpSettings, {
+  RequestOptions? requestOptions,
+}) {
   // rhttp 优先（满足条件时）
-  if (rhttpSettings.shouldUseRhttp(settings.current, proxySettings.current)) {
+  if (rhttpSettings.shouldUseRhttp(settings.current, proxySettings.current) &&
+      (requestOptions == null || requestAllowsRhttpAdapter(requestOptions))) {
     return const EffectiveAdapter(AdapterType.rhttp, AdapterReason.rhttp);
   }
   // Gateway 模式：NativeAdapter 直连 + 拦截器改写 URL 到 localhost 代理
@@ -210,6 +228,11 @@ EffectiveAdapter _resolveEffective(
     return EffectiveAdapter(AdapterType.network, reason);
   }
   return const EffectiveAdapter(AdapterType.native, AdapterReason.native);
+}
+
+@visibleForTesting
+bool requestAllowsRhttpAdapter(RequestOptions options) {
+  return options.extra['skipRhttpAdapter'] != true;
 }
 
 /// 创建当前平台对应的 NativeAdapter
@@ -267,7 +290,11 @@ final bool _macOSNeedsNativeFallback = () {
 /// Cookie 管理器按 localhost 域名存取 cookie，
 /// 重试拦截器拿到被改写的 localhost URL 等。
 class _GatewayAdapterWrapper implements HttpClientAdapter {
-  _GatewayAdapterWrapper(this._inner);
+  _GatewayAdapterWrapper(this._inner) {
+    WebViewAdapterSettingsService.instance.notifier.addListener(
+      _handleWebViewSettingChanged,
+    );
+  }
 
   final HttpClientAdapter _inner;
   WebViewHttpAdapter? _webViewAdapter;
@@ -290,12 +317,12 @@ class _GatewayAdapterWrapper implements HttpClientAdapter {
     final settings = NetworkSettingsService.instance;
     final proxySettings = ProxySettingsService.instance;
     final rhttpSettings = RhttpSettingsService.instance;
-    final currentAdapter = getCurrentAdapterType();
 
-    // rhttp 直连时保留原始 HTTPS URL
+    // rhttp 直连时保留原始 HTTPS URL；显式旁路 rhttp 的请求
+    // 仍需要在 gateway 模式下改写到本地代理。
     final shouldUseRhttp =
-        currentAdapter == AdapterType.rhttp ||
-        rhttpSettings.shouldUseRhttp(settings.current, proxySettings.current);
+        rhttpSettings.shouldUseRhttp(settings.current, proxySettings.current) &&
+        requestAllowsRhttpAdapter(options);
 
     if (!shouldUseRhttp && settings.isGatewayMode) {
       final port = settings.current.proxyPort;
@@ -339,29 +366,57 @@ class _GatewayAdapterWrapper implements HttpClientAdapter {
 
   @override
   void close({bool force = false}) {
+    WebViewAdapterSettingsService.instance.notifier.removeListener(
+      _handleWebViewSettingChanged,
+    );
     _webViewAdapter?.close(force: force);
     _webViewAdapter = null;
     _inner.close(force: force);
   }
 
+  void _handleWebViewSettingChanged() {
+    if (WebViewAdapterSettingsService.instance.enabled) {
+      return;
+    }
+    _webViewAdapter?.disposeWhenIdle();
+  }
+
   bool _shouldUseWebView(RequestOptions options) {
     final uri = options.uri;
-    if (!WebViewAdapterSettingsService.instance.shouldUseWebView(uri)) {
+    if (options.extra['skipWebViewAdapter'] == true) {
       return false;
     }
-    if (options.extra['skipWebViewAdapter'] == true) {
+    if (!WebViewAdapterSettingsService.instance.enabled) {
       return false;
     }
     if (options.extra['isCfChallengePlatform'] == true ||
         uri.path.startsWith('/cdn-cgi/')) {
       return false;
     }
-    if (options.responseType == ResponseType.stream ||
-        options.responseType == ResponseType.bytes) {
+
+    final resourceKind = options.extra[WebViewHttpAdapter.resourceKindExtraKey]
+        ?.toString();
+    final method = options.method.toUpperCase();
+    final isBinaryResponse =
+        options.responseType == ResponseType.stream ||
+        options.responseType == ResponseType.bytes;
+
+    // 当前 WebView fetch 运行在 linux.do origin；跨域图片即使浏览器能显示，
+    // JS 也不能读取响应字节。图片流仅允许同源请求，其它 stream 请求
+    //（MessageBus、下载等）仍不走 WebView。
+    if (resourceKind == WebViewHttpAdapter.resourceKindImage) {
+      return (method == 'GET' || method == 'HEAD') &&
+          isBinaryResponse &&
+          WebViewAdapterSettingsService.instance.shouldUseWebView(uri);
+    }
+
+    if (!WebViewAdapterSettingsService.instance.shouldUseWebView(uri)) {
+      return false;
+    }
+    if (isBinaryResponse) {
       return false;
     }
 
-    final method = options.method.toUpperCase();
     final accept = _headerValue(options.headers, 'Accept').toLowerCase();
     final requestedWith = _headerValue(options.headers, 'X-Requested-With');
     final explicitlyHtml =
@@ -390,10 +445,22 @@ class _GatewayAdapterWrapper implements HttpClientAdapter {
   String _headerValue(Map<String, dynamic> headers, String name) {
     for (final entry in headers.entries) {
       if (entry.key.toString().toLowerCase() == name.toLowerCase()) {
-        return entry.value?.toString() ?? '';
+        return _headerValueToString(entry.value);
       }
     }
     return '';
+  }
+
+  String _headerValueToString(Object? value) {
+    if (value == null) return '';
+    if (value is Iterable) {
+      return value
+          .where((e) => e != null)
+          .map((e) => e.toString().trim())
+          .where((e) => e.isNotEmpty)
+          .join(', ');
+    }
+    return value.toString().trim();
   }
 }
 
@@ -415,8 +482,7 @@ class _DynamicAdapter implements HttpClientAdapter {
   final CronetFallbackService _fallbackService;
   final RhttpSettingsService _rhttpSettings;
 
-  HttpClientAdapter? _delegate;
-  AdapterType? _delegateType;
+  final Map<AdapterType, HttpClientAdapter> _delegates = {};
   int _settingsVersion = -1;
   int _proxyVersion = -1;
   int _rhttpVersion = -1;
@@ -434,63 +500,77 @@ class _DynamicAdapter implements HttpClientAdapter {
         "Can't establish connection after the adapter was closed.",
       );
     }
-    final delegate = _ensureDelegate();
-    final delegateType = _delegateType;
-    if (delegateType != null) {
-      setRequestAdapterLogName(options, delegateType.name);
-    }
-    return delegate.fetch(options, requestStream, cancelFuture);
-  }
-
-  HttpClientAdapter _ensureDelegate() {
-    final desiredType = _resolveAdapterType(
+    final desiredType = _resolveAdapterTypeForRequest(
+      options,
       _settings,
       _proxySettings,
       _fallbackService,
       _rhttpSettings,
     );
+    final delegate = _ensureDelegate(desiredType);
+    setRequestAdapterLogName(options, desiredType.name);
+    _currentAdapterType = desiredType;
+    return delegate.fetch(options, requestStream, cancelFuture);
+  }
+
+  HttpClientAdapter _ensureDelegate(AdapterType desiredType) {
     final settingsVersion = _settings.version;
     final proxyVersion = _proxySettings.version;
     final rhttpVersion = _rhttpSettings.version;
     final hasFallenBack = _fallbackService.hasFallenBack;
 
-    final shouldRebuild =
-        _delegate == null ||
-        _delegateType != desiredType ||
+    final configChanged =
         _settingsVersion != settingsVersion ||
         _proxyVersion != proxyVersion ||
         _rhttpVersion != rhttpVersion ||
         _hasFallenBack != hasFallenBack;
 
-    if (!shouldRebuild) {
-      return _delegate!;
+    if (configChanged) {
+      // 不要强杀旧 delegate，避免进行中的 Cronet/rhttp 请求触发 native 崩溃。
+      for (final delegate in _delegates.values) {
+        delegate.close(force: false);
+      }
+      _delegates.clear();
     }
 
-    // 不要强杀旧 delegate，避免进行中的 Cronet 请求触发 native 崩溃。
-    _delegate?.close(force: false);
-    if (desiredType == AdapterType.rhttp) {
-      _delegate = RhttpAdapter(_settings, _proxySettings);
-      debugPrint('[DIO] Dynamic adapter -> RhttpAdapter');
-    } else if (desiredType == AdapterType.network) {
-      _delegate = NetworkHttpAdapter(_settings, _proxySettings);
-      debugPrint('[DIO] Dynamic adapter -> NetworkHttpAdapter');
-    } else {
-      _delegate = _createNativeAdapter();
+    final existing = _delegates[desiredType];
+    if (existing != null) {
+      return existing;
     }
 
-    _delegateType = desiredType;
+    final delegate = switch (desiredType) {
+      AdapterType.webview => WebViewHttpAdapter(),
+      AdapterType.rhttp => RhttpAdapter(_settings, _proxySettings),
+      AdapterType.network => NetworkHttpAdapter(_settings, _proxySettings),
+      AdapterType.native => _createNativeAdapter(),
+    };
+
+    switch (desiredType) {
+      case AdapterType.webview:
+        debugPrint('[DIO] Dynamic adapter -> WebViewHttpAdapter');
+      case AdapterType.rhttp:
+        debugPrint('[DIO] Dynamic adapter -> RhttpAdapter');
+      case AdapterType.network:
+        debugPrint('[DIO] Dynamic adapter -> NetworkHttpAdapter');
+      case AdapterType.native:
+        break;
+    }
+
     _settingsVersion = settingsVersion;
     _proxyVersion = proxyVersion;
     _rhttpVersion = rhttpVersion;
     _hasFallenBack = hasFallenBack;
-    _currentAdapterType = desiredType;
-    return _delegate!;
+    _delegates[desiredType] = delegate;
+    return delegate;
   }
 
   @override
   void close({bool force = false}) {
     _closed = true;
-    _delegate?.close(force: force);
+    for (final delegate in _delegates.values) {
+      delegate.close(force: force);
+    }
+    _delegates.clear();
   }
 }
 

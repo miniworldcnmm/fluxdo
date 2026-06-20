@@ -672,18 +672,18 @@ class CookieJarService {
 
   /// 获取所有 Cookie 的字符串形式（用于请求头诊断）
   Future<String?> getCookieHeader() async {
+    return getCookieHeaderForRequest(Uri.parse(AppConstants.baseUrl));
+  }
+
+  /// 获取指定 URI 可见 Cookie 的字符串形式（用于 retry 等手工补 Header）。
+  Future<String?> getCookieHeaderForRequest(Uri uri) async {
     if (!_initialized) await initialize();
 
     try {
-      final uri = Uri.parse(AppConstants.baseUrl);
       final cookies = await _cookieJar!.loadForRequest(uri);
-      if (cookies.isEmpty) return null;
-      return _selectCookiesForHeader(
-        cookies,
-        uri,
-      ).map((c) => '${c.name}=${CookieValueCodec.decode(c.value)}').join('; ');
+      return buildCookieHeaderForRequest(cookies, uri);
     } catch (e) {
-      debugPrint('[CookieJar] Failed to get cookie header: $e');
+      debugPrint('[CookieJar] Failed to get cookie header for $uri: $e');
       return null;
     }
   }
@@ -692,7 +692,20 @@ class CookieJarService {
   // 工具方法
   // ---------------------------------------------------------------------------
 
-  List<io.Cookie> _selectCookiesForHeader(List<io.Cookie> cookies, Uri uri) {
+  @visibleForTesting
+  static String? buildCookieHeaderForRequest(List<io.Cookie> cookies, Uri uri) {
+    if (cookies.isEmpty) return null;
+    final header = _selectCookiesForHeader(
+      cookies,
+      uri,
+    ).map((c) => '${c.name}=${CookieValueCodec.decode(c.value)}').join('; ');
+    return header.isEmpty ? null : header;
+  }
+
+  static List<io.Cookie> _selectCookiesForHeader(
+    List<io.Cookie> cookies,
+    Uri uri,
+  ) {
     final requestHost = uri.host.toLowerCase();
     final selected = <String, io.Cookie>{};
     for (final cookie in cookies) {
@@ -714,7 +727,7 @@ class CookieJarService {
     });
   }
 
-  int _compareHeaderCookiePriority(
+  static int _compareHeaderCookiePriority(
     io.Cookie candidate,
     io.Cookie existing,
     String requestHost,
@@ -726,7 +739,7 @@ class CookieJarService {
     return candidate.value.length.compareTo(existing.value.length);
   }
 
-  int _headerCookiePriorityScore(io.Cookie cookie, String requestHost) {
+  static int _headerCookiePriorityScore(io.Cookie cookie, String requestHost) {
     final normalizedDomain = cookie.domain?.trim().toLowerCase().replaceFirst(
       RegExp(r'^\.'),
       '',

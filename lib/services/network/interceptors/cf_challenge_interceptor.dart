@@ -92,7 +92,9 @@ class CfChallengeInterceptor extends Interceptor {
     options.headers.remove('cookie');
     options.headers.remove('Cookie');
 
-    final cookieHeader = await cookieJarService.getCookieHeader();
+    final cookieHeader = await cookieJarService.getCookieHeaderForRequest(
+      options.uri,
+    );
     if (cookieHeader != null && cookieHeader.isNotEmpty) {
       options.headers['Cookie'] = cookieHeader;
     }

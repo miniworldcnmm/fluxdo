@@ -4,6 +4,7 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxdo/services/network/cookie/app_cookie_manager.dart';
+import 'package:fluxdo/services/network/cookie/cookie_jar_service.dart';
 
 void main() {
   group('AppCookieManager.loadCookies', () {
@@ -110,6 +111,26 @@ void main() {
 
       expect(cookieHeader, contains('theme=scoped'));
       expect(cookieHeader, contains('theme=root'));
+    });
+  });
+
+  group('CookieJarService.buildCookieHeaderForRequest', () {
+    test('CDK retry header 保留业务 domain cookie 且不带主站登录 cookie', () {
+      final header = CookieJarService.buildCookieHeaderForRequest([
+        Cookie('cf_clearance', 'cf-token')
+          ..domain = '.linux.do'
+          ..path = '/',
+        Cookie('linux_do_cdk_session_id', 'cdk-token')
+          ..domain = '.linux.do'
+          ..path = '/',
+        Cookie('_t', 'polluted-token')
+          ..domain = '.linux.do'
+          ..path = '/',
+      ], Uri.parse('https://cdk.linux.do/api/v1/oauth/user-info'));
+
+      expect(header, contains('cf_clearance=cf-token'));
+      expect(header, contains('linux_do_cdk_session_id=cdk-token'));
+      expect(header, isNot(contains('_t=')));
     });
   });
 }

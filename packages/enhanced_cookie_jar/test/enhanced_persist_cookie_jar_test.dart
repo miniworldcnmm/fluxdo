@@ -333,6 +333,38 @@ void main() {
         expect(tCookies.length, 1, reason: '归一化后是同一个 storageKey');
         expect(tCookies.first.value, 'without_dot');
       });
+
+      test('WebView 同值快照不把 domain cookie 降级成 host-only', () async {
+        await jar.saveFromSetCookieHeaders(
+          Uri.parse('https://linux.do'),
+          [
+            'linux_do_cdk_session_id=token; Domain=.linux.do; Path=/; Secure; SameSite=Lax',
+          ],
+          trusted: true,
+        );
+
+        await jar.saveFromCdpCookies(
+          Uri.parse('https://linux.do'),
+          [
+            {
+              'name': 'linux_do_cdk_session_id',
+              'value': 'token',
+              'domain': 'linux.do',
+              'path': '/',
+              'secure': true,
+              'sameSite': 'Lax',
+            },
+          ],
+          trusted: true,
+        );
+
+        final all = await jar.readAllCookies();
+        final cdk = all.singleWhere(
+          (cookie) => cookie.name == 'linux_do_cdk_session_id',
+        );
+        expect(cdk.hostOnly, isFalse);
+        expect(cdk.domain, '.linux.do');
+      });
     });
 
     // =========================================================================
@@ -553,14 +585,7 @@ void main() {
 
       await jar.saveFromResponse(Uri.parse('https://linux.do'), [cookie]);
 
-      final all = await jar.readAllCookies();
-      print(
-          'All cookies: ${all.map((c) => "name=${c.name}, domain=${c.domain}, normalized=${c.normalizedDomain}, hostOnly=${c.hostOnly}").join("; ")}');
-
       final loaded = await jar.loadForRequest(Uri.parse('https://linux.do'));
-      print(
-          'Loaded: ${loaded.map((c) => "name=${c.name}, domain=${c.domain}").join("; ")}');
-
       expect(loaded.any((c) => c.name == '_t'), true,
           reason: '_t should be loadable');
     });

@@ -34,6 +34,7 @@ import '../network/cookie/boundary_sync_service.dart';
 import '../network/cookie/session_snapshot.dart';
 import '../cf_challenge_service.dart';
 import '../message_bus_service.dart';
+import '../network/adapters/webview_http_adapter.dart';
 import '../login_ready_coordinator.dart';
 import '../network/discourse_dio.dart';
 import '../network/interceptors/self_healing_interceptor.dart';
