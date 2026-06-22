@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../l10n/s.dart';
+import 'loading_spinner.dart';
 
 class PagedListFooter extends StatelessWidget {
   const PagedListFooter({
@@ -44,7 +45,7 @@ class PagedListFooter extends StatelessWidget {
         ),
       );
     } else if (isLoadingMore) {
-      child = const CircularProgressIndicator();
+      child = const LoadingSpinner(size: 24);
     } else if (!hasMore) {
       child = Text(
         context.l10n.common_noMore,
