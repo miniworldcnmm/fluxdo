@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../../../pages/user_profile_page.dart';
 import 'onebox_base.dart';
 
@@ -86,7 +87,7 @@ Widget buildUserOnebox({
                 Row(
                   children: [
                     Icon(
-                      Icons.location_on_outlined,
+                      Symbols.location_on_rounded,
                       size: 14,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

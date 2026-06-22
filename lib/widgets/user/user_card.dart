@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/s.dart';
@@ -817,7 +818,7 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
       ),
       child: Row(
         children: [
-          Icon(isSuspended ? Icons.block_rounded : Icons.mic_off_rounded, size: 16, color: color),
+          Icon(isSuspended ? Symbols.block_rounded : Symbols.mic_off_rounded, size: 16, color: color),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -853,14 +854,14 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
     }
 
     if (user.location?.isNotEmpty ?? false) {
-      add(Icons.location_on_outlined, user.location!);
+      add(Symbols.location_on_rounded, user.location!);
     }
     final site = (user.websiteName?.isNotEmpty ?? false)
         ? user.websiteName!
         : (user.website?.isNotEmpty ?? false)
             ? user.website!
             : null;
-    if (site != null) add(Icons.link_rounded, site);
+    if (site != null) add(Symbols.link_rounded, site);
 
     if (items.isEmpty) return const SizedBox.shrink();
     return Padding(
@@ -973,7 +974,7 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
       primary.add(Expanded(
         child: FilledButton.icon(
           onPressed: _composeMessage,
-          icon: const Icon(Icons.mail_outline_rounded, size: 18),
+          icon: const Icon(Symbols.mail_rounded, size: 18),
           label: Text(S.current.userProfile_message),
         ),
       ));
@@ -983,12 +984,12 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
         child: _isFollowed
             ? OutlinedButton.icon(
                 onPressed: _followLoading ? null : _toggleFollow,
-                icon: const Icon(Icons.how_to_reg_rounded, size: 18),
+                icon: const Icon(Symbols.how_to_reg_rounded, size: 18),
                 label: Text(S.current.userProfile_followed),
               )
             : FilledButton.tonalIcon(
                 onPressed: _followLoading ? null : _toggleFollow,
-                icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                icon: const Icon(Symbols.person_add_alt_rounded, size: 18),
                 label: Text(S.current.userProfile_follow),
               ),
       ));
@@ -1013,7 +1014,7 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: _openProfile,
-                icon: const Icon(Icons.account_circle_outlined, size: 18),
+                icon: const Icon(Symbols.account_circle_rounded, size: 18),
                 label: Text(S.current.userCard_viewProfile),
               ),
             ),
@@ -1030,7 +1031,7 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
   Widget _buildMoreMenu(ThemeData theme, bool canMute, bool canIgnore) {
     return SwipeDismissiblePopupMenuButton<String>(
       tooltip: '',
-      icon: const Icon(Icons.more_horiz_rounded),
+      icon: const Icon(Symbols.more_horiz_rounded),
       style: IconButton.styleFrom(
         side: BorderSide(color: theme.colorScheme.outline.withValues(alpha: 0.5)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -1041,12 +1042,12 @@ class _UserCardContentState extends ConsumerState<_UserCardContent> {
       itemBuilder: (context) => [
         if (canMute)
           _notificationLevel == 'mute'
-              ? _menuItem('normal', Icons.volume_up_rounded, S.current.userProfile_restored)
-              : _menuItem('mute', Icons.volume_off_rounded, S.current.userCard_mute),
+              ? _menuItem('normal', Symbols.volume_up_rounded, S.current.userProfile_restored)
+              : _menuItem('mute', Symbols.volume_off_rounded, S.current.userCard_mute),
         if (canIgnore)
           _notificationLevel == 'ignore'
-              ? _menuItem('normal', Icons.visibility_rounded, S.current.userProfile_restored)
-              : _menuItem('ignore', Icons.visibility_off_rounded, S.current.userCard_ignore),
+              ? _menuItem('normal', Symbols.visibility_rounded, S.current.userProfile_restored)
+              : _menuItem('ignore', Symbols.visibility_off_rounded, S.current.userCard_ignore),
       ],
     );
   }

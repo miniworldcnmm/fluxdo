@@ -211,12 +211,12 @@ extension _FilterActions on _TopicDetailPageState {
               ListTile(
                 leading: Icon(
                   notifier.isSummaryMode
-                      ? Icons.local_fire_department
-                      : Icons.local_fire_department_outlined,
+                      ? Symbols.local_fire_department_rounded
+                      : Symbols.local_fire_department_rounded,
                 ),
                 title: Text(context.l10n.topicDetail_hotOnly),
                 trailing: notifier.isSummaryMode
-                    ? Icon(Icons.check, color: theme.colorScheme.primary)
+                    ? Icon(Symbols.check_rounded, color: theme.colorScheme.primary)
                     : null,
                 onTap: () {
                   Navigator.pop(ctx);
@@ -229,11 +229,12 @@ extension _FilterActions on _TopicDetailPageState {
               ),
             ListTile(
               leading: Icon(
-                notifier.isAuthorOnlyMode ? Icons.person : Icons.person_outline,
+                Symbols.person_rounded,
+                fill: notifier.isAuthorOnlyMode ? 1 : 0,
               ),
               title: Text(context.l10n.topicDetail_authorOnly),
               trailing: notifier.isAuthorOnlyMode
-                  ? Icon(Icons.check, color: theme.colorScheme.primary)
+                  ? Icon(Symbols.check_rounded, color: theme.colorScheme.primary)
                   : null,
               onTap: () {
                 Navigator.pop(ctx);
@@ -247,12 +248,12 @@ extension _FilterActions on _TopicDetailPageState {
             ListTile(
               leading: Icon(
                 notifier.isTopLevelMode
-                    ? Icons.account_tree
-                    : Icons.account_tree_outlined,
+                    ? Symbols.account_tree_rounded
+                    : Symbols.account_tree_rounded,
               ),
               title: Text(context.l10n.topicDetail_topLevelOnly),
               trailing: notifier.isTopLevelMode
-                  ? Icon(Icons.check, color: theme.colorScheme.primary)
+                  ? Icon(Symbols.check_rounded, color: theme.colorScheme.primary)
                   : null,
               onTap: () {
                 Navigator.pop(ctx);
@@ -265,10 +266,10 @@ extension _FilterActions on _TopicDetailPageState {
             ),
             const Divider(height: 1, indent: 16, endIndent: 16),
             ListTile(
-              leading: Icon(_isNestedView ? Icons.forum : Icons.forum_outlined),
+              leading: Icon(Symbols.forum_rounded, fill: _isNestedView ? 1 : 0),
               title: Text(context.l10n.nested_title),
               trailing: _isNestedView
-                  ? Icon(Icons.check, color: theme.colorScheme.primary)
+                  ? Icon(Symbols.check_rounded, color: theme.colorScheme.primary)
                   : null,
               onTap: () {
                 Navigator.pop(ctx);
@@ -279,7 +280,7 @@ extension _FilterActions on _TopicDetailPageState {
               const Divider(height: 1, indent: 16, endIndent: 16),
               ListTile(
                 leading: Icon(
-                  Icons.filter_list_off,
+                  Symbols.filter_list_off_rounded,
                   color: theme.colorScheme.error,
                 ),
                 title: Text(

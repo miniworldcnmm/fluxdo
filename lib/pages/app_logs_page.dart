@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:cross_file/cross_file.dart';
 
@@ -404,7 +405,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.copy, size: 20),
+              icon: const Icon(Symbols.content_copy_rounded, size: 20),
               onPressed: () {
                 final detail = StringBuffer()
                   ..writeln('${S.current.appLogs_time}: $timestamp')
@@ -469,7 +470,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.copy, size: 20),
+              icon: const Icon(Symbols.content_copy_rounded, size: 20),
               onPressed: () {
                 final detail = StringBuffer()
                   ..writeln('${S.current.appLogs_time}: $timestamp')
@@ -581,7 +582,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.copy, size: 20),
+              icon: const Icon(Symbols.content_copy_rounded, size: 20),
               onPressed: () {
                 final detail = StringBuffer()
                   ..writeln('${S.current.appLogs_time}: $timestamp')
@@ -739,7 +740,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
     if (_searching) {
       return AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Symbols.arrow_back_rounded),
           onPressed: _stopSearch,
         ),
         title: TextField(
@@ -755,7 +756,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
         actions: [
           if (_searchController.text.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.clear),
+              icon: const Icon(Symbols.clear_rounded),
               onPressed: () {
                 _searchController.clear();
                 setState(_applyFilters);
@@ -770,7 +771,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
       centerTitle: true,
       actions: [
         IconButton(
-          icon: const Icon(Icons.search),
+          icon: const Icon(Symbols.search_rounded),
           tooltip: context.l10n.appLogs_search,
           onPressed: _startSearch,
         ),
@@ -793,7 +794,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
             PopupMenuItem(
               value: 'deviceInfo',
               child: ListTile(
-                leading: const Icon(Icons.smartphone),
+                leading: const Icon(Symbols.smartphone_rounded),
                 title: Text(context.l10n.appLogs_copyDeviceInfo),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
@@ -802,7 +803,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
             PopupMenuItem(
               value: 'copy',
               child: ListTile(
-                leading: const Icon(Icons.copy),
+                leading: const Icon(Symbols.content_copy_rounded),
                 title: Text(context.l10n.appLogs_copyAll),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
@@ -811,7 +812,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
             PopupMenuItem(
               value: 'share',
               child: ListTile(
-                leading: const Icon(Icons.share),
+                leading: const Icon(Symbols.share_rounded),
                 title: Text(context.l10n.appLogs_shareLogs),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
@@ -820,7 +821,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
             PopupMenuItem(
               value: 'feedback',
               child: ListTile(
-                leading: const Icon(Icons.mail_outline),
+                leading: const Icon(Symbols.mail_rounded),
                 title: Text(context.l10n.appLogs_sendFeedback),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
@@ -829,7 +830,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
             PopupMenuItem(
               value: 'clear',
               child: ListTile(
-                leading: const Icon(Icons.delete_outline),
+                leading: const Icon(Symbols.delete_rounded),
                 title: Text(context.l10n.appLogs_clearLogs),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
@@ -860,7 +861,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.article_outlined,
+              Symbols.article_rounded,
               size: 64,
               color: Theme.of(context).colorScheme.outline,
             ),
@@ -1178,7 +1179,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
             child: Row(
               children: [
                 Icon(
-                  Icons.check,
+                  Symbols.check_rounded,
                   size: 18,
                   color: filter == _typeFilter
                       ? theme.colorScheme.primary
@@ -1210,7 +1211,7 @@ class _AppLogsPageState extends State<AppLogsPage> {
               _typeFilterLabel(_typeFilter),
               style: theme.textTheme.labelMedium?.copyWith(color: fgColor),
             ),
-            Icon(Icons.arrow_drop_down, size: 18, color: fgColor),
+            Icon(Symbols.arrow_drop_down_rounded, size: 18, color: fgColor),
           ],
         ),
       ),

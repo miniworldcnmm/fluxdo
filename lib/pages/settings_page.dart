@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/s.dart';
@@ -85,10 +86,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               onChanged: (value) => setState(() => _query = value.trim()),
               decoration: InputDecoration(
                 hintText: l10n.settings_searchHint,
-                prefixIcon: const Icon(Icons.search, size: 20),
+                prefixIcon: const Icon(Symbols.search_rounded, size: 20),
                 suffixIcon: _query.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, size: 18),
+                        icon: const Icon(Symbols.clear_rounded, size: 18),
                         onPressed: () {
                           _searchController.clear();
                           setState(() => _query = '');
@@ -136,7 +137,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.search_off_rounded,
+              Symbols.search_off_rounded,
               size: 48,
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
             ),
@@ -190,7 +191,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
             ),
             trailing: Icon(
-              Icons.chevron_right_rounded,
+              Symbols.chevron_right_rounded,
               color: theme.colorScheme.outline.withValues(alpha: 0.4),
               size: 18,
             ),
@@ -221,7 +222,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           child: Column(
             children: [
               _buildOptionTile(
-                icon: Icons.color_lens_rounded,
+                icon: Symbols.color_lens_rounded,
                 iconColor: Colors.teal,
                 title: l10n.settings_appearance,
                 onTap: () => Navigator.push(
@@ -231,7 +232,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
               _buildDivider(theme),
               _buildOptionTile(
-                icon: Icons.auto_stories_rounded,
+                icon: Symbols.auto_stories_rounded,
                 iconColor: Colors.deepOrange,
                 title: l10n.settings_reading,
                 onTap: () => Navigator.push(
@@ -243,7 +244,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
               _buildDivider(theme),
               _buildOptionTile(
-                icon: Icons.network_check_rounded,
+                icon: Symbols.network_check_rounded,
                 iconColor: Colors.blueGrey,
                 title: l10n.settings_network,
                 onTap: () => Navigator.push(
@@ -255,7 +256,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
               _buildDivider(theme),
               _buildOptionTile(
-                icon: Icons.tune_rounded,
+                icon: Symbols.tune_rounded,
                 iconColor: Colors.deepPurple,
                 title: l10n.settings_preferences,
                 onTap: () => Navigator.push(
@@ -265,7 +266,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
               _buildDivider(theme),
               _buildOptionTile(
-                icon: Icons.view_day_rounded,
+                icon: Symbols.view_day_rounded,
                 iconColor: Colors.amber,
                 title: l10n.settings_bottomNav,
                 onTap: () => Navigator.push(
@@ -277,7 +278,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
               _buildDivider(theme),
               _buildOptionTile(
-                icon: Icons.storage_rounded,
+                icon: Symbols.storage_rounded,
                 iconColor: Colors.brown,
                 title: l10n.settings_dataManagement,
                 onTap: () => Navigator.push(
@@ -287,7 +288,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
               _buildDivider(theme),
               _buildOptionTile(
-                icon: Icons.cloud_sync_rounded,
+                icon: Symbols.cloud_sync_rounded,
                 iconColor: Colors.deepPurple,
                 title: l10n.notion_title,
                 onTap: () => Navigator.push(
@@ -301,7 +302,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               if (PlatformUtils.isDesktop) ...[
                 _buildDivider(theme),
                 _buildOptionTile(
-                  icon: Icons.keyboard_rounded,
+                  icon: Symbols.keyboard_rounded,
                   iconColor: Colors.cyan,
                   title: l10n.settings_shortcuts,
                   onTap: () => Navigator.push(
@@ -314,7 +315,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ],
               _buildDivider(theme),
               _buildOptionTile(
-                icon: Icons.info_rounded,
+                icon: Symbols.info_rounded,
                 iconColor: Colors.indigo,
                 title: l10n.settings_about,
                 onTap: () => Navigator.push(
@@ -374,7 +375,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
             ),
             Icon(
-              Icons.chevron_right_rounded,
+              Symbols.chevron_right_rounded,
               color: theme.colorScheme.outline.withValues(alpha: 0.4),
               size: 20,
             ),

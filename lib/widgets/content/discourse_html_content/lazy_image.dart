@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import '../lazy_load_scope.dart';
 import '../../common/hero_image.dart';
@@ -155,7 +156,7 @@ class _LazyImageState extends State<LazyImage> {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
-            Icons.broken_image,
+            Symbols.broken_image_rounded,
             color: theme.colorScheme.outline,
             size: 32,
           ),

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 
 import '../../../l10n/s.dart';
@@ -206,7 +207,7 @@ class _EngineCardState extends State<EngineCard> {
     final Color iconColor;
     final InlineSpan span;
     if (webviewEnabled) {
-      icon = Icons.call_split;
+      icon = Symbols.call_split_rounded;
       iconColor = theme.colorScheme.tertiary;
       span = TextSpan(
         text: context.l10n.engineStatus_webviewSplit(engineName),
@@ -261,7 +262,7 @@ class _EngineCardState extends State<EngineCard> {
           if (showReset)
             IconButton(
               tooltip: context.l10n.networkAdapter_resetFallback,
-              icon: const Icon(Icons.refresh, size: 20),
+              icon: const Icon(Symbols.refresh_rounded, size: 20),
               visualDensity: VisualDensity.compact,
               onPressed: () => _resetFallbackState(fallbackService),
             ),
@@ -293,8 +294,7 @@ class _EngineCardState extends State<EngineCard> {
         // rhttp 引擎
         SwitchListTile(
           dense: true,
-          secondary: Icon(
-            rhttpEnabled ? Icons.rocket_launch : Icons.rocket_launch_outlined,
+          secondary: Icon(Symbols.rocket_launch_rounded, fill: rhttpEnabled ? 1 : 0,
             color: rhttpEnabled ? theme.colorScheme.primary : null,
           ),
           title: Text(l10n.rhttpEngine_title),
@@ -344,8 +344,7 @@ class _EngineCardState extends State<EngineCard> {
         // WebView 适配器
         SwitchListTile(
           dense: true,
-          secondary: Icon(
-            webviewEnabled ? Icons.language : Icons.language_outlined,
+          secondary: Icon(Symbols.language_rounded, fill: webviewEnabled ? 1 : 0,
             color: webviewEnabled ? theme.colorScheme.primary : null,
           ),
           title: Text(l10n.webviewAdapter_title),
@@ -374,7 +373,7 @@ class _EngineCardState extends State<EngineCard> {
     return [
       _divider(theme),
       SwitchListTile(
-        secondary: const Icon(Icons.swap_horiz),
+        secondary: const Icon(Symbols.swap_horiz_rounded),
         title: Text(l10n.networkAdapter_forceFallback),
         subtitle: Text(l10n.networkAdapter_forceFallbackDesc),
         value: forceFallback,
@@ -385,34 +384,34 @@ class _EngineCardState extends State<EngineCard> {
       ),
       if (autoFellBack) ...[
         ListTile(
-          leading: Icon(Icons.info_outline, color: theme.colorScheme.error),
+          leading: Icon(Symbols.info_rounded, color: theme.colorScheme.error),
           title: Text(l10n.networkAdapter_autoFallback),
           subtitle: Text(l10n.networkAdapter_autoFallbackDesc),
           dense: true,
         ),
         if (failureReason != null)
           ListTile(
-            leading: const Icon(Icons.bug_report),
+            leading: const Icon(Symbols.bug_report_rounded),
             title: Text(l10n.networkAdapter_viewReason),
-            trailing: const Icon(Icons.chevron_right, size: 20),
+            trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
             dense: true,
             onTap: () => _showFailureReasonDialog(failureReason),
           ),
         ListTile(
-          leading: const Icon(Icons.refresh),
+          leading: const Icon(Symbols.refresh_rounded),
           title: Text(l10n.networkAdapter_resetFallback),
           subtitle: Text(l10n.networkAdapter_resetFallbackDesc),
-          trailing: const Icon(Icons.chevron_right, size: 20),
+          trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
           dense: true,
           onTap: () => _resetFallbackState(fallbackService),
         ),
       ],
       if (kDebugMode && !hasFallenBack)
         ListTile(
-          leading: Icon(Icons.science, color: theme.colorScheme.tertiary),
+          leading: Icon(Symbols.science_rounded, color: theme.colorScheme.tertiary),
           title: Text(l10n.networkAdapter_simulateError),
           subtitle: Text(l10n.networkAdapter_simulateErrorDesc),
-          trailing: const Icon(Icons.chevron_right, size: 20),
+          trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
           dense: true,
           onTap: () => _simulateCronetError(fallbackService),
         ),
@@ -429,7 +428,7 @@ class _EngineCardState extends State<EngineCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            color != null ? Icons.warning_amber : Icons.info_outline,
+            color != null ? Symbols.warning_amber_rounded : Symbols.info_rounded,
             size: 13,
             color: c,
           ),
@@ -454,10 +453,10 @@ class _EngineCardState extends State<EngineCard> {
   );
 
   IconData _engineIcon(AdapterType type) => switch (type) {
-    AdapterType.rhttp => Icons.rocket_launch,
-    AdapterType.network => Icons.hub,
-    AdapterType.webview => Icons.language,
-    AdapterType.native => Icons.bolt,
+    AdapterType.rhttp => Symbols.rocket_launch_rounded,
+    AdapterType.network => Symbols.hub_rounded,
+    AdapterType.webview => Symbols.language_rounded,
+    AdapterType.native => Symbols.bolt_rounded,
   };
 
   String _reasonText(AdapterReason reason) {

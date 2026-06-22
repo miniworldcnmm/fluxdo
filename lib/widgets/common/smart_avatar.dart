@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:jovial_svg/jovial_svg.dart';
 import '../../services/discourse_cache_manager.dart';
@@ -218,7 +219,7 @@ class _SmartAvatarState extends State<SmartAvatar> {
       );
     }
     return Center(
-      child: Icon(Icons.person, size: radius, color: fgColor),
+      child: Icon(Symbols.person_rounded, size: radius, color: fgColor),
     );
   }
 }

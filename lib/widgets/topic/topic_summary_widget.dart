@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/topic.dart';
 import '../../pages/topic_detail_page/topic_detail_page.dart';
@@ -114,7 +115,7 @@ class TopicSummaryWidget extends ConsumerWidget {
       child: Row(
         children: [
           Icon(
-            Icons.info_outline,
+            Symbols.info_rounded,
             size: 20,
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -153,7 +154,7 @@ class TopicSummaryWidget extends ConsumerWidget {
           Row(
             children: [
               Icon(
-                Icons.auto_awesome,
+                Symbols.auto_awesome_rounded,
                 size: 18,
                 color: theme.colorScheme.primary,
               ),
@@ -243,7 +244,7 @@ class TopicSummaryWidget extends ConsumerWidget {
                 if (summary.canRegenerate && summary.outdated)
                   TextButton.icon(
                     onPressed: () => _refreshSummary(ref),
-                    icon: const Icon(Icons.refresh, size: 16),
+                    icon: const Icon(Symbols.refresh_rounded, size: 16),
                     label: Text(S.current.common_refresh),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -468,7 +469,7 @@ class _CollapsibleTopicSummaryState
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.auto_awesome,
+                      Symbols.auto_awesome_rounded,
                       size: 16,
                       color: theme.colorScheme.primary,
                     ),
@@ -487,7 +488,7 @@ class _CollapsibleTopicSummaryState
                       duration: const Duration(milliseconds: 300),
                       curve: Curves.easeOutCubic,
                       child: Icon(
-                        Icons.expand_more,
+                        Symbols.expand_more_rounded,
                         size: 18,
                         color: theme.colorScheme.primary,
                       ),

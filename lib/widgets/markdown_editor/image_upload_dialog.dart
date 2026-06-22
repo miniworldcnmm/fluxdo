@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:pro_image_editor/pro_image_editor.dart';
@@ -194,7 +195,7 @@ class _ImageUploadDialogState extends State<ImageUploadDialog> {
                 errorBuilder: (context, error, stackTrace) {
                   return Center(
                     child: Icon(
-                      Icons.broken_image_outlined,
+                      Symbols.broken_image_rounded,
                       size: 48,
                       color: theme.colorScheme.outline,
                     ),
@@ -264,7 +265,7 @@ class _ImageUploadDialogState extends State<ImageUploadDialog> {
                 child: Row(
                   children: [
                     Icon(
-                      Icons.photo_size_select_large,
+                      Symbols.photo_size_select_large_rounded,
                       size: 16,
                       color: theme.colorScheme.outline,
                     ),
@@ -280,7 +281,7 @@ class _ImageUploadDialogState extends State<ImageUploadDialog> {
                         _estimatedSize != null) ...[
                       const SizedBox(width: 8),
                       Icon(
-                        Icons.arrow_forward,
+                        Symbols.arrow_forward_rounded,
                         size: 14,
                         color: theme.colorScheme.outline,
                       ),
@@ -302,7 +303,7 @@ class _ImageUploadDialogState extends State<ImageUploadDialog> {
             // 编辑图片按钮
             OutlinedButton.icon(
               onPressed: _isProcessing || !_compressionStrategy.canEdit ? null : _editImage,
-              icon: const Icon(Icons.edit),
+              icon: const Icon(Symbols.edit_rounded),
               label: Text(_compressionStrategy.canEdit ? S.current.imageUpload_editImage : S.current.imageUpload_editNotSupportedLabel),
             ),
           ],
@@ -517,7 +518,7 @@ class _MultiImageUploadDialogState extends State<MultiImageUploadDialog> {
                           errorBuilder: (context, error, stackTrace) {
                             return Center(
                               child: Icon(
-                                Icons.broken_image_outlined,
+                                Symbols.broken_image_rounded,
                                 size: 24,
                                 color: theme.colorScheme.outline,
                               ),
@@ -538,7 +539,7 @@ class _MultiImageUploadDialogState extends State<MultiImageUploadDialog> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Icon(
-                              Icons.close,
+                              Symbols.close_rounded,
                               size: 16,
                               color: Colors.white,
                             ),
@@ -616,7 +617,7 @@ class _MultiImageUploadDialogState extends State<MultiImageUploadDialog> {
                   child: Row(
                     children: [
                       Icon(
-                        Icons.photo_size_select_large,
+                        Symbols.photo_size_select_large_rounded,
                         size: 16,
                         color: theme.colorScheme.outline,
                       ),
@@ -630,7 +631,7 @@ class _MultiImageUploadDialogState extends State<MultiImageUploadDialog> {
                       if (_quality < 100) ...[
                         const SizedBox(width: 8),
                         Icon(
-                          Icons.arrow_forward,
+                          Symbols.arrow_forward_rounded,
                           size: 14,
                           color: theme.colorScheme.outline,
                         ),
@@ -654,7 +655,7 @@ class _MultiImageUploadDialogState extends State<MultiImageUploadDialog> {
                   child: Row(
                     children: [
                       Icon(
-                        Icons.grid_view_rounded,
+                        Symbols.grid_view_rounded,
                         size: 16,
                         color: theme.colorScheme.primary,
                       ),

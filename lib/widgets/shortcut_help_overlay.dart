@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/s.dart';
 import '../models/shortcut_binding.dart';
@@ -160,13 +161,13 @@ class _ShortcutSearchField extends StatelessWidget {
       onChanged: onChanged,
       decoration: InputDecoration(
         hintText: l10n.settings_searchHint,
-        prefixIcon: const Icon(Icons.search_rounded, size: 20),
+        prefixIcon: const Icon(Symbols.search_rounded, size: 20),
         suffixIcon: value.isEmpty
             ? null
             : IconButton(
                 tooltip: MaterialLocalizations.of(context).deleteButtonTooltip,
                 onPressed: onClear,
-                icon: const Icon(Icons.close_rounded, size: 18),
+                icon: const Icon(Symbols.close_rounded, size: 18),
               ),
         filled: true,
         fillColor: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.92),
@@ -232,7 +233,7 @@ class _ShortcutDialogHeader extends StatelessWidget {
         ),
         const SizedBox(width: 12),
         IconButton(
-          icon: const Icon(Icons.close, size: 20),
+          icon: const Icon(Symbols.close_rounded, size: 20),
           onPressed: () => Navigator.of(context).pop(),
           style: IconButton.styleFrom(
             padding: EdgeInsets.zero,
@@ -259,7 +260,7 @@ class _ShortcutEmptyState extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.manage_search_rounded,
+            Symbols.manage_search_rounded,
             size: 34,
             color: theme.colorScheme.onSurfaceVariant,
           ),

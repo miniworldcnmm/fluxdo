@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../l10n/s.dart';
@@ -56,27 +57,27 @@ class _DebugToolsCardState extends State<DebugToolsCard> {
       child: Column(
         children: [
           ListTile(
-            leading: const Icon(Icons.article_outlined),
+            leading: const Icon(Symbols.article_rounded),
             title: Text(context.l10n.appLogs_title),
-            trailing: const Icon(Icons.chevron_right, size: 20),
+            trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
             onTap: () => _openLogs(LogTypeFilter.all),
           ),
           divider,
           ListTile(
-            leading: const Icon(Icons.dns_outlined),
+            leading: const Icon(Symbols.dns_rounded),
             title: Text(context.l10n.debugTools_networkLogs),
             subtitle: Text(context.l10n.debugTools_networkLogsDesc),
-            trailing: const Icon(Icons.chevron_right, size: 20),
+            trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
             onTap: () => _openLogs(LogTypeFilter.network),
           ),
           // CF 验证日志（开发者模式）
           if (_isDeveloperMode) ...[
             divider,
             ListTile(
-              leading: const Icon(Icons.shield_outlined),
+              leading: const Icon(Symbols.shield_rounded),
               title: Text(context.l10n.debugTools_cfLogs),
               subtitle: Text(context.l10n.debugTools_cfLogsDesc),
-              trailing: const Icon(Icons.chevron_right, size: 20),
+              trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
               onTap: () => _openLogs(LogTypeFilter.cfChallenge),
             ),
           ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'callout_config.dart';
 import 'foldable_callout.dart';
 
@@ -99,7 +100,7 @@ Widget buildCalloutBlock({
       ),
       if (foldable != null)
         Icon(
-          Icons.expand_more,
+          Symbols.expand_more_rounded,
           size: 18,
           color: config.color.withValues(alpha: 0.7),
         ),

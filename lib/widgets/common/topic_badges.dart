@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../models/category.dart';
 import '../../utils/url_helper.dart';
@@ -140,7 +141,7 @@ class RemovableTagBadge extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Icon(
-                Icons.close,
+                Symbols.close_rounded,
                 size: size.iconSize + 2,
                 color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
               ),
@@ -185,7 +186,7 @@ class RemovableCategoryBadge extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.category_outlined,
+                Symbols.category_rounded,
                 size: size.iconSize,
                 color: theme.colorScheme.onSecondaryContainer,
               ),
@@ -199,7 +200,7 @@ class RemovableCategoryBadge extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Icon(
-                Icons.close,
+                Symbols.close_rounded,
                 size: size.iconSize + 2,
                 color: theme.colorScheme.onSecondaryContainer.withValues(alpha: 0.7),
               ),
@@ -305,7 +306,7 @@ class CategoryBadge extends StatelessWidget {
 
   Widget _buildCategoryLock(Color color) {
     return Icon(
-      Icons.lock,
+      Symbols.lock_rounded,
       size: size.iconSize,
       color: color,
     );

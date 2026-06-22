@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluxdo/widgets/common/error_view.dart';
 import 'package:fluxdo/widgets/common/loading_spinner.dart';
@@ -657,7 +658,7 @@ class _EditTopicPageState extends ConsumerState<EditTopicPage> {
             child: FloatingActionButton.small(
               onPressed: _togglePreview,
               tooltip: context.l10n.common_exitPreview,
-              child: const Icon(Icons.edit_outlined),
+              child: const Icon(Symbols.edit_rounded),
             ),
           ),
       ],

@@ -5,6 +5,7 @@ import 'package:jovial_svg/jovial_svg.dart';
 
 import 'package:ai_model_manager/ai_model_manager.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
@@ -349,7 +350,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
       context: context,
       builder: (ctx) => AlertDialog(
         icon: Icon(
-          Icons.image_outlined,
+          Symbols.image_rounded,
           color: theme.colorScheme.primary,
           size: 32,
         ),
@@ -721,13 +722,13 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
       ),
       if (chatState.messages.isNotEmpty)
         IconButton(
-          icon: const Icon(Icons.check_box_outlined),
+          icon: const Icon(Symbols.check_box_rounded),
           tooltip: context.l10n.ai_multiSelectExport,
           iconSize: 20,
           onPressed: _enterSelectionMode,
         ),
       SwipeDismissiblePopupMenuButton<String>(
-        icon: const Icon(Icons.more_vert),
+        icon: const Icon(Symbols.more_vert_rounded),
         tooltip: context.l10n.ai_moreTooltip,
         iconSize: 20,
         onSelected: (value) {
@@ -744,7 +745,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
           PopupMenuItem(
             value: 'new_session',
             child: ListTile(
-              leading: const Icon(Icons.add_comment_outlined),
+              leading: const Icon(Symbols.add_comment_rounded),
               title: Text(context.l10n.ai_newSession),
               dense: true,
               contentPadding: EdgeInsets.zero,
@@ -754,7 +755,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
             PopupMenuItem(
               value: 'history',
               child: ListTile(
-                leading: const Icon(Icons.history),
+                leading: const Icon(Symbols.history_rounded),
                 title: Text(context.l10n.ai_sessionHistory),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
@@ -764,7 +765,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
             PopupMenuItem(
               value: 'clear',
               child: ListTile(
-                leading: const Icon(Icons.delete_outline),
+                leading: const Icon(Symbols.delete_rounded),
                 title: Text(context.l10n.ai_clearChat),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
@@ -913,8 +914,8 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
             ? const Color(0xFFEA580C)
             : theme.colorScheme.primary;
         final iconData = isImage
-            ? Icons.palette_outlined
-            : Icons.chat_bubble_outline_rounded;
+            ? Symbols.palette_rounded
+            : Symbols.chat_bubble_rounded;
         final title = isImage
             ? context.l10n.ai_imageGenTitle
             : context.l10n.ai_askTitle;
@@ -1055,7 +1056,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: const Icon(Icons.close),
+              icon: const Icon(Symbols.close_rounded),
               iconSize: 20,
               onPressed: _exitSelectionMode,
             ),
@@ -1070,7 +1071,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
           onPressed: _selectedMessageIds.isEmpty
               ? null
               : _exportSelectedMessages,
-          icon: const Icon(Icons.image_outlined, size: 18),
+          icon: const Icon(Symbols.image_rounded, size: 18),
           label: Text(context.l10n.ai_exportImage),
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1233,8 +1234,7 @@ class _SessionHistorySheetState extends State<_SessionHistorySheet> {
           final isCurrent = session.id == widget.currentSessionId;
 
           return ListTile(
-            leading: Icon(
-              isCurrent ? Icons.chat_bubble : Icons.chat_bubble_outline,
+            leading: Icon(Symbols.chat_bubble_rounded, fill: isCurrent ? 1 : 0,
               size: 20,
               color: isCurrent
                   ? theme.colorScheme.primary
@@ -1258,7 +1258,7 @@ class _SessionHistorySheetState extends State<_SessionHistorySheet> {
                 ? null
                 : IconButton(
                     icon: Icon(
-                      Icons.delete_outline,
+                      Symbols.delete_rounded,
                       size: 18,
                       color: theme.colorScheme.error,
                     ),
@@ -1407,7 +1407,7 @@ class _ThinkingButton extends StatelessWidget {
         ),
       ),
       trailing: isSelected
-          ? Icon(Icons.check, color: cs.primary, size: 20)
+          ? Icon(Symbols.check_rounded, color: cs.primary, size: 20)
           : null,
       onTap: () {
         _setConfig(ref.read(aiThinkingConfigProvider).copyWith(level: level));
@@ -1421,7 +1421,7 @@ class _ThinkingButton extends StatelessWidget {
     final isSelected = current.level == ThinkingLevel.custom;
     return ListTile(
       leading: Icon(
-        Icons.tune,
+        Symbols.tune_rounded,
         size: 22,
         color: isSelected ? cs.primary : cs.onSurfaceVariant,
       ),

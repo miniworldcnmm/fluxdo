@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -375,7 +376,7 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
           children: [
             if (canFlag)
               ListTile(
-                leading: const Icon(Icons.flag_outlined, color: Colors.red),
+                leading: const Icon(Symbols.flag_rounded, color: Colors.red),
                 title: Text(
                   S.current.common_report,
                   style: const TextStyle(color: Colors.red),
@@ -387,7 +388,7 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
               ),
             if (canDelete)
               ListTile(
-                leading: const Icon(Icons.delete_outline, color: Colors.red),
+                leading: const Icon(Symbols.delete_rounded, color: Colors.red),
                 title: Text(S.current.common_delete),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -395,7 +396,7 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
                 },
               ),
             ListTile(
-              leading: const Icon(Icons.close),
+              leading: const Icon(Symbols.close_rounded),
               title: Text(S.current.common_cancel),
               onTap: () => Navigator.pop(ctx),
             ),

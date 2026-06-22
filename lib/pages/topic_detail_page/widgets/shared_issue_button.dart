@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 
@@ -152,10 +153,7 @@ class _SharedIssueButtonState extends ConsumerState<SharedIssueButton> {
                   ),
                 )
               else
-                Icon(
-                  _userMarked
-                      ? Icons.front_hand_rounded
-                      : Icons.front_hand_outlined,
+                Icon(Symbols.front_hand_rounded, fill: _userMarked ? 1 : 0,
                   size: 18,
                   color: _userMarked
                       ? theme.colorScheme.onPrimary

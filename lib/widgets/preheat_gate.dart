@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../l10n/s.dart';
@@ -341,19 +342,19 @@ class _PreheatFailed extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   AmbientIconButton(
-                    icon: Icons.info_outline_rounded,
+                    icon: Symbols.info_rounded,
                     tooltip: context.l10n.common_about,
                     onPressed: () => _openAbout(context),
                   ),
                   const SizedBox(width: 8),
                   AmbientIconButton(
-                    icon: Icons.network_check_rounded,
+                    icon: Symbols.network_check_rounded,
                     tooltip: context.l10n.preheat_networkSettings,
                     onPressed: () => _openNetworkSettings(context),
                   ),
                   const SizedBox(width: 8),
                   AmbientIconButton(
-                    icon: Icons.logout_rounded,
+                    icon: Symbols.logout_rounded,
                     tooltip: context.l10n.common_logout,
                     onPressed: () => _confirmLogout(context),
                   ),

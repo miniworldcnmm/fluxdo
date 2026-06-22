@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/rendering.dart';
 
 // ============================================================
@@ -161,6 +162,7 @@ class _QuickActionButton extends StatelessWidget {
           child: Icon(
             action.icon,
             size: 20,
+            fill: action.active ? 1 : 0,
             color: enabled ? fg : fg.withValues(alpha: 0.38),
           ),
         ),
@@ -541,7 +543,7 @@ class _SubmenuRowTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
-            Icon(icon, size: 20, color: fg),
+            Icon(icon, size: 20, fill: selected ? 1 : 0, color: fg),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -569,7 +571,7 @@ class _SubmenuRowTile extends StatelessWidget {
                 ],
               ),
             ),
-            if (selected) Icon(Icons.check, size: 18, color: cs.primary),
+            if (selected) Icon(Symbols.check_rounded, size: 18, color: cs.primary),
           ],
         ),
       ),
@@ -639,7 +641,7 @@ class _SubmenuRoute extends PopupRoute<void> with _MenuChainRoute<void> {
               iconColor: iconColor ?? cs.onSurface,
               labelColor: labelColor ?? cs.onSurface,
               trailing: Icon(
-                Icons.keyboard_arrow_up,
+                Symbols.keyboard_arrow_up_rounded,
                 size: 20,
                 color: cs.onSurfaceVariant,
               ),
@@ -1542,7 +1544,7 @@ class _SwipeDismissiblePopupMenuButtonState<T>
     }
 
     return IconButton(
-      icon: widget.icon ?? Icon(Icons.adaptive.more),
+      icon: widget.icon ?? const Icon(Symbols.more_vert_rounded),
       padding: widget.padding,
       splashRadius: widget.splashRadius,
       iconSize: widget.iconSize ?? popupMenuTheme.iconSize ?? iconTheme.size,

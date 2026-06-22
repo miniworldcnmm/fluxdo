@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/rendering.dart' show SelectedContent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/s.dart';
@@ -545,7 +546,7 @@ class _PostRepliesSheetContentState
                   height: 12,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Icon(Icons.expand_more, size: 16),
+              : const Icon(Symbols.expand_more_rounded, size: 16),
           label: Text(S.current.post_loadMoreReplies),
           style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
         ),

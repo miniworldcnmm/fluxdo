@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent, SelectedContent;
 import 'package:scroll_to_index/scroll_to_index.dart';
 import '../../../l10n/s.dart';
@@ -1030,7 +1031,7 @@ class _GapIndicatorState extends State<_GapIndicator> {
               Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: Icon(
-                  Icons.unfold_more,
+                  Symbols.unfold_more_rounded,
                   size: 16,
                   color: theme.colorScheme.primary,
                 ),
@@ -1067,7 +1068,7 @@ class _LoadFailedRetry extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.refresh, size: 16, color: theme.colorScheme.primary),
+              Icon(Symbols.refresh_rounded, size: 16, color: theme.colorScheme.primary),
               const SizedBox(width: 6),
               Text(
                 S.current.topicDetail_loadFailedTapRetry,

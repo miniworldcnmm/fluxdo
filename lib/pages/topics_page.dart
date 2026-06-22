@@ -4,6 +4,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
@@ -1025,7 +1026,7 @@ class _TopicsHeaderDelegate extends SliverPersistentHeaderDelegate {
                                 child: Row(
                                   children: [
                                     Icon(
-                                      Icons.search,
+                                      Symbols.search_rounded,
                                       size: 20,
                                       color: Theme.of(
                                         context,
@@ -1055,7 +1056,7 @@ class _TopicsHeaderDelegate extends SliverPersistentHeaderDelegate {
                             const NotificationIconButton(),
                           if (kDebugMode)
                             IconButton(
-                              icon: const Icon(Icons.bug_report),
+                              icon: const Icon(Symbols.bug_report_rounded),
                               onPressed: onDebugTopicId,
                               tooltip: context.l10n.topics_debugJump,
                             ),
@@ -1104,7 +1105,7 @@ class _TopicsHeaderDelegate extends SliverPersistentHeaderDelegate {
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: IconButton(
-                    icon: const Icon(Icons.segment, size: 20),
+                    icon: const Icon(Symbols.segment_rounded, size: 20),
                     onPressed: onCategoryManager,
                     tooltip: context.l10n.topics_browseCategories,
                     visualDensity: VisualDensity.compact,
@@ -1726,7 +1727,7 @@ class _TopicListState extends ConsumerState<_TopicList>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.arrow_upward,
+                          Symbols.arrow_upward_rounded,
                           size: 14,
                           color: Theme.of(context).colorScheme.primary,
                         ),
@@ -1775,7 +1776,7 @@ class _DismissButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.check, size: 14, color: fgColor),
+              Icon(Symbols.check_rounded, size: 14, color: fgColor),
               const SizedBox(width: 4),
               Text(
                 context.l10n.topics_dismiss,

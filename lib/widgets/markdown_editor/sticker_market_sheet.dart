@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -106,7 +107,7 @@ class _StickerMarketSheetState extends ConsumerState<StickerMarketSheet> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 48, color: theme.colorScheme.outline),
+          Icon(Symbols.error_rounded, size: 48, color: theme.colorScheme.outline),
           const SizedBox(height: 12),
           Text(
             S.current.sticker_marketLoadFailed,
@@ -208,7 +209,7 @@ class _StickerGroupTile extends ConsumerWidget {
         trailing: isSubscribed
             ? FilledButton.tonalIcon(
                 onPressed: onToggle,
-                icon: const Icon(Icons.check, size: 16),
+                icon: const Icon(Symbols.check_rounded, size: 16),
                 label: Text(S.current.sticker_added),
                 style: FilledButton.styleFrom(
                   visualDensity: VisualDensity.compact,
@@ -217,7 +218,7 @@ class _StickerGroupTile extends ConsumerWidget {
               )
             : OutlinedButton.icon(
                 onPressed: onToggle,
-                icon: const Icon(Icons.add, size: 16),
+                icon: const Icon(Symbols.add_rounded, size: 16),
                 label: Text(S.current.common_add),
                 style: OutlinedButton.styleFrom(
                   visualDensity: VisualDensity.compact,

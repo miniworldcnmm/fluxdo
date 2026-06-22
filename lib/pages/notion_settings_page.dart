@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -214,7 +215,7 @@ class _NotionSettingsPageState extends ConsumerState<NotionSettingsPage> {
         actions: [
           if (cfg.isComplete)
             TextButton.icon(
-              icon: const Icon(Icons.link_off, size: 16),
+              icon: const Icon(Symbols.link_off_rounded, size: 16),
               onPressed: _testing ? null : _disconnect,
               label: Text(context.l10n.notion_disconnect),
             ),
@@ -250,7 +251,7 @@ class _NotionSettingsPageState extends ConsumerState<NotionSettingsPage> {
               children: [
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  icon: const Icon(Icons.open_in_new, size: 16),
+                  icon: const Icon(Symbols.open_in_new_rounded, size: 16),
                   onPressed: _openIntegrationsPage,
                   label: Text(context.l10n.notion_openIntegrationsPage),
                   style: OutlinedButton.styleFrom(
@@ -273,8 +274,8 @@ class _NotionSettingsPageState extends ConsumerState<NotionSettingsPage> {
                     suffixIcon: IconButton(
                       icon: Icon(
                         _obscureToken
-                            ? Icons.visibility_off
-                            : Icons.visibility,
+                            ? Symbols.visibility_off_rounded
+                            : Symbols.visibility_rounded,
                         size: 18,
                       ),
                       onPressed: () =>
@@ -308,7 +309,7 @@ class _NotionSettingsPageState extends ConsumerState<NotionSettingsPage> {
                     ),
                     suffixIcon: IconButton(
                       tooltip: context.l10n.common_paste,
-                      icon: const Icon(Icons.paste, size: 18),
+                      icon: const Icon(Symbols.content_paste_rounded, size: 18),
                       onPressed: () async {
                         final data = await Clipboard.getData('text/plain');
                         final text = data?.text?.trim();
@@ -321,7 +322,7 @@ class _NotionSettingsPageState extends ConsumerState<NotionSettingsPage> {
                 ),
                 const SizedBox(height: 8),
                 OutlinedButton.icon(
-                  icon: const Icon(Icons.auto_awesome, size: 16),
+                  icon: const Icon(Symbols.auto_awesome_rounded, size: 16),
                   onPressed: _testing ? null : _createTemplateDatabase,
                   label: Text(context.l10n.notion_createTemplateDb),
                   style: OutlinedButton.styleFrom(
@@ -352,7 +353,7 @@ class _NotionSettingsPageState extends ConsumerState<NotionSettingsPage> {
                               color: Colors.white,
                             ),
                           )
-                        : const Icon(Icons.check_circle_outline, size: 18),
+                        : const Icon(Symbols.check_circle_rounded, size: 18),
                     onPressed: _testing
                         ? null
                         : () async {
@@ -460,7 +461,7 @@ class _NotionSettingsPageState extends ConsumerState<NotionSettingsPage> {
             child: Row(
               children: [
                 Icon(
-                  Icons.lock_outline_rounded,
+                  Symbols.lock_rounded,
                   size: 14,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -507,7 +508,7 @@ class _UpgradeBanner extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.upgrade_rounded, color: accent, size: 20),
+              Icon(Symbols.upgrade_rounded, color: accent, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -541,7 +542,7 @@ class _UpgradeBanner extends StatelessWidget {
                         color: Colors.white,
                       ),
                     )
-                  : const Icon(Icons.bolt_rounded, size: 16),
+                  : const Icon(Symbols.bolt_rounded, size: 16),
               onPressed: upgrading ? null : onUpgrade,
               label: Text(context.l10n.notion_upgradeAction),
               style: FilledButton.styleFrom(
@@ -587,7 +588,7 @@ class _ConfiguredBanner extends StatelessWidget {
             ),
             alignment: Alignment.center,
             child: Icon(
-              Icons.check_rounded,
+              Symbols.check_rounded,
               size: 18,
               color: theme.colorScheme.onPrimary,
             ),
@@ -602,7 +603,7 @@ class _ConfiguredBanner extends StatelessWidget {
             ),
           ),
           TextButton.icon(
-            icon: const Icon(Icons.edit_outlined, size: 16),
+            icon: const Icon(Symbols.edit_rounded, size: 16),
             onPressed: onEdit,
             label: Text(context.l10n.notion_editConfig),
           ),
@@ -639,7 +640,7 @@ class _Header extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
-              Icons.cloud_sync_rounded,
+              Symbols.cloud_sync_rounded,
               color: theme.colorScheme.primary,
             ),
           ),
@@ -719,7 +720,7 @@ class _StepCard extends StatelessWidget {
                 alignment: Alignment.center,
                 child: done
                     ? Icon(
-                        Icons.check_rounded,
+                        Symbols.check_rounded,
                         size: 16,
                         color: theme.colorScheme.onPrimary,
                       )

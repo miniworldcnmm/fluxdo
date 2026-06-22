@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../l10n/s.dart';
 
 /// 悄悄话（Whisper）指示器组件
@@ -24,7 +25,7 @@ class WhisperIndicator extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.visibility_off_outlined,
+            Symbols.visibility_off_rounded,
             size: 12,
             color: theme.colorScheme.tertiary,
           ),

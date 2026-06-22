@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../../../l10n/s.dart';
 import '../../../utils/dialog_utils.dart';
@@ -113,7 +114,7 @@ class _RevisionSheetFrame extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                Icons.history,
+                Symbols.history_rounded,
                 size: 18,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -128,7 +129,7 @@ class _RevisionSheetFrame extends StatelessWidget {
               ),
               IconButton(
                 tooltip: MaterialLocalizations.of(context).closeButtonLabel,
-                icon: const Icon(Icons.close, size: 20),
+                icon: const Icon(Symbols.close_rounded, size: 20),
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
             ],

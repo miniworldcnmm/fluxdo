@@ -11,3 +11,5 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
+  app_icons:
+    path: ../app_icons

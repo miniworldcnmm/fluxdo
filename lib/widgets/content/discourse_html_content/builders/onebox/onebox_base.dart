@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../../../models/topic.dart';
 import '../../../../../services/discourse_cache_manager.dart';
 
@@ -192,7 +193,7 @@ class OneboxStatusIndicator extends StatelessWidget {
     return const OneboxStatusIndicator(
       status: 'Open',
       color: Color(0xFF238636),
-      icon: Icons.circle_outlined,
+      icon: Symbols.circle_rounded,
     );
   }
 
@@ -201,7 +202,7 @@ class OneboxStatusIndicator extends StatelessWidget {
     return const OneboxStatusIndicator(
       status: 'Closed',
       color: Color(0xFF8957e5),
-      icon: Icons.check_circle_outline,
+      icon: Symbols.check_circle_rounded,
     );
   }
 
@@ -210,7 +211,7 @@ class OneboxStatusIndicator extends StatelessWidget {
     return const OneboxStatusIndicator(
       status: 'Open',
       color: Color(0xFF238636),
-      icon: Icons.call_merge,
+      icon: Symbols.call_merge_rounded,
     );
   }
 
@@ -219,7 +220,7 @@ class OneboxStatusIndicator extends StatelessWidget {
     return const OneboxStatusIndicator(
       status: 'Merged',
       color: Color(0xFF8957e5),
-      icon: Icons.merge,
+      icon: Symbols.merge_rounded,
     );
   }
 
@@ -228,7 +229,7 @@ class OneboxStatusIndicator extends StatelessWidget {
     return const OneboxStatusIndicator(
       status: 'Closed',
       color: Color(0xFFda3633),
-      icon: Icons.close,
+      icon: Symbols.close_rounded,
     );
   }
 
@@ -281,7 +282,7 @@ class OneboxClickCount extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.visibility_outlined,
+            Symbols.visibility_rounded,
             size: 10,
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -324,7 +325,7 @@ class OneboxSourceHeader extends StatelessWidget {
             width: 16,
             height: 16,
             errorBuilder: (context, error, stackTrace) {
-              return const Icon(Icons.link, size: 16);
+              return const Icon(Symbols.link_rounded, size: 16);
             },
           ),
           const SizedBox(width: 8),
@@ -359,7 +360,7 @@ class OneboxAvatar extends StatelessWidget {
     this.imageUrl,
     this.size = 40,
     this.borderRadius = 20,
-    this.fallbackIcon = Icons.person,
+    this.fallbackIcon = Symbols.person_rounded,
   });
 
   @override

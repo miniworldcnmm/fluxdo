@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -264,7 +265,7 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.sticky_note_2_outlined,
+            Symbols.sticky_note_2_rounded,
             size: 48,
             color: theme.colorScheme.outline.withValues(alpha: 0.5),
           ),
@@ -276,7 +277,7 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
           const SizedBox(height: 12),
           FilledButton.tonalIcon(
             onPressed: _openMarket,
-            icon: const Icon(Icons.add, size: 18),
+            icon: const Icon(Symbols.add_rounded, size: 18),
             label: Text(S.current.sticker_addFromMarket),
           ),
         ],
@@ -290,7 +291,7 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 48, color: theme.colorScheme.outline),
+          Icon(Symbols.error_rounded, size: 48, color: theme.colorScheme.outline),
           const SizedBox(height: 12),
           Text(
             S.current.sticker_loadFailed,
@@ -402,7 +403,7 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
                               builder: (_, raw, _) {
                                 final activeIndex = raw.clamp(0, totalTabs - 1);
                                 return Icon(
-                                  Icons.access_time,
+                                  Symbols.access_time_rounded,
                                   size: 20,
                                   color: activeIndex == index
                                       ? theme.colorScheme.primary
@@ -442,7 +443,7 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
           ),
           IconButton(
             icon: Icon(
-              Icons.add_circle_outline,
+              Symbols.add_circle_rounded,
               size: 20,
               color: theme.colorScheme.primary,
             ),
@@ -711,7 +712,7 @@ class _StickerItemWidget extends StatelessWidget {
                 ),
               ),
               errorBuilder: (_, _, _) => Icon(
-                Icons.broken_image_outlined,
+                Symbols.broken_image_rounded,
                 size: 24,
                 color: Theme.of(context).colorScheme.outline,
               ),
@@ -827,7 +828,7 @@ class _StickerPreviewPopup extends StatelessWidget {
                       // 不传 memCacheWidth → AVIF 完整解码（含动画）
                       cacheManager: StickerCacheManager(),
                       errorBuilder: (_, _, _) => Icon(
-                        Icons.broken_image_outlined,
+                        Symbols.broken_image_rounded,
                         size: 48,
                         color: theme.colorScheme.outline,
                       ),

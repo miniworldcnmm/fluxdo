@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../../l10n/s.dart';
 import '../../utils/dialog_utils.dart';
@@ -53,7 +54,7 @@ class _AiBottomToolsSheet extends StatelessWidget {
       child: Row(
         children: [
           _ToolCard(
-            icon: Icons.camera_alt_outlined,
+            icon: Symbols.camera_alt_rounded,
             label: S.current.ai_toolsCamera,
             onTap: onCamera == null
                 ? null
@@ -64,7 +65,7 @@ class _AiBottomToolsSheet extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           _ToolCard(
-            icon: Icons.photo_library_outlined,
+            icon: Symbols.photo_library_rounded,
             label: S.current.ai_toolsPhotos,
             onTap: onPhotos == null
                 ? null
@@ -75,7 +76,7 @@ class _AiBottomToolsSheet extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           _ToolCard(
-            icon: imageMode ? Icons.brush : Icons.brush_outlined,
+            icon: Symbols.brush_rounded,
             label: imageMode
                 ? S.current.ai_modeBackToChat
                 : S.current.ai_modeSwitchToImage,
@@ -140,7 +141,7 @@ class _ToolCard extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 26, color: fg),
+                Icon(icon, size: 26, fill: active ? 1 : 0, color: fg),
                 const SizedBox(height: 6),
                 Text(
                   label,

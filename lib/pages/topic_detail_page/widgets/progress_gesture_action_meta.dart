@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../../../l10n/s.dart';
 import '../../../providers/preferences_provider.dart';
@@ -13,102 +14,102 @@ import '../../../providers/preferences_provider.dart';
   switch (action) {
     case ProgressGestureAction.none:
       return (
-        icon: Icons.do_not_disturb_alt_outlined,
+        icon: Symbols.do_not_disturb_on_rounded,
         label: l.progressGesture_action_none,
       );
     case ProgressGestureAction.openTimeline:
       return (
-        icon: Icons.unfold_more_rounded,
+        icon: Symbols.unfold_more_rounded,
         label: l.progressGesture_action_openTimeline,
       );
     case ProgressGestureAction.scrollToTop:
       return (
-        icon: Icons.vertical_align_top_rounded,
+        icon: Symbols.vertical_align_top_rounded,
         label: l.progressGesture_action_scrollToTop,
       );
     case ProgressGestureAction.jumpToUnread:
       return (
-        icon: Icons.mark_chat_unread_outlined,
+        icon: Symbols.mark_chat_unread_rounded,
         label: l.progressGesture_action_jumpToUnread,
       );
     case ProgressGestureAction.nextPost:
       return (
-        icon: Icons.south_rounded,
+        icon: Symbols.south_rounded,
         label: l.progressGesture_action_nextPost,
       );
     case ProgressGestureAction.previousPost:
       return (
-        icon: Icons.north_rounded,
+        icon: Symbols.north_rounded,
         label: l.progressGesture_action_previousPost,
       );
     case ProgressGestureAction.reply:
       return (
-        icon: Icons.reply_rounded,
+        icon: Symbols.reply_rounded,
         label: l.progressGesture_action_reply,
       );
     case ProgressGestureAction.share:
       return (
-        icon: Icons.link_rounded,
+        icon: Symbols.link_rounded,
         label: l.progressGesture_action_share,
       );
     case ProgressGestureAction.shareImage:
       return (
-        icon: Icons.image_outlined,
+        icon: Symbols.image_rounded,
         label: l.progressGesture_action_shareImage,
       );
     case ProgressGestureAction.exportArticle:
       return (
-        icon: Icons.download_outlined,
+        icon: Symbols.download_rounded,
         label: l.progressGesture_action_exportArticle,
       );
     case ProgressGestureAction.openInBrowser:
       return (
-        icon: Icons.language_rounded,
+        icon: Symbols.language_rounded,
         label: l.progressGesture_action_openInBrowser,
       );
     case ProgressGestureAction.bookmark:
       return (
-        icon: Icons.bookmark_border_rounded,
+        icon: Symbols.bookmark_border_rounded,
         label: l.progressGesture_action_bookmark,
       );
     case ProgressGestureAction.readLater:
       return (
-        icon: Icons.layers_outlined,
+        icon: Symbols.layers_rounded,
         label: l.progressGesture_action_readLater,
       );
     case ProgressGestureAction.notification:
       return (
-        icon: Icons.notifications_none_rounded,
+        icon: Symbols.notifications_none_rounded,
         label: l.progressGesture_action_notification,
       );
     case ProgressGestureAction.filter:
       return (
-        icon: Icons.filter_list_rounded,
+        icon: Symbols.filter_list_rounded,
         label: l.progressGesture_action_filter,
       );
     case ProgressGestureAction.toggleNestedView:
       return (
-        icon: Icons.account_tree_outlined,
+        icon: Symbols.account_tree_rounded,
         label: l.progressGesture_action_toggleNestedView,
       );
     case ProgressGestureAction.aiAssistant:
       return (
-        icon: Icons.auto_awesome_rounded,
+        icon: Symbols.auto_awesome_rounded,
         label: l.progressGesture_action_aiAssistant,
       );
     case ProgressGestureAction.readingSettings:
       return (
-        icon: Icons.auto_stories_rounded,
+        icon: Symbols.auto_stories_rounded,
         label: l.progressGesture_action_readingSettings,
       );
     case ProgressGestureAction.search:
       return (
-        icon: Icons.search_rounded,
+        icon: Symbols.search_rounded,
         label: l.progressGesture_action_search,
       );
     case ProgressGestureAction.refresh:
       return (
-        icon: Icons.refresh_rounded,
+        icon: Symbols.refresh_rounded,
         label: l.progressGesture_action_refresh,
       );
   }

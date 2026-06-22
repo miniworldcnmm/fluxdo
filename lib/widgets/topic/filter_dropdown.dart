@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/topic_list/filter_provider.dart';
 import '../../providers/topic_list/sort_provider.dart';
@@ -72,7 +73,7 @@ class FilterDropdown extends ConsumerWidget {
                   child: Row(
                     children: [
                       if (option.$1 == currentFilter)
-                        Icon(Icons.check, size: 16, color: colorScheme.primary)
+                        Icon(Symbols.check_rounded, size: 16, color: colorScheme.primary)
                       else
                         const SizedBox(width: 16),
                       const SizedBox(width: 8),
@@ -119,7 +120,7 @@ class FilterDropdown extends ConsumerWidget {
             ),
           ),
           const SizedBox(width: 2),
-          Icon(Icons.arrow_drop_down, size: 18, color: colorScheme.onSurfaceVariant),
+          Icon(Symbols.arrow_drop_down_rounded, size: 18, color: colorScheme.onSurfaceVariant),
         ],
       ),
     );
@@ -131,7 +132,7 @@ class FilterDropdown extends ConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.filter_list, size: 18, color: colorScheme.onSurfaceVariant),
+          Icon(Symbols.filter_list_rounded, size: 18, color: colorScheme.onSurfaceVariant),
           const SizedBox(width: 2),
           Text(
             label,
@@ -188,7 +189,7 @@ class OrderDropdown extends StatelessWidget {
             child: Row(
               children: [
                 if (isSelected)
-                  Icon(Icons.check, size: 16, color: colorScheme.primary)
+                  Icon(Symbols.check_rounded, size: 16, color: colorScheme.primary)
                 else
                   const SizedBox(width: 16),
                 const SizedBox(width: 8),
@@ -196,7 +197,7 @@ class OrderDropdown extends StatelessWidget {
                 // 当前选中的非默认项显示方向箭头
                 if (isSelected && order != TopicSortOrder.defaultOrder)
                   Icon(
-                    ascending ? Icons.arrow_upward : Icons.arrow_downward,
+                    ascending ? Symbols.arrow_upward_rounded : Symbols.arrow_downward_rounded,
                     size: 14,
                     color: colorScheme.primary,
                   ),
@@ -234,12 +235,12 @@ class OrderDropdown extends StatelessWidget {
           const SizedBox(width: 2),
           if (isActive)
             Icon(
-              ascending ? Icons.arrow_upward : Icons.arrow_downward,
+              ascending ? Symbols.arrow_upward_rounded : Symbols.arrow_downward_rounded,
               size: 14,
               color: colorScheme.primary,
             )
           else
-            Icon(Icons.arrow_drop_down, size: 18, color: colorScheme.onSurfaceVariant),
+            Icon(Symbols.arrow_drop_down_rounded, size: 18, color: colorScheme.onSurfaceVariant),
         ],
       ),
     );
@@ -252,7 +253,7 @@ class OrderDropdown extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.sort,
+            Symbols.sort_rounded,
             size: 18,
             color: isActive ? colorScheme.primary : colorScheme.onSurfaceVariant,
           ),
@@ -266,7 +267,7 @@ class OrderDropdown extends StatelessWidget {
               ),
             ),
             Icon(
-              ascending ? Icons.arrow_upward : Icons.arrow_downward,
+              ascending ? Symbols.arrow_upward_rounded : Symbols.arrow_downward_rounded,
               size: 12,
               color: colorScheme.primary,
             ),
@@ -319,7 +320,7 @@ class NewSubsetDropdown extends StatelessWidget {
             child: Row(
               children: [
                 if (isSelected)
-                  Icon(Icons.check, size: 16, color: colorScheme.primary)
+                  Icon(Symbols.check_rounded, size: 16, color: colorScheme.primary)
                 else
                   const SizedBox(width: 16),
                 const SizedBox(width: 8),
@@ -356,7 +357,7 @@ class NewSubsetDropdown extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 2),
-          Icon(Icons.arrow_drop_down, size: 18, color: colorScheme.onSurfaceVariant),
+          Icon(Symbols.arrow_drop_down_rounded, size: 18, color: colorScheme.onSurfaceVariant),
         ],
       ),
     );
@@ -369,7 +370,7 @@ class NewSubsetDropdown extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            isActive ? Icons.filter_alt : Icons.filter_list,
+            isActive ? Symbols.filter_alt_rounded : Symbols.filter_list_rounded,
             size: 18,
             color: isActive
                 ? colorScheme.primary

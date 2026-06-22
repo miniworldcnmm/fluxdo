@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 class MobileTopicWorkspaceAppBar extends StatelessWidget
     implements PreferredSizeWidget {
@@ -50,14 +51,14 @@ class MobileTopicWorkspaceAppBar extends StatelessWidget
             tooltip: MaterialLocalizations.of(context).backButtonTooltip,
             onPressed: onBack,
             visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.arrow_back, size: 20),
+            icon: const Icon(Symbols.arrow_back_rounded, size: 20),
           ),
           IconButton(
             key: closeButtonKey,
             tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
             onPressed: onClose,
             visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.close_rounded, size: 20),
+            icon: const Icon(Symbols.close_rounded, size: 20),
           ),
           const SizedBox(width: 4),
           Expanded(child: title),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 // 统一底部弹框外壳常量
 const double _kSheetCornerRadius = 20.0;
@@ -176,7 +177,7 @@ class AppSheetScaffold extends StatelessWidget {
           ...actions,
           if (showCloseButton)
             IconButton(
-              icon: const Icon(Icons.close),
+              icon: const Icon(Symbols.close_rounded),
               visualDensity: VisualDensity.compact,
               tooltip: MaterialLocalizations.of(
                 context,

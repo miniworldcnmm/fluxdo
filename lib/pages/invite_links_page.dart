@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -565,7 +566,7 @@ class _InviteLinksPageState extends ConsumerState<InviteLinksPage> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.link_rounded),
+                      : const Icon(Symbols.link_rounded),
                   label: Text(_isSubmitting ? context.l10n.invite_creating : context.l10n.invite_createLink),
                 ),
               ),
@@ -651,7 +652,7 @@ class _InviteLinksPageState extends ConsumerState<InviteLinksPage> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Icon(Icons.link_rounded),
+                    : const Icon(Symbols.link_rounded),
                 label: Text(_isSubmitting ? context.l10n.invite_creating : context.l10n.invite_createLink),
               ),
             ),
@@ -719,19 +720,19 @@ class _InviteLinksPageState extends ConsumerState<InviteLinksPage> {
               runSpacing: 8,
               children: [
                 _MetaChip(
-                  icon: Icons.repeat_rounded,
+                  icon: Symbols.repeat_rounded,
                   label:
                       context.l10n.invite_usableCount(invite.invite?.maxRedemptionsAllowed ?? _maxRedemptionsAllowed),
                 ),
                 if (invite.invite?.expiresAt != null)
                   _MetaChip(
-                    icon: Icons.schedule_rounded,
+                    icon: Symbols.schedule_rounded,
                     label:
                         context.l10n.invite_expiryDate(TimeUtils.formatDetailTime(invite.invite!.expiresAt)),
                   )
                 else
                   _MetaChip(
-                    icon: Icons.all_inclusive_rounded,
+                    icon: Symbols.all_inclusive_rounded,
                     label: context.l10n.invite_noExpiry,
                   ),
               ],
@@ -742,7 +743,7 @@ class _InviteLinksPageState extends ConsumerState<InviteLinksPage> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _copyInviteLink,
-                    icon: const Icon(Icons.copy_rounded),
+                    icon: const Icon(Symbols.content_copy_rounded),
                     label: Text(context.l10n.common_copyLink),
                   ),
                 ),
@@ -750,7 +751,7 @@ class _InviteLinksPageState extends ConsumerState<InviteLinksPage> {
                 Expanded(
                   child: FilledButton.icon(
                     onPressed: _shareInviteLink,
-                    icon: const Icon(Icons.share_rounded),
+                    icon: const Icon(Symbols.share_rounded),
                     label: Text(context.l10n.common_share),
                   ),
                 ),

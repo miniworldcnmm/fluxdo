@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../constants.dart';
@@ -842,7 +843,7 @@ class _Header extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.verified_user_outlined, size: 20, color: scheme.primary),
+          Icon(Symbols.verified_user_rounded, size: 20, color: scheme.primary),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -853,7 +854,7 @@ class _Header extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, size: 22),
+            icon: const Icon(Symbols.close_rounded, size: 22),
             tooltip: '取消',
             onPressed: onClose,
             visualDensity: VisualDensity.compact,

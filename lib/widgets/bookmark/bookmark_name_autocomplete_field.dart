@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 
 class _RefreshableTextEditingController extends TextEditingController {
@@ -190,7 +191,7 @@ class _BookmarkNameAutocompleteFieldState
                 borderRadius: BorderRadius.circular(12),
               ),
               counterText: '',
-              prefixIcon: const Icon(Icons.label_outline, size: 20),
+              prefixIcon: const Icon(Symbols.label_rounded, size: 20),
             ),
           ),
         );

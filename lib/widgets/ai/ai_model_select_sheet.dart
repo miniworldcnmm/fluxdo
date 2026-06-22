@@ -1,5 +1,6 @@
 import 'package:ai_model_manager/ai_model_manager.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 
@@ -85,14 +86,14 @@ class _AiModelSelectSheetState extends ConsumerState<_AiModelSelectSheet> {
               decoration: InputDecoration(
                 hintText: context.l10n.ai_modelSearchHint,
                 prefixIcon: Icon(
-                  Icons.search,
+                  Symbols.search_rounded,
                   size: 20,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
                 suffixIcon: _query.isEmpty
                     ? null
                     : IconButton(
-                        icon: const Icon(Icons.close, size: 18),
+                        icon: const Icon(Symbols.close_rounded, size: 18),
                         visualDensity: VisualDensity.compact,
                         onPressed: () {
                           _searchController.clear();
@@ -185,7 +186,7 @@ class _AiModelSelectSheetState extends ConsumerState<_AiModelSelectSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.search_off,
+            Symbols.search_off_rounded,
             size: 40,
             color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
           ),
@@ -418,7 +419,7 @@ class _AiModelSelectSheetState extends ConsumerState<_AiModelSelectSheet> {
                     children: [
                       if (section.isFavorites)
                         Icon(
-                          Icons.favorite_rounded,
+                          Symbols.favorite_rounded,
                           size: 18,
                           color: theme.colorScheme.error,
                         )
@@ -555,13 +556,13 @@ class _ModelRow extends StatelessWidget {
                                 children: [
                                   if (isImageOut)
                                     _CapabilityBadge(
-                                      icon: Icons.image_outlined,
+                                      icon: Symbols.image_rounded,
                                       label: 'image',
                                       color: const Color(0xFFEA580C),
                                     ),
                                   if (item.model.input.contains(Modality.image))
                                     _CapabilityBadge(
-                                      icon: Icons.visibility_outlined,
+                                      icon: Symbols.visibility_rounded,
                                       label: 'vision',
                                       color: theme.colorScheme.tertiary,
                                     ),
@@ -569,7 +570,7 @@ class _ModelRow extends StatelessWidget {
                                     ModelAbility.reasoning,
                                   ))
                                     _CapabilityBadge(
-                                      icon: Icons.psychology_alt_outlined,
+                                      icon: Symbols.psychology_alt_rounded,
                                       label: 'reasoning',
                                       color: theme.colorScheme.secondary,
                                     ),
@@ -577,7 +578,7 @@ class _ModelRow extends StatelessWidget {
                                     ModelAbility.tool,
                                   ))
                                     _CapabilityBadge(
-                                      icon: Icons.build_outlined,
+                                      icon: Symbols.build_rounded,
                                       label: 'tool',
                                       color: theme.colorScheme.primary,
                                     ),
@@ -599,8 +600,7 @@ class _ModelRow extends StatelessWidget {
                   ? context.l10n.ai_modelFavoriteRemove
                   : context.l10n.ai_modelFavoriteAdd,
               onPressed: onToggleFavorite,
-              icon: Icon(
-                isFavorite ? Icons.favorite : Icons.favorite_border,
+              icon: Icon(Symbols.favorite_rounded, fill: isFavorite ? 1 : 0,
                 size: 20,
                 color: isFavorite
                     ? theme.colorScheme.error
@@ -609,7 +609,7 @@ class _ModelRow extends StatelessWidget {
             ),
             if (isCurrent) ...[
               Icon(
-                Icons.check_circle,
+                Symbols.check_circle_rounded,
                 size: 20,
                 color: theme.colorScheme.primary,
               ),

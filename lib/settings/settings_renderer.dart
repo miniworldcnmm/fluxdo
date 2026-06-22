@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/s.dart';
@@ -182,7 +183,7 @@ class SettingsRenderer extends ConsumerWidget {
               ),
             )
           : null,
-      trailing: Icon(Icons.chevron_right, color: theme.colorScheme.onSurfaceVariant),
+      trailing: Icon(Symbols.chevron_right_rounded, color: theme.colorScheme.onSurfaceVariant),
       onTap: () => m.onTap(context, ref),
     );
   }

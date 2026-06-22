@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../../../../l10n/s.dart';
 import '../../../../models/topic.dart';
@@ -105,7 +106,7 @@ class _BannerHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.check_box_outlined, color: Colors.white, size: 18),
+          const Icon(Symbols.check_box_rounded, color: Colors.white, size: 18),
           const SizedBox(width: 8),
           Text(
             context.l10n.post_topicSolved,
@@ -220,13 +221,13 @@ class _AnswerRow extends StatelessWidget {
                   ),
                   if (hasExcerpt)
                     Icon(
-                      expanded ? Icons.expand_less : Icons.expand_more,
+                      expanded ? Symbols.expand_less_rounded : Symbols.expand_more_rounded,
                       size: 20,
                       color: theme.colorScheme.onSurfaceVariant,
                     )
                   else
                     Icon(
-                      Icons.arrow_forward_rounded,
+                      Symbols.arrow_forward_rounded,
                       size: 18,
                       color: theme.colorScheme.onSurfaceVariant.withValues(
                         alpha: 0.6,

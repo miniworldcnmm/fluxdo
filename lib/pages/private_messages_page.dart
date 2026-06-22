@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_riverpod/legacy.dart';
@@ -269,7 +270,7 @@ class _PrivateMessageTabViewState extends ConsumerState<_PrivateMessageTabView>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.mail_outline, size: 64, color: Colors.grey),
+                  const Icon(Symbols.mail_rounded, size: 64, color: Colors.grey),
                   const SizedBox(height: 16),
                   Text(
                     context.l10n.privateMessages_empty,

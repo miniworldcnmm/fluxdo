@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ai_model_manager/ai_model_manager.dart'
     show SwipeActionCell, SwipeAction, SwipeActionScope;
@@ -47,7 +48,7 @@ class MyBrowserPage extends ConsumerWidget {
             child: Column(
               children: [
                 _EntryTile(
-                  icon: Icons.star_rounded,
+                  icon: Symbols.star_rounded,
                   iconColor: Colors.amber,
                   title: context.l10n.myBrowser_bookmarks,
                   subtitle: context.l10n.myBrowser_bookmarkCount(bookmarkCount),
@@ -66,7 +67,7 @@ class MyBrowserPage extends ConsumerWidget {
                   ),
                 ),
                 _EntryTile(
-                  icon: Icons.history_rounded,
+                  icon: Symbols.history_rounded,
                   iconColor: Colors.purple,
                   title: context.l10n.myBrowser_history,
                   subtitle: context.l10n.myBrowser_historyDesc,
@@ -85,7 +86,7 @@ class MyBrowserPage extends ConsumerWidget {
                   ),
                 ),
                 _EntryTile(
-                  icon: Icons.download_rounded,
+                  icon: Symbols.download_rounded,
                   iconColor: Colors.teal,
                   title: context.l10n.myBrowser_downloads,
                   subtitle: context.l10n.myBrowser_downloadsDesc,
@@ -143,9 +144,9 @@ class _AddressBarState extends State<_AddressBar> {
       textInputAction: TextInputAction.go,
       decoration: InputDecoration(
         hintText: context.l10n.myBrowser_inputUrl,
-        prefixIcon: const Icon(Icons.language_rounded),
+        prefixIcon: const Icon(Symbols.language_rounded),
         suffixIcon: IconButton(
-          icon: const Icon(Icons.arrow_forward_rounded),
+          icon: const Icon(Symbols.arrow_forward_rounded),
           onPressed: () => _submit(),
         ),
         filled: true,
@@ -226,7 +227,7 @@ class _EntryTile extends StatelessWidget {
               ),
             ),
             Icon(
-              Icons.chevron_right_rounded,
+              Symbols.chevron_right_rounded,
               color: theme.colorScheme.outline.withValues(alpha: 0.4),
               size: 20,
             ),
@@ -254,7 +255,7 @@ class _BookmarkListPage extends ConsumerWidget {
         title: Text(context.l10n.myBrowser_bookmarks),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
+            icon: const Icon(Symbols.add_rounded),
             tooltip: context.l10n.myBrowser_addManually,
             onPressed: () => _showAddDialog(context, ref),
           ),
@@ -265,7 +266,7 @@ class _BookmarkListPage extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.star_outline_rounded,
+                  Icon(Symbols.star_rounded,
                       size: 64,
                       color: theme.colorScheme.onSurfaceVariant
                           .withValues(alpha: 0.4)),
@@ -292,14 +293,14 @@ class _BookmarkListPage extends ConsumerWidget {
                       key: ValueKey(item.url),
                       trailingActions: [
                         SwipeAction(
-                          icon: Icons.edit_outlined,
+                          icon: Symbols.edit_rounded,
                           color: Colors.blue,
                           label: S.current.myBrowser_edit,
                           onPressed: () =>
                               _showEditDialog(context, ref, item),
                         ),
                         SwipeAction(
-                          icon: Icons.delete_outline,
+                          icon: Symbols.delete_rounded,
                           color: Colors.red,
                           label: S.current.myBrowser_delete,
                           onPressed: () =>
@@ -462,7 +463,7 @@ class _WebHistoryPage extends ConsumerWidget {
         actions: [
           if (history.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.delete_sweep_rounded),
+              icon: const Icon(Symbols.delete_sweep_rounded),
               tooltip: context.l10n.myBrowser_clearHistory,
               onPressed: () => _confirmClear(context, ref),
             ),
@@ -473,7 +474,7 @@ class _WebHistoryPage extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.history_rounded,
+                  Icon(Symbols.history_rounded,
                       size: 64,
                       color: theme.colorScheme.onSurfaceVariant
                           .withValues(alpha: 0.4)),
@@ -500,7 +501,7 @@ class _WebHistoryPage extends ConsumerWidget {
                       key: ValueKey('${item.url}_${item.visitedAt.millisecondsSinceEpoch}'),
                       trailingActions: [
                         SwipeAction(
-                          icon: Icons.delete_outline,
+                          icon: Symbols.delete_rounded,
                           color: Colors.red,
                           label: S.current.myBrowser_delete,
                           onPressed: () => ref
@@ -573,7 +574,7 @@ class _HistoryCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
-                Icons.history_rounded,
+                Symbols.history_rounded,
                 color: Colors.purple,
                 size: 24,
               ),
@@ -614,7 +615,7 @@ class _HistoryCard extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded,
+            Icon(Symbols.chevron_right_rounded,
                 color: theme.colorScheme.outline.withValues(alpha: 0.4),
                 size: 20),
           ],
@@ -650,7 +651,7 @@ class _BookmarkCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
-                Icons.language_rounded,
+                Symbols.language_rounded,
                 color: theme.colorScheme.primary,
                 size: 24,
               ),
@@ -691,7 +692,7 @@ class _BookmarkCard extends StatelessWidget {
                 ],
               ),
             ),
-            Icon(Icons.chevron_right_rounded,
+            Icon(Symbols.chevron_right_rounded,
                 color: theme.colorScheme.outline.withValues(alpha: 0.4),
                 size: 20),
           ],

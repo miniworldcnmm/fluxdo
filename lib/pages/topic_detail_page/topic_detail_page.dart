@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../../services/app_error_handler.dart';
 import '../../services/notion/notion_bookmark_auto_sync.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:share_plus/share_plus.dart';
@@ -741,7 +742,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.close),
+            icon: const Icon(Symbols.close_rounded),
             onPressed: () {
               _searchController.clear();
               ref
@@ -833,7 +834,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                   child: Padding(
                     padding: const EdgeInsets.only(right: 4),
                     child: Icon(
-                      Icons.mail_outline,
+                      Symbols.mail_rounded,
                       size: 18,
                       color: theme.colorScheme.primary,
                     ),
@@ -845,7 +846,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                   child: Padding(
                     padding: const EdgeInsets.only(right: 4),
                     child: Icon(
-                      Icons.lock_outline,
+                      Symbols.lock_rounded,
                       size: 18,
                       color:
                           theme.textTheme.titleMedium?.color ??
@@ -858,7 +859,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                   alignment: PlaceholderAlignment.middle,
                   child: Padding(
                     padding: const EdgeInsets.only(right: 4),
-                    child: Icon(Icons.check_box, size: 18, color: Colors.green),
+                    child: Icon(Symbols.check_box_rounded, size: 18, color: Colors.green),
                   ),
                 ),
               ...EmojiText.buildEmojiSpans(
@@ -947,7 +948,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                 child: Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: Icon(
-                    Icons.mail_outline,
+                    Symbols.mail_rounded,
                     size: 16,
                     color: theme.colorScheme.primary,
                   ),
@@ -959,7 +960,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                 child: Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: Icon(
-                    Icons.lock_outline,
+                    Symbols.lock_rounded,
                     size: 16,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -970,7 +971,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                 alignment: PlaceholderAlignment.middle,
                 child: Padding(
                   padding: const EdgeInsets.only(right: 4),
-                  child: Icon(Icons.check_box, size: 16, color: Colors.green),
+                  child: Icon(Symbols.check_box_rounded, size: 16, color: Colors.green),
                 ),
               ),
             ...EmojiText.buildEmojiSpans(
@@ -992,7 +993,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       key: _usesEmbeddedMobileWorkspaceChrome
           ? const ValueKey('bookmark-workspace-mobile-search')
           : null,
-      icon: const Icon(Icons.search),
+      icon: const Icon(Symbols.search_rounded),
       tooltip: context.l10n.topicDetail_searchTopic,
       onPressed: () {
         ref
@@ -1101,11 +1102,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       key: _usesEmbeddedMobileWorkspaceChrome
           ? const ValueKey('bookmark-workspace-mobile-more')
           : null,
-      icon: const Icon(Icons.more_vert),
+      icon: const Icon(Symbols.more_vert_rounded),
       tooltip: context.l10n.topicDetail_moreOptions,
       headerActions: [
         MenuQuickAction(
-          icon: hasEditableBookmark ? Icons.bookmark : Icons.bookmark_border,
+          icon: Symbols.bookmark_rounded,
           tooltip: hasEditableBookmark
               ? context.l10n.topicDetail_editBookmark
               : context.l10n.common_addBookmark,
@@ -1113,7 +1114,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
           onTap: doBookmark,
         ),
         MenuQuickAction(
-          icon: isInReadLater ? Icons.layers : Icons.layers_outlined,
+          icon: Symbols.layers_rounded,
           tooltip: isInReadLater
               ? context.l10n.topicDetail_removeFromReadLater
               : context.l10n.topicDetail_addToReadLater,
@@ -1144,24 +1145,24 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         ),
         if (!detail.isPrivateMessage)
           MenuQuickAction(
-            icon: Icons.link,
+            icon: Symbols.link_rounded,
             tooltip: context.l10n.topicDetail_shareLink,
             onTap: _shareTopic,
           ),
         MenuQuickAction(
-          icon: Icons.filter_list,
+          icon: Symbols.filter_list_rounded,
           tooltip: context.l10n.topicDetail_filter,
           active: hasFilter,
           submenu: MenuQuickActionSubmenu(
-            icon: Icons.filter_list,
+            icon: Symbols.filter_list_rounded,
             label: context.l10n.topicDetail_filter,
             iconColor: hasFilter ? Theme.of(context).colorScheme.primary : null,
             children: [
               if (detail.hasSummary)
                 MenuQuickActionSubmenuChild(
                   icon: notifier.isSummaryMode
-                      ? Icons.local_fire_department
-                      : Icons.local_fire_department_outlined,
+                      ? Symbols.local_fire_department_rounded
+                      : Symbols.local_fire_department_rounded,
                   label: context.l10n.topicDetail_hotOnly,
                   selected: notifier.isSummaryMode,
                   onTap: () {
@@ -1174,8 +1175,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                 ),
               MenuQuickActionSubmenuChild(
                 icon: notifier.isAuthorOnlyMode
-                    ? Icons.person
-                    : Icons.person_outline,
+                    ? Symbols.person_rounded
+                    : Symbols.person_rounded,
                 label: context.l10n.topicDetail_authorOnly,
                 selected: notifier.isAuthorOnlyMode,
                 onTap: () {
@@ -1188,8 +1189,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
               ),
               MenuQuickActionSubmenuChild(
                 icon: notifier.isTopLevelMode
-                    ? Icons.account_tree
-                    : Icons.account_tree_outlined,
+                    ? Symbols.account_tree_rounded
+                    : Symbols.account_tree_rounded,
                 label: context.l10n.topicDetail_topLevelOnly,
                 selected: notifier.isTopLevelMode,
                 onTap: () {
@@ -1201,14 +1202,14 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                 },
               ),
               MenuQuickActionSubmenuChild(
-                icon: _isNestedView ? Icons.forum : Icons.forum_outlined,
+                icon: Symbols.forum_rounded,
                 label: context.l10n.nested_title,
                 selected: _isNestedView,
                 onTap: _toggleNestedView,
               ),
               if (hasFilter)
                 MenuQuickActionSubmenuChild(
-                  icon: Icons.filter_list_off,
+                  icon: Symbols.filter_list_off_rounded,
                   label: context.l10n.common_cancel,
                   onTap: _handleCancelFilter,
                 ),
@@ -1289,7 +1290,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.edit_outlined,
+                  Symbols.edit_rounded,
                   size: 20,
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
@@ -1305,7 +1306,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.image_outlined,
+                  Symbols.image_rounded,
                   size: 20,
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
@@ -1320,7 +1321,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.download_outlined,
+                Symbols.download_rounded,
                 size: 20,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
@@ -1335,7 +1336,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.language,
+                Symbols.language_rounded,
                 size: 20,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
@@ -1351,7 +1352,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.auto_stories_rounded,
+                Symbols.auto_stories_rounded,
                 size: 20,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
@@ -2186,7 +2187,7 @@ class _AiAssistantActionIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!isGenerating) {
-      return const Icon(Icons.auto_awesome);
+      return const Icon(Symbols.auto_awesome_rounded);
     }
 
     final color = IconTheme.of(context).color;
@@ -2201,7 +2202,7 @@ class _AiAssistantActionIcon extends StatelessWidget {
             height: 22,
             child: CircularProgressIndicator(strokeWidth: 2, color: color),
           ),
-          Icon(Icons.auto_awesome, size: 13, color: color),
+          Icon(Symbols.auto_awesome_rounded, size: 13, color: color),
         ],
       ),
     );

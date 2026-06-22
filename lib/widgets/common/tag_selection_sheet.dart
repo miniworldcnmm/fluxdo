@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'dart:async';
 import 'package:fluxdo/l10n/s.dart';
 import 'package:fluxdo/models/tag_search_result.dart';
@@ -236,7 +237,7 @@ class _TagSelectionSheetState extends State<TagSelectionSheet> {
                         child: Row(
                           children: [
                             Icon(
-                              Icons.info_outline,
+                              Symbols.info_rounded,
                               size: 16,
                               color: theme.colorScheme.primary,
                             ),
@@ -309,14 +310,14 @@ class _TagSelectionSheetState extends State<TagSelectionSheet> {
                                         ),
                                       )
                                     : Icon(
-                                        Icons.search,
+                                        Symbols.search_rounded,
                                         size: 20,
                                         color: theme.colorScheme.onSurface,
                                       ),
                                 suffixIcon: _searchController.text.isNotEmpty
                                     ? IconButton(
                                         icon: const Icon(
-                                          Icons.cancel,
+                                          Symbols.cancel_rounded,
                                           size: 18,
                                         ),
                                         color:
@@ -417,11 +418,11 @@ class _TagSelectionSheetState extends State<TagSelectionSheet> {
                             trailing:
                                 _currentSelectedTags.length >= widget.maxTags
                                 ? Icon(
-                                    Icons.block,
+                                    Symbols.block_rounded,
                                     color: theme.colorScheme.outline,
                                   )
                                 : Icon(
-                                    Icons.add_circle_outline,
+                                    Symbols.add_circle_rounded,
                                     color: theme.colorScheme.primary,
                                   ),
                             onTap: () => _toggleTag(tag.name),

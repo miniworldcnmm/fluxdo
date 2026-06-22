@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:ai_model_manager/ai_model_manager.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:gal/gal.dart';
 import 'package:super_clipboard/super_clipboard.dart';
@@ -252,7 +253,7 @@ class AiChatMessageItem extends StatelessWidget {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, size: 16, color: theme.colorScheme.error),
+            Icon(Symbols.error_rounded, size: 16, color: theme.colorScheme.error),
             const SizedBox(width: 6),
             Flexible(
               child: Text(
@@ -272,7 +273,7 @@ class AiChatMessageItem extends StatelessWidget {
             height: 28,
             child: TextButton.icon(
               onPressed: onRetry,
-              icon: Icon(Icons.refresh, size: 14, color: theme.colorScheme.primary),
+              icon: Icon(Symbols.refresh_rounded, size: 14, color: theme.colorScheme.primary),
               label: Text(
                 context.l10n.ai_retryLabel,
                 style: TextStyle(fontSize: 12, color: theme.colorScheme.primary),
@@ -330,19 +331,19 @@ class AiChatMessageItem extends StatelessWidget {
         children: [
           if (onReplyImage != null)
             _ActionButton(
-              icon: Icons.reply_outlined,
+              icon: Symbols.reply_rounded,
               label: context.l10n.ai_replyToTopicLabel,
               color: color,
               onTap: () => onReplyImage!(finalAttachments.first),
             ),
           _ActionButton(
-            icon: Icons.copy_outlined,
+            icon: Symbols.content_copy_rounded,
             label: context.l10n.ai_copyImageLabel,
             color: color,
             onTap: () => _copyImageAttachment(context, finalAttachments.first),
           ),
           _ActionButton(
-            icon: Icons.save_alt_outlined,
+            icon: Symbols.save_alt_rounded,
             label: context.l10n.ai_saveImageLabel,
             color: color,
             onTap: () => _saveImageAttachment(context, finalAttachments.first),
@@ -355,14 +356,14 @@ class AiChatMessageItem extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _ActionButton(
-          icon: Icons.image_outlined,
+          icon: Symbols.image_rounded,
           label: context.l10n.ai_exportImage,
           color: color,
           onTap: onShareAsImage,
         ),
         const SizedBox(width: 12),
         _ActionButton(
-          icon: Icons.copy_outlined,
+          icon: Symbols.content_copy_rounded,
           label: context.l10n.ai_copyLabel,
           color: color,
           onTap: onCopyText,
@@ -591,7 +592,7 @@ class _TappableImage extends StatelessWidget {
         height: 120,
         color: Colors.black12,
         alignment: Alignment.center,
-        child: const Icon(Icons.broken_image_outlined),
+        child: const Icon(Symbols.broken_image_rounded),
       );
 }
 
@@ -640,7 +641,7 @@ class _OptimizedPromptBlockState extends State<_OptimizedPromptBlock> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.auto_fix_high_outlined, size: 14, color: color),
+                  Icon(Symbols.auto_fix_high_rounded, size: 14, color: color),
                   const SizedBox(width: 6),
                   Text(
                     widget.optimizerName != null
@@ -650,7 +651,7 @@ class _OptimizedPromptBlockState extends State<_OptimizedPromptBlock> {
                   ),
                   const SizedBox(width: 4),
                   Icon(
-                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    _expanded ? Symbols.expand_less_rounded : Symbols.expand_more_rounded,
                     size: 16,
                     color: color,
                   ),
@@ -667,7 +668,7 @@ class _OptimizedPromptBlockState extends State<_OptimizedPromptBlock> {
                       borderRadius: BorderRadius.circular(4),
                       child: Padding(
                         padding: const EdgeInsets.all(2),
-                        child: Icon(Icons.copy_outlined,
+                        child: Icon(Symbols.content_copy_rounded,
                             size: 14, color: color),
                       ),
                     ),
@@ -838,8 +839,8 @@ class _ImageGenerationPlaceholderState
                 children: [
                   Icon(
                     widget.stage == 'optimizing_prompt'
-                        ? Icons.psychology_alt_outlined
-                        : Icons.auto_awesome_outlined,
+                        ? Symbols.psychology_alt_rounded
+                        : Symbols.auto_awesome_rounded,
                     size: 32,
                     color: theme.colorScheme.onSurfaceVariant
                         .withValues(alpha: 0.7),
@@ -928,7 +929,7 @@ class _ThinkingBlockState extends State<_ThinkingBlock> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.psychology_alt_outlined,
+                    Symbols.psychology_alt_rounded,
                     size: 14,
                     color: color,
                   ),
@@ -939,7 +940,7 @@ class _ThinkingBlockState extends State<_ThinkingBlock> {
                   ),
                   const SizedBox(width: 4),
                   Icon(
-                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    _expanded ? Symbols.expand_less_rounded : Symbols.expand_more_rounded,
                     size: 16,
                     color: color,
                   ),
@@ -1033,7 +1034,7 @@ class _AttachmentThumbnails extends StatelessWidget {
         width: size,
         height: size,
         color: Colors.black12,
-        child: const Icon(Icons.image_outlined, size: 24),
+        child: const Icon(Symbols.image_rounded, size: 24),
       );
 }
 

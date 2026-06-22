@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:fluxdo/l10n/s.dart';
 import 'package:fluxdo/models/category.dart';
@@ -141,14 +142,14 @@ class _CategorySelectionSheetState extends State<CategorySelectionSheet> {
                                   right: 12,
                                 ),
                                 prefixIcon: Icon(
-                                  Icons.search,
+                                  Symbols.search_rounded,
                                   size: 20,
                                   color: theme.colorScheme.onSurface,
                                 ),
                                 suffixIcon: _searchQuery.isNotEmpty
                                     ? IconButton(
                                         icon: const Icon(
-                                          Icons.cancel,
+                                          Symbols.cancel_rounded,
                                           size: 18,
                                         ),
                                         color:
@@ -243,7 +244,7 @@ class _CategorySelectionSheetState extends State<CategorySelectionSheet> {
                                                   right: 6,
                                                 ),
                                                 child: Icon(
-                                                  Icons.lock,
+                                                  Symbols.lock_rounded,
                                                   size: 14,
                                                   color: theme
                                                       .colorScheme
@@ -285,7 +286,7 @@ class _CategorySelectionSheetState extends State<CategorySelectionSheet> {
                                   ),
                                   if (isSelected)
                                     Icon(
-                                      Icons.check,
+                                      Symbols.check_rounded,
                                       color: theme.colorScheme.primary,
                                     ),
                                 ],

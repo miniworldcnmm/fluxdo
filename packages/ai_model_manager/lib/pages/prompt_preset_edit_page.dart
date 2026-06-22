@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/ai_l10n.dart';
@@ -92,12 +93,12 @@ class _PromptPresetEditPageState
                 ButtonSegment(
                   value: PromptType.image,
                   label: Text(AiL10n.current.quickPromptsTypeImage),
-                  icon: const Icon(Icons.image_outlined),
+                  icon: const Icon(Symbols.image_rounded),
                 ),
                 ButtonSegment(
                   value: PromptType.text,
                   label: Text(AiL10n.current.quickPromptsTypeText),
-                  icon: const Icon(Icons.chat_outlined),
+                  icon: const Icon(Symbols.chat_rounded),
                 ),
               ],
               selected: {_type},
@@ -223,7 +224,7 @@ class _PromptPresetEditPageState
                 child: Row(
                   children: [
                     Icon(
-                      Icons.info_outline,
+                      Symbols.info_rounded,
                       size: 16,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -318,6 +319,6 @@ class _DisabledIconPreview extends StatelessWidget {
     if (iconRaw.isNotEmpty && iconRaw.runes.first >= 0x80) {
       return Text(iconRaw, style: const TextStyle(fontSize: 22));
     }
-    return const Icon(Icons.auto_awesome_outlined, size: 22);
+    return const Icon(Symbols.auto_awesome_rounded, size: 22);
   }
 }

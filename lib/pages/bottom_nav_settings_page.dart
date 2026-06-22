@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -426,7 +427,7 @@ class _PreviewItem extends StatelessWidget {
                             ),
                           ),
                           child: Icon(
-                            Icons.close_rounded,
+                            Symbols.close_rounded,
                             size: 12,
                             color: theme.colorScheme.onErrorContainer,
                           ),
@@ -438,7 +439,7 @@ class _PreviewItem extends StatelessWidget {
                       top: -4,
                       right: 0,
                       child: Icon(
-                        Icons.lock_rounded,
+                        Symbols.lock_rounded,
                         size: 14,
                         color: theme.colorScheme.onSurfaceVariant
                             .withValues(alpha: 0.55),
@@ -501,7 +502,7 @@ class _AvailableTile extends StatelessWidget {
           : null,
       trailing: IconButton(
         icon: Icon(
-          Icons.add_circle_outline_rounded,
+          Symbols.add_circle_rounded,
           color: canAdd
               ? theme.colorScheme.primary
               : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),

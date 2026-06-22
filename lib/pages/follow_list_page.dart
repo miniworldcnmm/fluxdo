@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user.dart';
 import '../providers/discourse_providers.dart';
@@ -85,7 +86,7 @@ class _FollowListPageState extends ConsumerState<FollowListPage> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.people_outline, size: 48, color: Colors.grey[400]),
+                          Icon(Symbols.group_rounded, size: 48, color: Colors.grey[400]),
                           const SizedBox(height: 8),
                           Text(context.l10n.common_noData, style: TextStyle(color: Colors.grey[600])),
                         ],

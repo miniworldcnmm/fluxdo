@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../l10n/s.dart';
 import '../../../../constants.dart';
@@ -370,7 +371,7 @@ class PostHeader extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           else
-            Icon(Icons.reply, size: 14, color: theme.colorScheme.primary),
+            Icon(Symbols.reply_rounded, size: 14, color: theme.colorScheme.primary),
           const SizedBox(width: 6),
           SmartAvatar(
             imageUrl: replyToUser.avatarTemplate.isNotEmpty

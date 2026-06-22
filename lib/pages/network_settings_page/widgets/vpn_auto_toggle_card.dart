@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../../../l10n/s.dart';
 import '../../../services/network/vpn_auto_toggle_service.dart';
@@ -34,8 +35,7 @@ class VpnAutoToggleCard extends StatelessWidget {
               SwitchListTile(
                 title: Text(context.l10n.vpnToggle_title),
                 subtitle: Text(context.l10n.vpnToggle_subtitle),
-                secondary: Icon(
-                  enabled ? Icons.swap_horiz : Icons.swap_horiz_outlined,
+                secondary: Icon(Symbols.swap_horiz_rounded, fill: enabled ? 1 : 0,
                   color: enabled ? theme.colorScheme.primary : null,
                 ),
                 value: enabled,
@@ -50,8 +50,7 @@ class VpnAutoToggleCard extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   child: Row(
                     children: [
-                      Icon(
-                        vpnActive ? Icons.vpn_lock : Icons.vpn_lock_outlined,
+                      Icon(Symbols.vpn_lock_rounded, fill: vpnActive ? 1 : 0,
                         size: 16,
                         color: vpnActive
                             ? theme.colorScheme.tertiary
@@ -81,7 +80,7 @@ class VpnAutoToggleCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Icon(
-                          Icons.info_outline,
+                          Symbols.info_rounded,
                           size: 16,
                           color: theme.colorScheme.primary,
                         ),

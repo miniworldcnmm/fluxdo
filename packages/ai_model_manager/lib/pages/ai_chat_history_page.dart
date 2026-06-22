@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/ai_l10n.dart';
@@ -50,7 +51,7 @@ class _AiChatHistoryPageState extends ConsumerState<AiChatHistoryPage> {
         actions: [
           if (_groups.isNotEmpty)
             IconButton(
-              icon: const Icon(Icons.delete_sweep_outlined),
+              icon: const Icon(Symbols.delete_sweep_rounded),
               tooltip: AiL10n.current.clearAllConversations,
               onPressed: () => _confirmDeleteAll(context),
             ),
@@ -84,7 +85,7 @@ class _AiChatHistoryPageState extends ConsumerState<AiChatHistoryPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.chat_bubble_outline,
+            Symbols.chat_bubble_rounded,
             size: 48,
             color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
           ),
@@ -166,7 +167,7 @@ class _TopicGroupTile extends StatelessWidget {
 
     return ExpansionTile(
       leading: Icon(
-        Icons.topic_outlined,
+        Symbols.topic_rounded,
         size: 20,
         color: theme.colorScheme.primary,
       ),
@@ -187,21 +188,21 @@ class _TopicGroupTile extends StatelessWidget {
         children: [
           IconButton(
             icon: Icon(
-              Icons.delete_outline,
+              Symbols.delete_rounded,
               size: 18,
               color: theme.colorScheme.error,
             ),
             tooltip: AiL10n.current.deleteAllTopicSessions,
             onPressed: () => _confirmDeleteTopic(context, topicTitle),
           ),
-          const Icon(Icons.expand_more, size: 20),
+          const Icon(Symbols.expand_more_rounded, size: 20),
         ],
       ),
       children: group.sessions.map((session) {
         return ListTile(
           contentPadding: const EdgeInsets.only(left: 56, right: 16),
           leading: Icon(
-            Icons.chat_bubble_outline,
+            Symbols.chat_bubble_rounded,
             size: 16,
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -219,7 +220,7 @@ class _TopicGroupTile extends StatelessWidget {
           ),
           trailing: IconButton(
             icon: Icon(
-              Icons.close,
+              Symbols.close_rounded,
               size: 16,
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -295,7 +296,7 @@ class _MaxSessionsRow extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(Icons.storage_outlined,
+              Icon(Symbols.storage_rounded,
                   size: 20, color: theme.colorScheme.onSurfaceVariant),
               const SizedBox(width: 12),
               Expanded(
@@ -350,7 +351,7 @@ class _MaxSessionsRow extends StatelessWidget {
               .map((v) => ListTile(
                     title: Text('$v'),
                     trailing:
-                        v == currentValue ? const Icon(Icons.check) : null,
+                        v == currentValue ? const Icon(Symbols.check_rounded) : null,
                     onTap: () {
                       storageService.setMaxSessions(v);
                       Navigator.pop(ctx);

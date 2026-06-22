@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/ai_l10n.dart';
@@ -28,7 +29,7 @@ class AiModelConfigPage extends ConsumerWidget {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
         children: [
           _ModelCard(
-            icon: Icons.chat_outlined,
+            icon: Symbols.chat_rounded,
             title: AiL10n.current.defaultChatModel,
             current: textDefault,
             onPick: () => _showPicker(
@@ -47,7 +48,7 @@ class AiModelConfigPage extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _ModelCard(
-            icon: Icons.image_outlined,
+            icon: Symbols.image_rounded,
             title: AiL10n.current.defaultImageModel,
             current: imageDefault,
             onPick: () => _showPicker(
@@ -66,7 +67,7 @@ class AiModelConfigPage extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _ModelCard(
-            icon: Icons.title_outlined,
+            icon: Symbols.title_rounded,
             title: AiL10n.current.titleGenerationModel,
             subtitle: AiL10n.current.autoGenerateTitleSubtitle,
             current: titleModel,
@@ -83,7 +84,7 @@ class AiModelConfigPage extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
           _ModelCard(
-            icon: Icons.auto_fix_high_outlined,
+            icon: Symbols.auto_fix_high_rounded,
             title: AiL10n.current.imagePromptOptimizerModel,
             subtitle: AiL10n.current.imagePromptOptimizerSubtitle,
             current: optimizer,
@@ -144,7 +145,7 @@ class AiModelConfigPage extends ConsumerWidget {
             ListTile(
               title: Text(clearLabel ?? AiL10n.current.notSet),
               trailing: (currentKey == null && current == null)
-                  ? const Icon(Icons.check)
+                  ? const Icon(Symbols.check_rounded)
                   : null,
               onTap: () {
                 onClear();
@@ -169,7 +170,7 @@ class AiModelConfigPage extends ConsumerWidget {
                 ),
                 title: Text(item.model.name ?? item.model.id),
                 subtitle: Text(item.provider.name),
-                trailing: isCurrent ? const Icon(Icons.check) : null,
+                trailing: isCurrent ? const Icon(Symbols.check_rounded) : null,
                 onTap: () {
                   onSelect(item.provider.id, item.model.id);
                   Navigator.pop(ctx);
@@ -240,7 +241,7 @@ class _ModelCard extends StatelessWidget {
                 height: 32,
                 child: onReset != null
                     ? IconButton(
-                        icon: Icon(Icons.restart_alt,
+                        icon: Icon(Symbols.restart_alt_rounded,
                             size: 18, color: cs.onSurfaceVariant),
                         tooltip: AiL10n.current.modelDetailResetAuto,
                         padding: EdgeInsets.zero,
@@ -316,7 +317,7 @@ class _ModelCard extends StatelessWidget {
                               ),
                             ),
                     ),
-                    Icon(Icons.chevron_right_rounded,
+                    Icon(Symbols.chevron_right_rounded,
                         size: 18, color: cs.onSurfaceVariant),
                   ],
                 ),

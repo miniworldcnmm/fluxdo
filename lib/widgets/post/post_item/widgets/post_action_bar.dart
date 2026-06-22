@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import '../../../../l10n/s.dart';
 import '../../../../models/topic.dart';
@@ -315,7 +316,7 @@ class _PostActionBarState extends State<PostActionBar>
                       )
                     else ...[
                       Icon(
-                        Icons.chat_bubble_outline_rounded,
+                        Symbols.chat_bubble_rounded,
                         size: 15,
                         color: showReplies
                             ? theme.colorScheme.primary
@@ -334,8 +335,8 @@ class _PostActionBarState extends State<PostActionBar>
                       const SizedBox(width: 4),
                       Icon(
                         showReplies
-                            ? Icons.keyboard_arrow_up
-                            : Icons.keyboard_arrow_down,
+                            ? Symbols.keyboard_arrow_up_rounded
+                            : Symbols.keyboard_arrow_down_rounded,
                         size: 18,
                         color: showReplies
                             ? theme.colorScheme.primary
@@ -362,20 +363,20 @@ class _PostActionBarState extends State<PostActionBar>
         actions.add(_iconCircle(
           theme,
           tooltip: 'Boost',
-          icon: Icons.rocket_launch_outlined,
+          icon: Symbols.rocket_launch_rounded,
           onTap: widget.onAddBoost,
         ));
       }
       actions.add(_iconCircle(
         theme,
         tooltip: context.l10n.common_reply,
-        icon: Icons.reply,
+        icon: Symbols.reply_rounded,
         onTap: widget.onReply,
       ));
     }
     actions.add(_iconCircle(
       theme,
-      icon: Icons.more_horiz,
+      icon: Symbols.more_horiz_rounded,
       onTap: widget.onShowMoreMenu,
     ));
     return actions;
@@ -534,10 +535,10 @@ class _PostActionBarState extends State<PostActionBar>
                   emojiImageProvider(_getEmojiUrl(widget.currentUserReaction!.id)),
               width: 20,
               height: 20,
-              errorBuilder: (_, _, _) => const Icon(Icons.favorite, size: 20),
+              errorBuilder: (_, _, _) => const Icon(Symbols.favorite_rounded, size: 20),
             )
           : Icon(
-              Icons.favorite_border,
+              Symbols.favorite_rounded,
               size: 20,
               color: theme.colorScheme.onSurfaceVariant,
             ),

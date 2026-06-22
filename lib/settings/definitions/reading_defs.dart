@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/s.dart';
@@ -16,12 +17,12 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
   return [
     SettingsGroup(
       title: l10n.appearance_reading,
-      icon: Icons.chrome_reader_mode_outlined,
+      icon: Symbols.chrome_reader_mode_rounded,
       items: [
         DoubleSliderModel(
           id: 'contentFontScale',
           title: l10n.appearance_contentFontSize,
-          icon: Icons.format_size_rounded,
+          icon: Symbols.format_size_rounded,
           min: 0.8,
           max: 1.4,
           divisions: 12,
@@ -36,7 +37,7 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
           id: 'displayPanguSpacing',
           title: l10n.appearance_panguSpacing,
           subtitle: l10n.appearance_panguSpacingDesc,
-          icon: Icons.auto_fix_high_rounded,
+          icon: Symbols.auto_fix_high_rounded,
           getValue: (ref) => ref.watch(preferencesProvider).displayPanguSpacing,
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setDisplayPanguSpacing(v),
@@ -45,7 +46,7 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
           id: 'boostDanmaku',
           title: l10n.reading_boostDanmaku,
           subtitle: l10n.reading_boostDanmakuDesc,
-          icon: Icons.rocket_launch_outlined,
+          icon: Symbols.rocket_launch_rounded,
           getValue: (ref) => ref.watch(preferencesProvider).boostDanmaku,
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setBoostDanmaku(v),
@@ -54,13 +55,13 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
     ),
     SettingsGroup(
       title: l10n.preferences_basic,
-      icon: Icons.touch_app_outlined,
+      icon: Symbols.touch_app_rounded,
       items: [
         SwitchModel(
           id: 'longPressPreview',
           title: l10n.preferences_longPressPreview,
           subtitle: l10n.preferences_longPressPreviewDesc,
-          icon: Icons.touch_app_rounded,
+          icon: Symbols.touch_app_rounded,
           getValue: (ref) => ref.watch(preferencesProvider).longPressPreview,
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setLongPressPreview(v),
@@ -69,7 +70,7 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
           id: 'hideBarOnScroll',
           title: l10n.preferences_hideBarOnScroll,
           subtitle: l10n.preferences_hideBarOnScrollDesc,
-          icon: Icons.swap_vert_rounded,
+          icon: Symbols.swap_vert_rounded,
           getValue: (ref) => ref.watch(preferencesProvider).hideBarOnScroll,
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setHideBarOnScroll(v),
@@ -78,7 +79,7 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
           id: 'openExternalLinksInAppBrowser',
           title: l10n.preferences_openLinksInApp,
           subtitle: l10n.preferences_openLinksInAppDesc,
-          icon: Icons.open_in_browser_rounded,
+          icon: Symbols.open_in_browser_rounded,
           getValue: (ref) =>
               ref.watch(preferencesProvider).openExternalLinksInAppBrowser,
           onChanged: (ref, v) => ref
@@ -89,7 +90,7 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
           id: 'expandRelatedLinks',
           title: l10n.reading_expandRelatedLinks,
           subtitle: l10n.reading_expandRelatedLinksDesc,
-          icon: Icons.link_rounded,
+          icon: Symbols.link_rounded,
           getValue: (ref) => ref.watch(preferencesProvider).expandRelatedLinks,
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setExpandRelatedLinks(v),
@@ -98,7 +99,7 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
           id: 'showSignatures',
           title: l10n.reading_showSignatures,
           subtitle: l10n.reading_showSignaturesDesc,
-          icon: Icons.draw_rounded,
+          icon: Symbols.draw_rounded,
           getValue: (ref) => ref.watch(preferencesProvider).showSignatures,
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setShowSignatures(v),
@@ -113,7 +114,7 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
             final l = context.l10n;
             return ListTile(
               leading: Icon(
-                Icons.tab_rounded,
+                Symbols.tab_rounded,
                 color: Theme.of(context).colorScheme.primary,
               ),
               title: Text(l.reading_bookmarksOpenMode),
@@ -123,7 +124,7 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
                 BookmarksOpenMode.tabbedWorkspace =>
                   l.reading_bookmarksOpenModeTabbedWorkspace,
               }),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(Symbols.chevron_right_rounded),
               onTap: () =>
                   _showBookmarksOpenModePicker(context, ref, currentMode),
             );
@@ -134,7 +135,7 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
             id: 'aiSwipeEntry',
             title: l10n.reading_aiSwipeEntry,
             subtitle: l10n.reading_aiSwipeEntryDesc,
-            icon: Icons.swipe_left_rounded,
+            icon: Symbols.swipe_left_rounded,
             getValue: (ref) => ref.watch(preferencesProvider).aiSwipeEntry,
             onChanged: (ref, v) =>
                 ref.read(preferencesProvider.notifier).setAiSwipeEntry(v),
@@ -145,13 +146,13 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
     ),
     SettingsGroup(
       title: l10n.progressGesture_title,
-      icon: Icons.gesture_rounded,
+      icon: Symbols.gesture_rounded,
       items: [
         SwitchModel(
           id: 'progressGesturesEnabled',
           title: l10n.progressGesture_enable,
           subtitle: l10n.progressGesture_enableDesc,
-          icon: Icons.swipe_rounded,
+          icon: Symbols.swipe_rounded,
           getValue: (ref) =>
               ref.watch(preferencesProvider).progressGesturesEnabled,
           onChanged: (ref, v) => ref
@@ -172,14 +173,14 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
             return ListTile(
               enabled: enabled,
               leading: Icon(
-                Icons.swipe_left_rounded,
+                Symbols.swipe_left_rounded,
                 color: enabled
                     ? Theme.of(context).colorScheme.primary
                     : Theme.of(context).disabledColor,
               ),
               title: Text(context.l10n.progressGesture_swipeLeft),
               subtitle: Text(meta.label),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(Symbols.chevron_right_rounded),
               onTap: enabled
                   ? () => _showGestureActionPicker(
                       context,
@@ -207,14 +208,14 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
             return ListTile(
               enabled: enabled,
               leading: Icon(
-                Icons.swipe_right_rounded,
+                Symbols.swipe_right_rounded,
                 color: enabled
                     ? Theme.of(context).colorScheme.primary
                     : Theme.of(context).disabledColor,
               ),
               title: Text(context.l10n.progressGesture_swipeRight),
               subtitle: Text(meta.label),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(Symbols.chevron_right_rounded),
               onTap: enabled
                   ? () => _showGestureActionPicker(
                       context,
@@ -242,14 +243,14 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
             return ListTile(
               enabled: enabled,
               leading: Icon(
-                Icons.swipe_up_rounded,
+                Symbols.swipe_up_rounded,
                 color: enabled
                     ? Theme.of(context).colorScheme.primary
                     : Theme.of(context).disabledColor,
               ),
               title: Text(context.l10n.progressGesture_swipeUp),
               subtitle: Text(meta.label),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(Symbols.chevron_right_rounded),
               onTap: enabled
                   ? () => _showGestureActionPicker(
                       context,
@@ -277,7 +278,7 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
             return ListTile(
               enabled: enabled,
               leading: Icon(
-                Icons.fingerprint_rounded,
+                Symbols.fingerprint_rounded,
                 color: enabled
                     ? Theme.of(context).colorScheme.primary
                     : Theme.of(context).disabledColor,
@@ -289,7 +290,7 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(Symbols.chevron_right_rounded),
               onTap: enabled
                   ? () => Navigator.of(context).push(
                       MaterialPageRoute(
@@ -304,13 +305,13 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
     ),
     SettingsGroup(
       title: l10n.nested_title,
-      icon: Icons.account_tree_outlined,
+      icon: Symbols.account_tree_rounded,
       items: [
         SwitchModel(
           id: 'defaultNestedView',
           title: l10n.nested_defaultView,
           subtitle: l10n.nested_defaultViewDesc,
-          icon: Icons.account_tree_rounded,
+          icon: Symbols.account_tree_rounded,
           getValue: (ref) => ref.watch(preferencesProvider).defaultNestedView,
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setDefaultNestedView(v),
@@ -323,7 +324,7 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
             final l = context.l10n;
             return ListTile(
               leading: Icon(
-                Icons.linear_scale_rounded,
+                Symbols.linear_scale_rounded,
                 color: Theme.of(context).colorScheme.primary,
               ),
               title: Text(l.nested_lineStyle),
@@ -332,7 +333,7 @@ List<SettingsGroup> buildReadingGroups(BuildContext context) {
                 NestedLineStyle.lLine => l.nested_lineStyleL,
                 NestedLineStyle.straight => l.nested_lineStyleStraight,
               }),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(Symbols.chevron_right_rounded),
               onTap: () => _showLineStylePicker(context, ref, currentStyle),
             );
           },
@@ -366,8 +367,8 @@ void _showLineStylePicker(
               children: [
                 Icon(
                   style == current
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_unchecked,
+                      ? Symbols.radio_button_checked_rounded
+                      : Symbols.radio_button_unchecked_rounded,
                   color: style == current
                       ? Theme.of(context).colorScheme.primary
                       : null,
@@ -413,8 +414,8 @@ void _showBookmarksOpenModePicker(
               children: [
                 Icon(
                   mode == current
-                      ? Icons.radio_button_checked
-                      : Icons.radio_button_unchecked,
+                      ? Symbols.radio_button_checked_rounded
+                      : Symbols.radio_button_unchecked_rounded,
                   color: mode == current
                       ? Theme.of(context).colorScheme.primary
                       : null,
@@ -500,8 +501,8 @@ void _showGestureActionPicker(
                           children: [
                             Icon(
                               isCurrent
-                                  ? Icons.radio_button_checked
-                                  : Icons.radio_button_unchecked,
+                                  ? Symbols.radio_button_checked_rounded
+                                  : Symbols.radio_button_unchecked_rounded,
                               color: isCurrent
                                   ? theme.colorScheme.primary
                                   : theme.colorScheme.onSurfaceVariant,

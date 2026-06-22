@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:html/parser.dart' as html_parser;
 
 import '../widgets/common/error_view.dart';
@@ -310,7 +311,7 @@ class _TrustLevelRequirementsPageState
                 right: -20,
                 top: -20,
                 child: Icon(
-                  Icons.verified_user_outlined,
+                  Symbols.verified_user_rounded,
                   size: 200,
                   color: colorScheme.primary.withValues(alpha: 0.05),
                 ),
@@ -713,7 +714,7 @@ class _TrustLevelRequirementsPageState
                    shape: BoxShape.circle,
                  ),
                  child: Icon(
-                   veto.isMet ? Icons.check : Icons.close, 
+                   veto.isMet ? Symbols.check_rounded : Symbols.close_rounded, 
                    size: 16,
                    color: iconColor,
                  ),
@@ -778,7 +779,7 @@ class _TrustLevelRequirementsPageState
                  mainAxisAlignment: MainAxisAlignment.center,
                  children: [
                     Icon(
-                      _data!.isStatusMet ? Icons.check_circle_outline : Icons.cancel_outlined,
+                      _data!.isStatusMet ? Symbols.check_circle_rounded : Symbols.cancel_rounded,
                       color: statusColor,
                       size: 20,
                     ),

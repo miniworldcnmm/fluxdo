@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants.dart';
@@ -1532,19 +1533,19 @@ class _CfChallengePageState extends State<CfChallengePage> {
     if (_hasTimedOut) {
       backgroundColor = colorScheme.errorContainer;
       foregroundColor = colorScheme.onErrorContainer;
-      icon = Icons.error_outline;
+      icon = Symbols.error_rounded;
       title = context.l10n.cf_verifyTimedOutTitle;
       message = context.l10n.cf_verifyTimedOutMessage;
     } else if (_needsManualAttention) {
       backgroundColor = colorScheme.secondaryContainer;
       foregroundColor = colorScheme.onSecondaryContainer;
-      icon = Icons.touch_app_outlined;
+      icon = Symbols.touch_app_rounded;
       title = context.l10n.cf_manualVerifyBannerTitle;
       message = context.l10n.cf_manualVerifyBannerMessage;
     } else {
       backgroundColor = colorScheme.tertiaryContainer;
       foregroundColor = colorScheme.onTertiaryContainer;
-      icon = Icons.hourglass_bottom;
+      icon = Symbols.hourglass_bottom_rounded;
       title = context.l10n.cf_manualVerifyBannerTitle;
       message = context.l10n.cf_verifyLonger(
         _activeMaxCheckCount - _checkCount,
@@ -1869,7 +1870,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.close_rounded, size: 20),
+              icon: const Icon(Symbols.close_rounded, size: 20),
               color: iconColor,
               padding: EdgeInsets.zero,
               visualDensity: VisualDensity.compact,
@@ -1877,7 +1878,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
               onPressed: showExitConfirmation,
             ),
             const SizedBox(width: 4),
-            Icon(Icons.shield_outlined, size: 16, color: colorScheme.primary),
+            Icon(Symbols.shield_rounded, size: 16, color: colorScheme.primary),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -1892,7 +1893,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.refresh_rounded, size: 20),
+              icon: const Icon(Symbols.refresh_rounded, size: 20),
               color: iconColor,
               padding: EdgeInsets.zero,
               visualDensity: VisualDensity.compact,
@@ -1900,7 +1901,7 @@ class _CfChallengePageState extends State<CfChallengePage> {
               onPressed: _refresh,
             ),
             IconButton(
-              icon: const Icon(Icons.help_outline_rounded, size: 20),
+              icon: const Icon(Symbols.help_rounded, size: 20),
               color: iconColor,
               padding: EdgeInsets.zero,
               visualDensity: VisualDensity.compact,
@@ -2348,7 +2349,7 @@ class _ChallengeFallbackOverlayState extends State<_ChallengeFallbackOverlay>
             ),
             alignment: Alignment.center,
             child: Icon(
-              Icons.verified_user_outlined,
+              Symbols.verified_user_rounded,
               size: 28,
               color: colorScheme.primary,
             ),
@@ -2382,7 +2383,7 @@ class _ChallengeFallbackOverlayState extends State<_ChallengeFallbackOverlay>
             children: [
               FilledButton.tonalIcon(
                 onPressed: widget.onRetry,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
+                icon: const Icon(Symbols.refresh_rounded, size: 18),
                 label: Text(l10n.cf_retryVerificationAction),
               ),
               TextButton(

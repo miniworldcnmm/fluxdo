@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import '../../../../models/topic.dart';
 import '../../../../services/discourse_cache_manager.dart';
@@ -634,7 +635,7 @@ class _ReactionItemState extends State<_ReactionItem> {
           width: _kIconSize,
           height: _kIconSize,
           errorBuilder: (_, _, _) =>
-              const Icon(Icons.emoji_emotions_outlined, size: 24),
+              const Icon(Symbols.emoji_emotions_rounded, size: 24),
         ),
       ),
     );

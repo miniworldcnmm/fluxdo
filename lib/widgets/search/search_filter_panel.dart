@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../l10n/s.dart';
@@ -286,7 +287,7 @@ class _SearchFilterPanelState extends ConsumerState<SearchFilterPanel> {
                     const Spacer(),
                     TextButton.icon(
                       onPressed: _openTagSearchSheet,
-                      icon: const Icon(Icons.search, size: 18),
+                      icon: const Icon(Symbols.search_rounded, size: 18),
                       label: Text(context.l10n.common_searchMore),
                       style: TextButton.styleFrom(
                         visualDensity: VisualDensity.compact,
@@ -449,7 +450,7 @@ class _SearchFilterPanelState extends ConsumerState<SearchFilterPanel> {
           label: hasDateRange ? _formatDateRange() : context.l10n.search_custom,
           isSelected: hasDateRange,
           onTap: _selectDateRange,
-          icon: Icons.calendar_today,
+          icon: Symbols.calendar_today_rounded,
         ),
       ],
     );
@@ -645,7 +646,7 @@ class _SearchFilterPanelState extends ConsumerState<SearchFilterPanel> {
                         child: Center(
                           child: isSelected
                               ? Icon(
-                                  Icons.check,
+                                  Symbols.check_rounded,
                                   size: 14,
                                   color: colorScheme.primary,
                                 )
@@ -747,7 +748,7 @@ class _FilterChip extends StatelessWidget {
               ),
               if (isSelected) ...[
                 const SizedBox(width: 4),
-                Icon(Icons.check, size: 14, color: colorScheme.primary),
+                Icon(Symbols.check_rounded, size: 14, color: colorScheme.primary),
               ],
             ],
           ),
@@ -814,7 +815,7 @@ class _CategoryFilterItem extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (isAll)
-                Icon(Icons.all_inclusive, size: 12, color: theme.colorScheme.onSurface)
+                Icon(Symbols.all_inclusive_rounded, size: 12, color: theme.colorScheme.onSurface)
               else if (faIcon != null)
                 Padding(
                   padding: const EdgeInsets.only(right: 6),
@@ -823,7 +824,7 @@ class _CategoryFilterItem extends StatelessWidget {
               else if (category?.readRestricted ?? false)
                 Padding(
                   padding: const EdgeInsets.only(right: 6),
-                  child: Icon(Icons.lock, size: 12, color: color),
+                  child: Icon(Symbols.lock_rounded, size: 12, color: color),
                 )
               else
                 _buildDot(),
@@ -843,7 +844,7 @@ class _CategoryFilterItem extends StatelessWidget {
               ),
               if (isSelected) ...[
                 const SizedBox(width: 6),
-                Icon(Icons.check, size: 14, color: color),
+                Icon(Symbols.check_rounded, size: 14, color: color),
               ],
             ],
           ),
@@ -907,7 +908,7 @@ class ActiveSearchFiltersBar extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.filter_list,
+                      Icon(Symbols.filter_list_rounded,
                           size: 14, color: colorScheme.primary),
                       const SizedBox(width: 8),
                       Text(
@@ -970,7 +971,7 @@ class ActiveSearchFiltersBar extends StatelessWidget {
                             child: _RemovableChip(
                               label: _formatDateRange(
                                   filter.afterDate, filter.beforeDate),
-                              icon: Icons.calendar_today,
+                              icon: Symbols.calendar_today_rounded,
                               onDeleted: onClearDateRange,
                             ),
                           ),
@@ -1055,7 +1056,7 @@ class _RemovableChip extends StatelessWidget {
             const SizedBox(width: 4),
             GestureDetector(
               onTap: onDeleted,
-              child: Icon(Icons.close, size: 14, color: colorScheme.outline),
+              child: Icon(Symbols.close_rounded, size: 14, color: colorScheme.outline),
             ),
           ],
         ],

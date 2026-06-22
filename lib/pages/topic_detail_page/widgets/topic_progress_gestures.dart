@@ -3,6 +3,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -782,7 +783,7 @@ class _RadialMenuOverlayState extends State<_RadialMenuOverlay>
             shadowColor: theme.colorScheme.primary.withValues(alpha: 0.4),
             child: Center(
               child: Icon(
-                Icons.touch_app_rounded,
+                Symbols.touch_app_rounded,
                 size: 20,
                 color: theme.colorScheme.onPrimary,
               ),

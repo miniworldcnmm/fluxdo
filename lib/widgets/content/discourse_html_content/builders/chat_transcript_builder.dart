@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../../utils/time_utils.dart';
 import '../../../common/smart_avatar.dart';
 import '../../../../l10n/s.dart';
@@ -88,7 +89,7 @@ Widget buildChatTranscript({
             child: Row(
               children: [
                 Icon(
-                  Icons.tag,
+                  Symbols.tag_rounded,
                   size: 14,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -231,7 +232,7 @@ Widget _buildThreadHeader(ThemeData theme, dynamic detailsElement) {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
-          Icons.forum_outlined,
+          Symbols.forum_rounded,
           size: 14,
           color: theme.colorScheme.onSurfaceVariant,
         ),

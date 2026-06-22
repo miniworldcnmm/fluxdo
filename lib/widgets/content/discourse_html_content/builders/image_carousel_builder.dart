@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../../services/discourse_cache_manager.dart';
 import '../image_utils.dart';
 import 'image_grid_builder.dart';
@@ -222,7 +223,7 @@ class _ImageCarouselState extends State<_ImageCarousel> {
                     bottom: 0,
                     child: Center(
                       child: _NavButton(
-                        icon: Icons.chevron_left,
+                        icon: Symbols.chevron_left_rounded,
                         onTap: _currentIndex > 0
                             ? () => _goToPage(_currentIndex - 1)
                             : null,
@@ -236,7 +237,7 @@ class _ImageCarouselState extends State<_ImageCarousel> {
                     bottom: 0,
                     child: Center(
                       child: _NavButton(
-                        icon: Icons.chevron_right,
+                        icon: Symbols.chevron_right_rounded,
                         onTap: _currentIndex < widget.images.length - 1
                             ? () => _goToPage(_currentIndex + 1)
                             : null,
@@ -355,7 +356,7 @@ class _CarouselSlideState extends State<_CarouselSlide>
           errorBuilder: (context, error, stackTrace) {
             return Center(
               child: Icon(
-                Icons.broken_image,
+                Symbols.broken_image_rounded,
                 color: widget.theme.colorScheme.outline,
               ),
             );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/rendering.dart' show SelectedContent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/topic.dart';
@@ -324,7 +325,7 @@ class _PostItemState extends ConsumerState<PostItem> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.visibility_outlined,
+                            Symbols.visibility_rounded,
                             size: 15,
                             color: theme.colorScheme.primary,
                           ),

@@ -1,5 +1,6 @@
 import 'package:ai_model_manager/ai_model_manager.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:jovial_svg/jovial_svg.dart';
 import 'package:markdown/markdown.dart' as md;
@@ -137,7 +138,7 @@ class AiShareImageWidget extends StatelessWidget {
         ),
         const Spacer(),
         Icon(
-          Icons.auto_awesome,
+          Symbols.auto_awesome_rounded,
           size: 16,
           color: textColor.withValues(alpha: 0.5),
         ),
@@ -179,7 +180,7 @@ class AiShareImageWidget extends StatelessWidget {
     return Row(
       children: [
         Icon(
-          isUser ? Icons.person : Icons.auto_awesome,
+          isUser ? Symbols.person_rounded : Symbols.auto_awesome_rounded,
           size: 14,
           color: secondaryTextColor,
         ),
@@ -286,7 +287,7 @@ class AiShareImageWidget extends StatelessWidget {
         Row(
           children: [
             Icon(
-              Icons.auto_awesome,
+              Symbols.auto_awesome_rounded,
               size: 12,
               color: secondaryTextColor,
             ),
@@ -315,7 +316,7 @@ class AiShareImageWidget extends StatelessWidget {
         Row(
           children: [
             Icon(
-              Icons.link,
+              Symbols.link_rounded,
               size: 12,
               color: secondaryTextColor,
             ),

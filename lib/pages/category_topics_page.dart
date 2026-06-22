@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/foundation.dart' hide Category;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/topic.dart';
@@ -430,7 +431,7 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
         centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
+            icon: const Icon(Symbols.search_rounded),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -512,7 +513,7 @@ class _CategoryTopicsPageState extends ConsumerState<CategoryTopicsPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.inbox_outlined,
+              Symbols.inbox_rounded,
               size: 48,
               color: Theme.of(context).colorScheme.outline,
             ),
@@ -605,7 +606,7 @@ class _CreateTopicButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.edit_outlined, size: 14, color: fgColor),
+              Icon(Symbols.edit_rounded, size: 14, color: fgColor),
               const SizedBox(width: 4),
               Text(
                 context.l10n.categoryTopics_createPost,

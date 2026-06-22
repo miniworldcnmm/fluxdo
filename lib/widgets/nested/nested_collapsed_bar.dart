@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../l10n/s.dart';
 
 /// 折叠态的帖子条（纯 UI 组件）
@@ -32,7 +33,7 @@ class NestedCollapsedBar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.add_circle_outline,
+              Symbols.add_circle_rounded,
               size: 16,
               color: theme.colorScheme.onSurfaceVariant,
             ),

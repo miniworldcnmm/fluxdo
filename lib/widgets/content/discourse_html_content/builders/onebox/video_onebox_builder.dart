@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../../../utils/link_launcher.dart';
 import '../../../../../services/discourse_cache_manager.dart';
 import 'onebox_base.dart';
@@ -71,7 +72,7 @@ class VideoOneboxBuilder {
                               color: Colors.black,
                               child: const Center(
                                 child: Icon(
-                                  Icons.video_library,
+                                  Symbols.video_library_rounded,
                                   size: 48,
                                   color: Colors.white54,
                                 ),
@@ -83,7 +84,7 @@ class VideoOneboxBuilder {
                           color: Colors.black,
                           child: const Center(
                             child: Icon(
-                              Icons.video_library,
+                              Symbols.video_library_rounded,
                               size: 48,
                               color: Colors.white54,
                             ),
@@ -100,7 +101,7 @@ class VideoOneboxBuilder {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
-                  Icons.play_arrow,
+                  Symbols.play_arrow_rounded,
                   color: Colors.white,
                   size: 32,
                 ),
@@ -151,7 +152,7 @@ class VideoOneboxBuilder {
                   children: [
                     // YouTube 图标
                     const Icon(
-                      Icons.play_circle_filled,
+                      Symbols.play_circle_rounded,
                       size: 16,
                       color: Color(0xFFFF0000),
                     ),
@@ -252,7 +253,7 @@ class VideoOneboxBuilder {
                               color: const Color(0xFF1ab7ea),
                               child: const Center(
                                 child: Icon(
-                                  Icons.play_circle_outline,
+                                  Symbols.play_circle_rounded,
                                   size: 48,
                                   color: Colors.white,
                                 ),
@@ -264,7 +265,7 @@ class VideoOneboxBuilder {
                           color: const Color(0xFF1ab7ea),
                           child: const Center(
                             child: Icon(
-                              Icons.play_circle_outline,
+                              Symbols.play_circle_rounded,
                               size: 48,
                               color: Colors.white,
                             ),
@@ -281,7 +282,7 @@ class VideoOneboxBuilder {
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.play_arrow,
+                  Symbols.play_arrow_rounded,
                   color: Colors.white,
                   size: 32,
                 ),
@@ -317,7 +318,7 @@ class VideoOneboxBuilder {
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
-                        Icons.play_arrow,
+                        Symbols.play_arrow_rounded,
                         size: 10,
                         color: Colors.white,
                       ),
@@ -406,7 +407,7 @@ class VideoOneboxBuilder {
                               color: const Color(0xFF625DF5),
                               child: const Center(
                                 child: Icon(
-                                  Icons.videocam,
+                                  Symbols.videocam_rounded,
                                   size: 48,
                                   color: Colors.white,
                                 ),
@@ -418,7 +419,7 @@ class VideoOneboxBuilder {
                           color: const Color(0xFF625DF5),
                           child: const Center(
                             child: Icon(
-                              Icons.videocam,
+                              Symbols.videocam_rounded,
                               size: 48,
                               color: Colors.white,
                             ),
@@ -435,7 +436,7 @@ class VideoOneboxBuilder {
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.play_arrow,
+                  Symbols.play_arrow_rounded,
                   color: Colors.white,
                   size: 32,
                 ),

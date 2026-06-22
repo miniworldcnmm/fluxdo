@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../models/topic.dart';
 import '../../models/category.dart';
 import '../../utils/dialog_utils.dart';
@@ -42,13 +43,13 @@ class TopicNotificationButton extends StatelessWidget {
   static IconData getIcon(TopicNotificationLevel level) {
     switch (level) {
       case TopicNotificationLevel.muted:
-        return Icons.notifications_off_outlined;
+        return Symbols.notifications_off_rounded;
       case TopicNotificationLevel.regular:
-        return Icons.notifications_none_outlined;
+        return Symbols.notifications_none_rounded;
       case TopicNotificationLevel.tracking:
-        return Icons.notifications_outlined;
+        return Symbols.notifications_rounded;
       case TopicNotificationLevel.watching:
-        return Icons.notifications_active;
+        return Symbols.notifications_active_rounded;
     }
   }
 
@@ -171,7 +172,7 @@ class _NotificationLevelSheet extends StatelessWidget {
                 ),
               ),
               trailing: isSelected
-                  ? Icon(Icons.check, color: theme.colorScheme.primary)
+                  ? Icon(Symbols.check_rounded, color: theme.colorScheme.primary)
                   : null,
               onTap: () => onSelected(level),
             );
@@ -190,15 +191,15 @@ class _NotificationLevelSheet extends StatelessWidget {
 IconData getCategoryNotificationIcon(CategoryNotificationLevel level) {
   switch (level) {
     case CategoryNotificationLevel.muted:
-      return Icons.notifications_off_outlined;
+      return Symbols.notifications_off_rounded;
     case CategoryNotificationLevel.regular:
-      return Icons.notifications_none_outlined;
+      return Symbols.notifications_none_rounded;
     case CategoryNotificationLevel.tracking:
-      return Icons.notifications_outlined;
+      return Symbols.notifications_rounded;
     case CategoryNotificationLevel.watching:
-      return Icons.notifications_active;
+      return Symbols.notifications_active_rounded;
     case CategoryNotificationLevel.watchingFirstPost:
-      return Icons.notification_add_outlined;
+      return Symbols.notification_add_rounded;
   }
 }
 
@@ -337,7 +338,7 @@ class _CategoryNotificationLevelSheet extends StatelessWidget {
                 ),
               ),
               trailing: isSelected
-                  ? Icon(Icons.check, color: theme.colorScheme.primary)
+                  ? Icon(Symbols.check_rounded, color: theme.colorScheme.primary)
                   : null,
               onTap: () => onSelected(level),
             );

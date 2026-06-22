@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import '../../utils/dialog_utils.dart';
 import '../../../../../l10n/s.dart';
@@ -368,7 +369,7 @@ class _TopicTimelineSheetState extends State<TopicTimelineSheet> {
                                   ),
                                   const SizedBox(width: 6),
                                   Icon(
-                                    Icons.edit_outlined,
+                                    Symbols.edit_rounded,
                                     size: 16,
                                     color: theme.colorScheme.onSurfaceVariant.withValues(alpha:0.4),
                                   ),
@@ -572,7 +573,7 @@ class _TopicTimelineSheetState extends State<TopicTimelineSheet> {
           ),
         ],
       ),
-      child: const Icon(Icons.unfold_more, color: Colors.white),
+      child: const Icon(Symbols.unfold_more_rounded, color: Colors.white),
     );
   }
 }

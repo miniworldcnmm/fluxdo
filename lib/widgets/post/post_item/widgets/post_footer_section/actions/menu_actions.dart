@@ -67,8 +67,8 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                 ListTile(
                   leading: Icon(
                     widget.postDetailLabel != null
-                        ? Icons.open_in_new
-                        : Icons.article_outlined,
+                        ? Symbols.open_in_new_rounded
+                        : Symbols.article_rounded,
                     color: theme.colorScheme.onSurface,
                   ),
                   title: Text(
@@ -82,7 +82,7 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
               if (widget.onReply != null)
                 ListTile(
                   leading: Icon(
-                    Icons.reply,
+                    Symbols.reply_rounded,
                     color: theme.colorScheme.onSurface,
                   ),
                   title: Text(context.l10n.common_reply),
@@ -94,7 +94,7 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
               if (widget.post.canEdit && widget.onEdit != null)
                 ListTile(
                   leading: Icon(
-                    Icons.edit_outlined,
+                    Symbols.edit_rounded,
                     color: theme.colorScheme.primary,
                   ),
                   title: Text(
@@ -108,7 +108,7 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                 ),
               ListTile(
                 leading: Icon(
-                  Icons.share_outlined,
+                  Symbols.share_rounded,
                   color: theme.colorScheme.onSurface,
                 ),
                 title: Text(context.l10n.common_shareLink),
@@ -120,7 +120,7 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
               if (widget.onShareAsImage != null)
                 ListTile(
                   leading: Icon(
-                    Icons.image_outlined,
+                    Symbols.image_rounded,
                     color: theme.colorScheme.onSurface,
                   ),
                   title: Text(context.l10n.post_generateShareImage),
@@ -146,7 +146,7 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                     }
                     return ListTile(
                       leading: Icon(
-                        Icons.volunteer_activism_rounded,
+                        Symbols.volunteer_activism_rounded,
                         color: theme.colorScheme.onSurface,
                       ),
                       title: Text(context.l10n.post_tipLdc),
@@ -173,8 +173,8 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                 ListTile(
                   leading: Icon(
                     _isAcceptedAnswer
-                        ? Icons.check_box
-                        : Icons.check_box_outline_blank,
+                        ? Symbols.check_box_rounded
+                        : Symbols.check_box_outline_blank_rounded,
                     color: _isAcceptedAnswer
                         ? Colors.green
                         : theme.colorScheme.onSurface,
@@ -198,8 +198,7 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                 ),
               if (!isGuest)
                 ListTile(
-                  leading: Icon(
-                    _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                  leading: Icon(Symbols.bookmark_rounded, fill: _isBookmarked ? 1 : 0,
                     color: _isBookmarked
                         ? theme.colorScheme.primary
                         : theme.colorScheme.onSurface,
@@ -221,7 +220,7 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
               if (!isGuest)
                 ListTile(
                   leading: Icon(
-                    Icons.flag_outlined,
+                    Symbols.flag_rounded,
                     color: theme.colorScheme.error,
                   ),
                   title: Text(
@@ -236,7 +235,7 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
               if (!isGuest && widget.post.canRecover)
                 ListTile(
                   leading: Icon(
-                    Icons.restore,
+                    Symbols.restore_rounded,
                     color: theme.colorScheme.primary,
                   ),
                   title: Text(
@@ -253,7 +252,7 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
               if (!isGuest && widget.post.canDelete && !widget.post.isDeleted)
                 ListTile(
                   leading: Icon(
-                    Icons.delete_outline,
+                    Symbols.delete_rounded,
                     color: theme.colorScheme.error,
                   ),
                   title: Text(

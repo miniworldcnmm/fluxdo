@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 
 import '../../../l10n/s.dart';
@@ -98,7 +99,7 @@ class _IosCertInstallSheetState extends State<_IosCertInstallSheet> {
       contentPadding: EdgeInsets.zero,
       titleWidget: Row(
         children: [
-          Icon(Icons.security, color: theme.colorScheme.primary),
+          Icon(Symbols.security_rounded, color: theme.colorScheme.primary),
           const SizedBox(width: 8),
           Text(
             l10n.dohSettings_certDialogTitle,
@@ -189,7 +190,7 @@ class _IosCertInstallSheetState extends State<_IosCertInstallSheet> {
                   alignment: Alignment.center,
                   child: isDone
                       ? Icon(
-                          Icons.check,
+                          Symbols.check_rounded,
                           size: 16,
                           color: theme.colorScheme.onPrimary,
                         )
@@ -242,7 +243,7 @@ class _IosCertInstallSheetState extends State<_IosCertInstallSheet> {
       children: [
         _infoCard(
           theme,
-          icon: Icons.info_outline,
+          icon: Symbols.info_rounded,
           text: l10n.dohSettings_certDownloadHint,
         ),
         const SizedBox(height: 16),
@@ -252,7 +253,7 @@ class _IosCertInstallSheetState extends State<_IosCertInstallSheet> {
             onPressed: _installing || _regenerating ? null : _downloadProfile,
             icon: _installing
                 ? const _MiniSpinner()
-                : const Icon(Icons.download, size: 18),
+                : const Icon(Symbols.download_rounded, size: 18),
             label: Text(
               _installing
                   ? l10n.dohSettings_certPreparing
@@ -268,7 +269,7 @@ class _IosCertInstallSheetState extends State<_IosCertInstallSheet> {
                 : _regenerateAndDownload,
             icon: _regenerating
                 ? const _MiniSpinner()
-                : const Icon(Icons.refresh, size: 16),
+                : const Icon(Symbols.refresh_rounded, size: 16),
             label: Text(
               l10n.dohSettings_certRegenerate,
               style: TextStyle(
@@ -290,7 +291,7 @@ class _IosCertInstallSheetState extends State<_IosCertInstallSheet> {
       children: [
         _infoCard(
           theme,
-          icon: Icons.smartphone,
+          icon: Symbols.smartphone_rounded,
           text: l10n.dohSettings_certInstallProfileHint,
         ),
         const SizedBox(height: 16),
@@ -298,7 +299,7 @@ class _IosCertInstallSheetState extends State<_IosCertInstallSheet> {
           width: double.infinity,
           child: FilledButton.icon(
             onPressed: _openSettings,
-            icon: const Icon(Icons.settings, size: 18),
+            icon: const Icon(Symbols.settings_rounded, size: 18),
             label: Text(l10n.dohSettings_certOpenSettings),
           ),
         ),
@@ -322,7 +323,7 @@ class _IosCertInstallSheetState extends State<_IosCertInstallSheet> {
       children: [
         _infoCard(
           theme,
-          icon: Icons.verified_user,
+          icon: Symbols.verified_user_rounded,
           text: l10n.dohSettings_certTrustHint,
         ),
         const SizedBox(height: 16),
@@ -330,7 +331,7 @@ class _IosCertInstallSheetState extends State<_IosCertInstallSheet> {
           width: double.infinity,
           child: FilledButton.icon(
             onPressed: _openSettings,
-            icon: const Icon(Icons.settings, size: 18),
+            icon: const Icon(Symbols.settings_rounded, size: 18),
             label: Text(l10n.dohSettings_certOpenSettings),
           ),
         ),

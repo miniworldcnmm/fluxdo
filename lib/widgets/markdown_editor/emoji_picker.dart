@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -214,7 +215,7 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.error_outline,
+                    Symbols.error_rounded,
                     size: 48,
                     color: Theme.of(context).colorScheme.outline,
                   ),
@@ -314,7 +315,7 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
         children: [
           IconButton(
             icon: Icon(
-              Icons.search,
+              Symbols.search_rounded,
               size: 20,
               color: theme.colorScheme.primary,
             ),
@@ -370,7 +371,7 @@ class _EmojiPickerState extends ConsumerState<EmojiPicker>
                               builder: (_, raw, _) {
                                 final activeIndex = raw.clamp(0, totalTabs - 1);
                                 return Icon(
-                                  Icons.access_time,
+                                  Symbols.access_time_rounded,
                                   size: 20,
                                   color: activeIndex == index
                                       ? theme.colorScheme.primary
@@ -629,13 +630,13 @@ class _EmojiSearchSheetState extends State<_EmojiSearchSheet> {
                           right: 12,
                         ),
                         prefixIcon: Icon(
-                          Icons.search,
+                          Symbols.search_rounded,
                           size: 20,
                           color: theme.colorScheme.onSurface,
                         ),
                         suffixIcon: _query.isNotEmpty
                             ? IconButton(
-                                icon: const Icon(Icons.cancel, size: 18),
+                                icon: const Icon(Symbols.cancel_rounded, size: 18),
                                 color: theme.colorScheme.onSurfaceVariant,
                                 onPressed: () => _searchController.clear(),
                               )
@@ -668,7 +669,7 @@ class _EmojiSearchSheetState extends State<_EmojiSearchSheet> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.emoji_emotions_outlined,
+                          Symbols.emoji_emotions_rounded,
                           size: 48,
                           color: theme.colorScheme.outline.withValues(
                             alpha: 0.5,

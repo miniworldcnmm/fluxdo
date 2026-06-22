@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../l10n/s.dart';
 import '../../utils/responsive.dart';
 import '../../utils/layout_lock.dart';
@@ -183,7 +184,7 @@ class _MasterDetailLayoutState extends State<MasterDetailLayout> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.article_outlined,
+            Symbols.article_rounded,
             size: 64,
             color: theme.colorScheme.outlineVariant,
           ),

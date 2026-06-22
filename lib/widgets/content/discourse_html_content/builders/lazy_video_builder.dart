@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../../services/discourse_cache_manager.dart';
 import '../../../../utils/link_launcher.dart';
 import 'iframe_builder.dart';
@@ -178,12 +179,12 @@ class _LazyVideoWidgetState extends State<_LazyVideoWidget> {
                               errorBuilder: (context, error, stackTrace) => Container(
                                 color: Colors.black,
                                 child: const Center(
-                                  child: Icon(Icons.video_library, size: 48, color: Colors.white54),
+                                  child: Icon(Symbols.video_library_rounded, size: 48, color: Colors.white54),
                                 ),
                               ),
                             )
                           : const Center(
-                              child: Icon(Icons.video_library, size: 48, color: Colors.white54),
+                              child: Icon(Symbols.video_library_rounded, size: 48, color: Colors.white54),
                             ),
                     ),
                     // 播放按钮
@@ -194,7 +195,7 @@ class _LazyVideoWidgetState extends State<_LazyVideoWidget> {
                         color: attrs.brandColor.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.play_arrow, color: Colors.white, size: 32),
+                      child: const Icon(Symbols.play_arrow_rounded, color: Colors.white, size: 32),
                     ),
                   ],
                 ),

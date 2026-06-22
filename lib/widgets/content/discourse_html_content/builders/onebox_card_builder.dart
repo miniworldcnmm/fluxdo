@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../../../../models/topic.dart';
 import 'onebox/onebox_type.dart';
@@ -242,7 +243,7 @@ Widget _buildSafeDefault({
       ),
       child: Row(
         children: [
-          Icon(Icons.link, color: theme.colorScheme.onSurfaceVariant),
+          Icon(Symbols.link_rounded, color: theme.colorScheme.onSurfaceVariant),
           const SizedBox(width: 8),
           Expanded(
             child: Text(

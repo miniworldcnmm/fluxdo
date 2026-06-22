@@ -8,6 +8,7 @@ environment:
 
 workspace:
   - packages/ai_model_manager
+  - packages/app_icons
   - packages/common_ui
   - packages/enhanced_cookie_jar
   - packages/extended_image_lite
@@ -53,12 +54,9 @@ dependencies:
   intl: ^0.20.2
   url_launcher: ^6.3.1
   font_awesome_flutter: ^11.0.0
-  phosphor_flutter:
-    # 临时使用 fork 仓库（PR #62），等官方合并后切回 pub.dev
-    # https://github.com/phosphor-icons/phosphor-flutter/pull/62
-    git:
-      url: https://github.com/subarnaPdl/phosphor_icons.git
-      ref: 514f0a883571c4453dbd6ee3041d1dcba4fb8fc7
+  # 全局统一图标库。详见 packages/app_icons/README 与 lib/src/app_icons.dart。
+  app_icons:
+    path: packages/app_icons
   # NOTE: If updating font_awesome_flutter, run:
   #   dart run tool/gen_fa_name_mapping.dart
   shared_preferences: ^2.5.4

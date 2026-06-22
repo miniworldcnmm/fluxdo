@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:super_clipboard/super_clipboard.dart';
@@ -104,22 +105,22 @@ class ImageContextMenu {
         PopupMenuItem(
           value: 'viewFull',
           child: _MenuItemRow(
-            icon: Icons.zoom_in,
+            icon: Symbols.zoom_in_rounded,
             label: S.current.image_viewFull,
           ),
         ),
       PopupMenuItem(
         value: 'copyImage',
-        child: _MenuItemRow(icon: Icons.copy, label: S.current.image_copyImage),
+        child: _MenuItemRow(icon: Symbols.content_copy_rounded, label: S.current.image_copyImage),
       ),
       PopupMenuItem(
         value: 'copyLink',
-        child: _MenuItemRow(icon: Icons.link, label: S.current.image_copyLink),
+        child: _MenuItemRow(icon: Symbols.link_rounded, label: S.current.image_copyLink),
       ),
       PopupMenuItem(
         value: 'share',
         child: _MenuItemRow(
-          icon: Icons.share,
+          icon: Symbols.share_rounded,
           label: S.current.common_shareImage,
         ),
       ),
@@ -127,7 +128,7 @@ class ImageContextMenu {
         PopupMenuItem(
           value: 'quote',
           child: _MenuItemRow(
-            icon: Icons.format_quote,
+            icon: Symbols.format_quote_rounded,
             label: S.current.common_quote,
           ),
         ),
@@ -135,7 +136,7 @@ class ImageContextMenu {
         PopupMenuItem(
           value: 'copyQuote',
           child: _MenuItemRow(
-            icon: Icons.copy_all,
+            icon: Symbols.copy_all_rounded,
             label: S.current.common_copyQuote,
           ),
         ),
@@ -143,7 +144,7 @@ class ImageContextMenu {
         const PopupMenuDivider(),
         PopupMenuItem(
           value: 'close',
-          child: _MenuItemRow(icon: Icons.close, label: S.current.common_close),
+          child: _MenuItemRow(icon: Symbols.close_rounded, label: S.current.common_close),
         ),
       ],
     ];
@@ -188,7 +189,7 @@ class ImageContextMenu {
           children: [
             if (showViewFullImage)
               ListTile(
-                leading: const Icon(Icons.zoom_in),
+                leading: const Icon(Symbols.zoom_in_rounded),
                 title: Text(S.current.image_viewFull),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -200,7 +201,7 @@ class ImageContextMenu {
                 },
               ),
             ListTile(
-              leading: const Icon(Icons.copy),
+              leading: const Icon(Symbols.content_copy_rounded),
               title: Text(S.current.image_copyImage),
               onTap: () {
                 Navigator.pop(ctx);
@@ -208,7 +209,7 @@ class ImageContextMenu {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.link),
+              leading: const Icon(Symbols.link_rounded),
               title: Text(S.current.image_copyLink),
               onTap: () {
                 Navigator.pop(ctx);
@@ -217,7 +218,7 @@ class ImageContextMenu {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.share),
+              leading: const Icon(Symbols.share_rounded),
               title: Text(S.current.common_shareImage),
               onTap: () {
                 Navigator.pop(ctx);
@@ -226,7 +227,7 @@ class ImageContextMenu {
             ),
             if (post != null && topicId != null && onQuoteImage != null)
               ListTile(
-                leading: const Icon(Icons.format_quote),
+                leading: const Icon(Symbols.format_quote_rounded),
                 title: Text(S.current.common_quote),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -241,7 +242,7 @@ class ImageContextMenu {
               ),
             if (post != null && topicId != null)
               ListTile(
-                leading: const Icon(Icons.copy_all),
+                leading: const Icon(Symbols.copy_all_rounded),
                 title: Text(S.current.common_copyQuote),
                 onTap: () {
                   Navigator.pop(ctx);
@@ -257,7 +258,7 @@ class ImageContextMenu {
               ),
             if (onClose != null)
               ListTile(
-                leading: const Icon(Icons.close),
+                leading: const Icon(Symbols.close_rounded),
                 title: Text(S.current.common_close),
                 onTap: () {
                   Navigator.pop(ctx);

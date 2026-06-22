@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
@@ -410,12 +411,12 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                         key: const ValueKey('offline'),
                         width: 48,
                         height: 48,
-                        child: Icon(Icons.cloud_off_rounded, color: theme.colorScheme.outline),
+                        child: Icon(Symbols.cloud_off_rounded, color: theme.colorScheme.outline),
                       )
                     : const SizedBox(key: ValueKey('idle'), width: 0),
           ),
           IconButton(
-            icon: const Icon(Icons.manage_accounts_rounded),
+            icon: const Icon(Symbols.manage_accounts_rounded),
             tooltip: context.l10n.profile_editProfile,
             onPressed: _openProfileEdit,
           ),
@@ -625,7 +626,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         padding: const EdgeInsets.all(16),
         child: Row(
           children: [
-            Icon(Icons.error_outline, color: theme.colorScheme.error),
+            Icon(Symbols.error_rounded, color: theme.colorScheme.error),
             const SizedBox(width: 12),
             Expanded(child: Text('${context.l10n.common_loadFailed}: $error', style: theme.textTheme.bodySmall)),
             TextButton(
@@ -657,7 +658,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   Widget _buildContentCard(ThemeData theme) {
     final actions = [
       (
-        icon: Icons.article_rounded,
+        icon: Symbols.article_rounded,
         iconColor: Colors.blue,
         title: context.l10n.profile_myTopics,
         onTap: () => Navigator.push(
@@ -666,7 +667,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         ),
       ),
       (
-        icon: Icons.bookmark_rounded,
+        icon: Symbols.bookmark_rounded,
         iconColor: Colors.orange,
         title: context.l10n.profile_myBookmarks,
         onTap: () => Navigator.push(
@@ -675,7 +676,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         ),
       ),
       (
-        icon: Icons.drafts_rounded,
+        icon: Symbols.drafts_rounded,
         iconColor: Colors.teal,
         title: context.l10n.profile_myDrafts,
         onTap: () => Navigator.push(
@@ -684,7 +685,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         ),
       ),
       (
-        icon: Icons.history_rounded,
+        icon: Symbols.history_rounded,
         iconColor: Colors.purple,
         title: context.l10n.profile_browsingHistory,
         onTap: () => Navigator.push(
@@ -781,26 +782,26 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       child: Column(
         children: [
           _buildOptionTile(
-            icon: Icons.mail_rounded,
+            icon: Symbols.mail_rounded,
             iconColor: Colors.indigo,
             title: context.l10n.profile_privateMessages,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivateMessagesPage())),
           ),
           _buildOptionTile(
-            icon: Icons.military_tech_rounded,
+            icon: Symbols.military_tech_rounded,
             iconColor: Colors.amber[700]!,
             title: context.l10n.profile_myBadges,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyBadgesPage()))
           ),
           _buildOptionTile(
-            icon: Icons.verified_user_rounded, 
+            icon: Symbols.verified_user_rounded, 
             iconColor: Colors.green,
             title: context.l10n.profile_trustRequirements,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TrustLevelRequirementsPage()))
           ),
           if (canAccessInviteLinks)
             _buildOptionTile(
-              icon: Icons.link_rounded,
+              icon: Symbols.link_rounded,
               iconColor: Colors.cyan,
               title: context.l10n.profile_inviteLinks,
               onTap: () => Navigator.push(
@@ -809,7 +810,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               ),
             ),
           _buildOptionTile(
-            icon: Icons.history_edu_rounded,
+            icon: Symbols.history_edu_rounded,
             iconColor: Colors.pink,
             title: context.l10n.exportHistory_title,
             onTap: () => Navigator.push(
@@ -818,7 +819,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             ),
           ),
           _buildOptionTile(
-            icon: Icons.explore_rounded,
+            icon: Symbols.explore_rounded,
             iconColor: Colors.deepOrange,
             title: context.l10n.profile_metaverse,
             showDivider: false,
@@ -838,13 +839,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       child: Column(
         children: [
           _buildOptionTile(
-            icon: Icons.language_rounded,
+            icon: Symbols.language_rounded,
             iconColor: Colors.blue,
             title: context.l10n.profile_myBrowser,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyBrowserPage()))
           ),
           _buildOptionTile(
-            icon: Icons.smart_toy_rounded,
+            icon: Symbols.smart_toy_rounded,
             iconColor: Colors.cyan,
             title: context.l10n.profile_aiModelService,
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AiProvidersPage(
@@ -860,7 +861,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             ))),
           ),
           _buildOptionTile(
-            icon: Icons.settings_rounded,
+            icon: Symbols.settings_rounded,
             iconColor: Colors.blueGrey,
             title: context.l10n.profile_settings,
             showDivider: false,
@@ -911,7 +912,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                     )
                   ),
                   Icon(
-                    Icons.chevron_right_rounded, 
+                    Symbols.chevron_right_rounded, 
                     color: theme.colorScheme.outline.withValues(alpha:0.4), 
                     size: 20
                   ),
@@ -938,7 +939,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       return Center(
         child: TextButton.icon(
           onPressed: _logout,
-          icon: Icon(Icons.logout_rounded, size: 18, color: theme.colorScheme.error.withValues(alpha:0.8)),
+          icon: Icon(Symbols.logout_rounded, size: 18, color: theme.colorScheme.error.withValues(alpha:0.8)),
           label: Text(context.l10n.profile_logoutCurrentAccount, style: TextStyle(color: theme.colorScheme.error.withValues(alpha:0.8), fontWeight: FontWeight.w500)),
           style: TextButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -952,7 +953,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: FilledButton.icon(
           onPressed: _goToLogin,
-          icon: const Icon(Icons.login_rounded, size: 20),
+          icon: const Icon(Symbols.login_rounded, size: 20),
           label: Text(context.l10n.profile_loginLinuxDo, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
           style: FilledButton.styleFrom(
             minimumSize: const Size(double.infinity, 52),
@@ -996,7 +997,7 @@ class _ProfileHeader extends ConsumerWidget {
                 radius: 16,
                 backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                 child: Icon(
-                  Icons.arrow_forward_ios_rounded,
+                  Symbols.arrow_forward_ios_rounded,
                   size: 14,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import '../../config/site_customization.dart';
 import '../../l10n/s.dart';
@@ -96,7 +97,7 @@ class _ExternalLinkConfirmSheet extends StatelessWidget {
                 Row(
                   children: [
                     Icon(
-                      Icons.language_rounded,
+                      Symbols.language_rounded,
                       size: 16,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -121,7 +122,7 @@ class _ExternalLinkConfirmSheet extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Icon(
-                          Icons.copy_rounded,
+                          Symbols.content_copy_rounded,
                           size: 16,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -159,7 +160,7 @@ class _ExternalLinkConfirmSheet extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(
-                    Icons.warning_amber_rounded,
+                    Symbols.warning_amber_rounded,
                     color: config.color,
                     size: 20,
                   ),
@@ -233,7 +234,7 @@ class _ExternalLinkConfirmSheet extends StatelessWidget {
     switch (level) {
       case LinkRiskLevel.normal:
         return _DialogConfig(
-          icon: Icons.open_in_new_rounded,
+          icon: Symbols.open_in_new_rounded,
           color: theme.colorScheme.primary,
           buttonColor: theme.colorScheme.primary,
           title: l10n.externalLink_leavingTitle,
@@ -241,7 +242,7 @@ class _ExternalLinkConfirmSheet extends StatelessWidget {
         );
       case LinkRiskLevel.risky:
         return _DialogConfig(
-          icon: Icons.link_off_rounded,
+          icon: Symbols.link_off_rounded,
           color: Colors.orange,
           buttonColor: Colors.orange,
           title: l10n.externalLink_shortLinkTitle,
@@ -250,7 +251,7 @@ class _ExternalLinkConfirmSheet extends StatelessWidget {
         );
       case LinkRiskLevel.dangerous:
         return _DialogConfig(
-          icon: Icons.shield_outlined,
+          icon: Symbols.shield_rounded,
           color: Colors.red,
           buttonColor: Colors.red,
           title: l10n.externalLink_securityWarningTitle,
@@ -259,7 +260,7 @@ class _ExternalLinkConfirmSheet extends StatelessWidget {
         );
       default:
         return _DialogConfig(
-          icon: Icons.open_in_new_rounded,
+          icon: Symbols.open_in_new_rounded,
           color: theme.colorScheme.primary,
           buttonColor: theme.colorScheme.primary,
           title: l10n.externalLink_leavingTitle,
@@ -319,7 +320,7 @@ class _LinkBlockedSheet extends StatelessWidget {
               color: Colors.red.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.block_rounded, color: Colors.red, size: 28),
+            child: const Icon(Symbols.block_rounded, color: Colors.red, size: 28),
           ),
           const SizedBox(height: 16),
           Text(
@@ -352,7 +353,7 @@ class _LinkBlockedSheet extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.dangerous_rounded,
+                  Symbols.dangerous_rounded,
                   size: 18,
                   color: Colors.red.shade400,
                 ),
@@ -385,7 +386,7 @@ class _LinkBlockedSheet extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  Icons.info_outline_rounded,
+                  Symbols.info_rounded,
                   color: theme.colorScheme.onSurfaceVariant,
                   size: 18,
                 ),

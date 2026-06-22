@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../l10n/s.dart';
@@ -333,13 +334,13 @@ class _RevisionToolbar extends StatelessWidget {
         children: [
           if (!isMobile)
             IconButton(
-              icon: const Icon(Icons.first_page),
+              icon: const Icon(Symbols.first_page_rounded),
               tooltip: l10n.postRevision_first,
               onPressed: onFirst,
               visualDensity: VisualDensity.compact,
             ),
           IconButton(
-            icon: const Icon(Icons.chevron_left),
+            icon: const Icon(Symbols.chevron_left_rounded),
             tooltip: l10n.postRevision_previous,
             onPressed: onPrevious,
             visualDensity: VisualDensity.compact,
@@ -358,14 +359,14 @@ class _RevisionToolbar extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.chevron_right),
+            icon: const Icon(Symbols.chevron_right_rounded),
             tooltip: l10n.postRevision_next,
             onPressed: onNext,
             visualDensity: VisualDensity.compact,
           ),
           if (!isMobile)
             IconButton(
-              icon: const Icon(Icons.last_page),
+              icon: const Icon(Symbols.last_page_rounded),
               tooltip: l10n.postRevision_last,
               onPressed: onLast,
               visualDensity: VisualDensity.compact,
@@ -386,7 +387,7 @@ class _RevisionToolbar extends StatelessWidget {
                         Text(_modeLabel(l10n, mode)),
                         if (mode == diffMode) ...[
                           const SizedBox(width: 8),
-                          Icon(Icons.check, size: 16, color: theme.colorScheme.primary),
+                          Icon(Symbols.check_rounded, size: 16, color: theme.colorScheme.primary),
                         ],
                       ],
                     ),
@@ -396,7 +397,7 @@ class _RevisionToolbar extends StatelessWidget {
           if (isMobile && (onFirst != null || onLast != null))
             SwipeDismissiblePopupMenuButton<String>(
               tooltip: MaterialLocalizations.of(context).moreButtonTooltip,
-              icon: const Icon(Icons.more_vert),
+              icon: const Icon(Symbols.more_vert_rounded),
               onSelected: (value) {
                 if (value == 'first') onFirst?.call();
                 if (value == 'last') onLast?.call();
@@ -407,7 +408,7 @@ class _RevisionToolbar extends StatelessWidget {
                     value: 'first',
                     child: Row(
                       children: [
-                        const Icon(Icons.first_page, size: 18),
+                        const Icon(Symbols.first_page_rounded, size: 18),
                         const SizedBox(width: 8),
                         Text(l10n.postRevision_first),
                       ],
@@ -418,7 +419,7 @@ class _RevisionToolbar extends StatelessWidget {
                     value: 'last',
                     child: Row(
                       children: [
-                        const Icon(Icons.last_page, size: 18),
+                        const Icon(Symbols.last_page_rounded, size: 18),
                         const SizedBox(width: 8),
                         Text(l10n.postRevision_last),
                       ],
@@ -434,11 +435,11 @@ class _RevisionToolbar extends StatelessWidget {
   static IconData _modeIcon(_DiffMode mode) {
     switch (mode) {
       case _DiffMode.inline:
-        return Icons.view_agenda_outlined;
+        return Symbols.view_agenda_rounded;
       case _DiffMode.sideBySide:
-        return Icons.view_column_outlined;
+        return Symbols.view_column_rounded;
       case _DiffMode.sideBySideMarkdown:
-        return Icons.code;
+        return Symbols.code_rounded;
     }
   }
 
@@ -690,7 +691,7 @@ class _MetaRow extends StatelessWidget {
             runSpacing: 6,
             children: [
               _MetaChip(text: entry.previous, color: delBg, strike: true),
-              const Icon(Icons.arrow_right_alt, size: 18),
+              const Icon(Symbols.arrow_right_alt_rounded, size: 18),
               _MetaChip(text: entry.current, color: insBg, strike: false),
             ],
           ),
@@ -952,13 +953,13 @@ class _StaffActions extends ConsumerWidget {
           if (revision.currentHidden)
             OutlinedButton.icon(
               onPressed: busy ? null : onShow,
-              icon: const Icon(Icons.visibility_outlined, size: 16),
+              icon: const Icon(Symbols.visibility_rounded, size: 16),
               label: Text(l10n.postRevision_show),
             )
           else
             OutlinedButton.icon(
               onPressed: busy ? null : onHide,
-              icon: const Icon(Icons.visibility_off_outlined, size: 16),
+              icon: const Icon(Symbols.visibility_off_rounded, size: 16),
               label: Text(l10n.postRevision_hide),
               style: OutlinedButton.styleFrom(
                 foregroundColor: theme.colorScheme.error,
@@ -967,7 +968,7 @@ class _StaffActions extends ConsumerWidget {
           if (revision.hasPreviousRevision)
             OutlinedButton.icon(
               onPressed: busy ? null : onRevert,
-              icon: const Icon(Icons.history, size: 16),
+              icon: const Icon(Symbols.history_rounded, size: 16),
               label: Text(l10n.postRevision_revert),
               style: OutlinedButton.styleFrom(
                 foregroundColor: theme.colorScheme.error,
@@ -976,7 +977,7 @@ class _StaffActions extends ConsumerWidget {
           if (revision.previousHidden)
             OutlinedButton.icon(
               onPressed: busy ? null : onPermanentlyDelete,
-              icon: const Icon(Icons.delete_forever_outlined, size: 16),
+              icon: const Icon(Symbols.delete_forever_rounded, size: 16),
               label: Text(l10n.postRevision_permanentlyDelete),
               style: OutlinedButton.styleFrom(
                 foregroundColor: theme.colorScheme.error,
@@ -1016,7 +1017,7 @@ class _ErrorView extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline,
+            Icon(Symbols.error_rounded,
                 color: theme.colorScheme.error, size: 36),
             const SizedBox(height: 12),
             Text(

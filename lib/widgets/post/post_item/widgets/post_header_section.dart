@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../l10n/s.dart';
 import '../../../../models/topic.dart';
@@ -170,7 +171,7 @@ class _PostHeaderSectionState extends ConsumerState<PostHeaderSection> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            widget.showStamp ? Icons.verified : Icons.help_outline,
+                            widget.showStamp ? Symbols.verified_rounded : Symbols.help_rounded,
                             color: widget.showStamp ? Colors.green : theme.colorScheme.outline,
                             size: 28,
                           ),

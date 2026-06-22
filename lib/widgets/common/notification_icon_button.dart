@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/s.dart';
 import '../../providers/message_bus/notification_providers.dart';
@@ -19,7 +20,7 @@ class NotificationIconButton extends ConsumerWidget {
       icon: Badge(
         isLabelVisible: unreadCount > 0,
         label: Text(unreadCount > 99 ? '99+' : '$unreadCount'),
-        child: const Icon(Icons.notifications_outlined),
+        child: const Icon(Symbols.notifications_rounded),
       ),
       tooltip: context.l10n.common_notification,
     );

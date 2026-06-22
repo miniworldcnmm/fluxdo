@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:jovial_svg/jovial_svg.dart';
@@ -236,7 +237,7 @@ class ShareImageWidget extends ConsumerWidget {
     return Row(
       children: [
         Icon(
-          Icons.link,
+          Symbols.link_rounded,
           size: 14,
           color: secondaryTextColor,
         ),

@@ -443,6 +443,17 @@ ThemeData _withChineseFallback(ThemeData base) {
   );
 }
 
+/// Material Symbols 全局轴默认：fill=0 走线框，weight/grade/opticalSize
+/// 给出与现有视觉匹配的中性值。状态类图标需在使用处显式传 `fill: 1`。
+IconThemeData _appIconTheme(Color color) => IconThemeData(
+  color: color,
+  size: 24,
+  fill: 0,
+  weight: 400,
+  grade: 0,
+  opticalSize: 24,
+);
+
 class MainApp extends ConsumerWidget {
   const MainApp({super.key});
 
@@ -514,6 +525,8 @@ class MainApp extends ConsumerWidget {
                   colorScheme: lightScheme,
                   useMaterial3: true,
                   fontFamily: themeState.fontFamilyName,
+                  iconTheme: _appIconTheme(lightScheme.onSurface),
+                  primaryIconTheme: _appIconTheme(lightScheme.onPrimary),
                   cardTheme: CardThemeData(
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -538,6 +551,8 @@ class MainApp extends ConsumerWidget {
                   colorScheme: darkScheme,
                   useMaterial3: true,
                   fontFamily: themeState.fontFamilyName,
+                  iconTheme: _appIconTheme(darkScheme.onSurface),
+                  primaryIconTheme: _appIconTheme(darkScheme.onPrimary),
                   cardTheme: CardThemeData(
                     elevation: 0,
                     shape: RoundedRectangleBorder(
@@ -1182,7 +1197,8 @@ class _MainPageState extends ConsumerState<MainPage>
               : Icon(e.iconData),
           selectedIcon: e.customSelectedIconBuilder != null
               ? e.customSelectedIconBuilder!(context, ref)
-              : Icon(e.selectedIconData),
+              // 同一 IconData 用 fill:1 表达选中态，避免不同字形错位
+              : Icon(e.selectedIconData, fill: 1),
           label: e.label(context),
         ),
     ];

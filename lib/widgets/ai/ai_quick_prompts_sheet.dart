@@ -1,5 +1,6 @@
 import 'package:ai_model_manager/ai_model_manager.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/s.dart';
@@ -64,7 +65,7 @@ class _PromptPresetsSheet extends ConsumerWidget {
       maxHeightFactor: 0.75,
       actions: [
         TextButton.icon(
-          icon: const Icon(Icons.tune, size: 16),
+          icon: const Icon(Symbols.tune_rounded, size: 16),
           label: Text(S.current.ai_quickPromptsManage),
           onPressed: () {
             Navigator.of(context).pop();
@@ -206,8 +207,7 @@ class _PresetTile extends ConsumerWidget {
               tooltip: preset.pinned
                   ? S.current.ai_quickPromptsUnpin
                   : S.current.ai_quickPromptsPin,
-              icon: Icon(
-                preset.pinned ? Icons.push_pin : Icons.push_pin_outlined,
+              icon: Icon(Symbols.push_pin_rounded, fill: preset.pinned ? 1 : 0,
                 size: 18,
                 color: preset.pinned
                     ? theme.colorScheme.primary
@@ -255,8 +255,7 @@ class _PresetTile extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: Icon(
-                preset.pinned ? Icons.push_pin : Icons.push_pin_outlined,
+              leading: Icon(Symbols.push_pin_rounded, fill: preset.pinned ? 1 : 0,
               ),
               title: Text(
                 preset.pinned
@@ -272,7 +271,7 @@ class _PresetTile extends ConsumerWidget {
             ),
             if (!preset.builtIn)
               ListTile(
-                leading: const Icon(Icons.edit_outlined),
+                leading: const Icon(Symbols.edit_rounded),
                 title: Text(S.current.common_edit),
                 onTap: () {
                   Navigator.of(ctx).pop();
@@ -286,7 +285,7 @@ class _PresetTile extends ConsumerWidget {
             if (!preset.builtIn)
               ListTile(
                 leading: Icon(
-                  Icons.delete_outline,
+                  Symbols.delete_rounded,
                   color: Theme.of(context).colorScheme.error,
                 ),
                 title: Text(
@@ -307,8 +306,8 @@ class _PresetTile extends ConsumerWidget {
               ListTile(
                 leading: Icon(
                   preset.hidden
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
+                      ? Symbols.visibility_rounded
+                      : Symbols.visibility_off_rounded,
                 ),
                 title: Text(
                   preset.hidden

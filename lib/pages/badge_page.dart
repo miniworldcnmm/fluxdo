@@ -16,6 +16,7 @@ import '../services/emoji_handler.dart';
 import 'topic_detail_page/topic_detail_page.dart';
 import 'user_profile_page.dart';
 import '../l10n/s.dart';
+import 'package:app_icons/app_icons.dart';
 
 /// 徽章详情页面
 class BadgePage extends ConsumerStatefulWidget {
@@ -121,7 +122,7 @@ class _BadgePageState extends ConsumerState<BadgePage> {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.people_outline,
+                            Symbols.group_rounded,
                             color: Theme.of(context).colorScheme.primary,
                             size: 22,
                           ),
@@ -168,7 +169,7 @@ class _BadgePageState extends ConsumerState<BadgePage> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
-                                  Icons.person_off_outlined,
+                                  Symbols.person_off_rounded,
                                   size: 48,
                                   color: Theme.of(
                                     context,
@@ -361,7 +362,7 @@ class _BadgeInfoCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.emoji_events_outlined,
+                Symbols.emoji_events_rounded,
                 size: 20,
                 color: theme.colorScheme.secondary,
               ),
@@ -446,14 +447,14 @@ class _UserBadgeItem extends StatelessWidget {
                       if (user.admin == true) ...[
                         const SizedBox(width: 4),
                         Icon(
-                          Icons.shield,
+                          Symbols.shield_rounded,
                           size: 14,
                           color: Colors.red.shade700,
                         ),
                       ] else if (user.moderator == true) ...[
                         const SizedBox(width: 4),
                         Icon(
-                          Icons.shield,
+                          Symbols.shield_rounded,
                           size: 14,
                           color: Colors.blue.shade700,
                         ),
@@ -488,7 +489,7 @@ class _UserBadgeItem extends StatelessWidget {
                       child: Row(
                         children: [
                           Icon(
-                            Icons.article_outlined,
+                            Symbols.article_rounded,
                             size: 14,
                             color: theme.colorScheme.primary,
                           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../services/discourse/discourse_service.dart';
 import '../../models/template.dart';
 import '../../utils/dialog_utils.dart';
@@ -94,7 +95,7 @@ class _TemplateInsertDialogState extends State<TemplateInsertDialog> {
                   controller: _searchController,
                   decoration: InputDecoration(
                     hintText: S.current.template_searchHint,
-                    prefixIcon: const Icon(Icons.search, size: 20),
+                    prefixIcon: const Icon(Symbols.search_rounded, size: 20),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -178,7 +179,7 @@ class _TemplateInsertDialogState extends State<TemplateInsertDialog> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    isExpanded ? Icons.expand_less : Icons.expand_more,
+                    isExpanded ? Symbols.expand_less_rounded : Symbols.expand_more_rounded,
                     size: 20,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),

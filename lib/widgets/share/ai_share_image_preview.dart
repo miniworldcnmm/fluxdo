@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:ai_model_manager/ai_model_manager.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:super_clipboard/super_clipboard.dart';
@@ -270,7 +271,7 @@ class _AiShareImagePreviewState extends ConsumerState<AiShareImagePreview> {
               children: [
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close),
+                  icon: const Icon(Symbols.close_rounded),
                 ),
                 Expanded(
                   child: Text(
@@ -363,7 +364,7 @@ class _AiShareImagePreviewState extends ConsumerState<AiShareImagePreview> {
                         ),
                         child: isSelected
                             ? Icon(
-                                Icons.check,
+                                Symbols.check_rounded,
                                 size: 18,
                                 color:
                                     t.isDark ? Colors.white : Colors.black87,
@@ -423,7 +424,7 @@ class _AiShareImagePreviewState extends ConsumerState<AiShareImagePreview> {
                                 child: CircularProgressIndicator(
                                     strokeWidth: 2),
                               )
-                            : const Icon(Icons.copy, size: 18),
+                            : const Icon(Symbols.content_copy_rounded, size: 18),
                         label: Text(context.l10n.common_copy),
                         style: OutlinedButton.styleFrom(
                           padding:
@@ -443,7 +444,7 @@ class _AiShareImagePreviewState extends ConsumerState<AiShareImagePreview> {
                                 child: CircularProgressIndicator(
                                     strokeWidth: 2),
                               )
-                            : const Icon(Icons.save_alt, size: 18),
+                            : const Icon(Symbols.save_alt_rounded, size: 18),
                         label: Text(context.l10n.common_save),
                         style: OutlinedButton.styleFrom(
                           padding:
@@ -465,7 +466,7 @@ class _AiShareImagePreviewState extends ConsumerState<AiShareImagePreview> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Icon(Icons.share, size: 18),
+                            : const Icon(Symbols.share_rounded, size: 18),
                         label: Text(context.l10n.common_share),
                         style: FilledButton.styleFrom(
                           padding:
@@ -489,7 +490,7 @@ class _AiShareImagePreviewState extends ConsumerState<AiShareImagePreview> {
                               child:
                                   CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.reply, size: 18),
+                          : const Icon(Symbols.reply_rounded, size: 18),
                       label: Text(_isReplying ? context.l10n.share_uploading : context.l10n.share_replyToTopic),
                       style: FilledButton.styleFrom(
                         padding:

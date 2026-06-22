@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:dio/dio.dart';
 
@@ -128,19 +129,19 @@ class ErrorView extends StatelessWidget {
     final helperActions = <Widget>[
       if (isCfChallengeError && onRetry != null)
         _HelperAction(
-          icon: Icons.refresh_rounded,
+          icon: Symbols.refresh_rounded,
           label: context.l10n.common_retry,
           onPressed: onRetry!,
         ),
       if (errorInfo.isNetworkError)
         _HelperAction(
-          icon: Icons.tune_rounded,
+          icon: Symbols.tune_rounded,
           label: context.l10n.error_openNetworkSettings,
           onPressed: () => _openNetworkSettings(context),
         ),
       if (showDetails)
         _HelperAction(
-          icon: Icons.info_outline_rounded,
+          icon: Symbols.info_rounded,
           label: context.l10n.common_viewDetails,
           onPressed: () => _showErrorDetails(context),
         ),
@@ -227,7 +228,7 @@ class ErrorDetailsSheet extends StatelessWidget {
       titleWidget: Row(
         children: [
           Icon(
-            Icons.bug_report_outlined,
+            Symbols.bug_report_rounded,
             size: 20,
             color: theme.colorScheme.error,
           ),
@@ -242,7 +243,7 @@ class ErrorDetailsSheet extends StatelessWidget {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.copy, size: 20),
+          icon: const Icon(Symbols.content_copy_rounded, size: 20),
           tooltip: context.l10n.common_copy,
           onPressed: () {
             Clipboard.setData(ClipboardData(text: details));

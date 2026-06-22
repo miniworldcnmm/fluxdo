@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../l10n/s.dart';
 import '../../../models/emoji.dart';
@@ -204,8 +205,8 @@ class _BoostInputSheetState extends ConsumerState<_BoostInputSheet> {
                   onPressed: _toggleEmojiPanel,
                   icon: Icon(
                     _showEmojiPanel
-                        ? Icons.keyboard
-                        : Icons.emoji_emotions_outlined,
+                        ? Symbols.keyboard_rounded
+                        : Symbols.emoji_emotions_rounded,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                   visualDensity: VisualDensity.compact,
@@ -266,7 +267,7 @@ class _BoostInputSheetState extends ConsumerState<_BoostInputSheet> {
                       ? context.l10n.common_reply
                       : context.l10n.boost_send,
                   icon: Icon(
-                    isReplyIntent ? Icons.reply_rounded : Icons.send_rounded,
+                    isReplyIntent ? Symbols.reply_rounded : Symbols.send_rounded,
                     color: _canSubmit
                         ? theme.colorScheme.primary
                         : theme.colorScheme.onSurfaceVariant.withValues(

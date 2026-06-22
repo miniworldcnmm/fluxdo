@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:jovial_svg/jovial_svg.dart';
 import '../../services/discourse/discourse_service.dart';
@@ -262,7 +263,7 @@ class _DiscourseImageState extends State<DiscourseImage> {
       ),
       child: Center(
         child: Icon(
-          Icons.broken_image_outlined,
+          Symbols.broken_image_rounded,
           color: theme.colorScheme.outline,
           size: 24,
         ),

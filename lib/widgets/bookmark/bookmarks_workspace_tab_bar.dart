@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../../l10n/s.dart';
 import '../../pages/bookmarks/bookmarks_models.dart';
@@ -157,7 +158,7 @@ class _BookmarksWorkspaceTabBarState extends State<BookmarksWorkspaceTabBar> {
                 tooltip: context.l10n.common_search,
                 visualDensity: VisualDensity.compact,
                 onPressed: widget.onSearchTap,
-                icon: const Icon(Icons.search_rounded),
+                icon: const Icon(Symbols.search_rounded),
               ),
             if (!widget.isSearchMode) ...widget.trailing,
           ],
@@ -235,7 +236,7 @@ class _WorkspaceTabButton extends StatelessWidget {
                     iconSize: 16,
                     color: foregroundColor,
                     onPressed: onClose,
-                    icon: const Icon(Icons.close_rounded),
+                    icon: const Icon(Symbols.close_rounded),
                   ),
                 ],
               ],

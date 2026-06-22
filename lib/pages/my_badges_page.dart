@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../models/badge.dart';
@@ -109,7 +110,7 @@ class _MyBadgesPageState extends ConsumerState<MyBadgesPage> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.military_tech_outlined,
+                                Icon(Symbols.military_tech_rounded,
                                     size: 64, color: Colors.grey[400]),
                                 const SizedBox(height: 16),
                                 Text(context.l10n.myBadges_empty,

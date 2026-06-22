@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../common/skeleton.dart';
 
 /// 信任级别要求页骨架屏
@@ -36,7 +37,7 @@ class TrustLevelSkeleton extends StatelessWidget {
                       right: -20,
                       top: -20,
                       child: Icon(
-                        Icons.verified_user_outlined,
+                        Symbols.verified_user_rounded,
                         size: 200,
                         color: colorScheme.primary.withValues(alpha: 0.05),
                       ),

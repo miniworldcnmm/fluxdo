@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../../l10n/s.dart';
 import '../../pages/appearance_page.dart';
@@ -68,7 +69,7 @@ List<SettingsSearchResult> buildSearchIndex(BuildContext context) {
     ...fromGroups(
       buildReadingGroups(context),
       categoryName: l10n.settings_reading,
-      categoryIcon: Icons.auto_stories_rounded,
+      categoryIcon: Symbols.auto_stories_rounded,
       categoryColor: Colors.deepOrange,
       pageBuilder: ({highlightId}) =>
           ReadingSettingsPage(highlightId: highlightId),
@@ -76,7 +77,7 @@ List<SettingsSearchResult> buildSearchIndex(BuildContext context) {
     ...fromGroups(
       buildPreferencesGroups(context),
       categoryName: l10n.settings_preferences,
-      categoryIcon: Icons.tune_rounded,
+      categoryIcon: Symbols.tune_rounded,
       categoryColor: Colors.deepPurple,
       pageBuilder: ({highlightId}) =>
           PreferencesPage(highlightId: highlightId),
@@ -84,7 +85,7 @@ List<SettingsSearchResult> buildSearchIndex(BuildContext context) {
     ...fromGroups(
       buildBottomNavGroups(context),
       categoryName: l10n.settings_bottomNav,
-      categoryIcon: Icons.view_day_rounded,
+      categoryIcon: Symbols.view_day_rounded,
       categoryColor: Colors.amber,
       pageBuilder: ({highlightId}) =>
           BottomNavSettingsPage(highlightId: highlightId),
@@ -92,7 +93,7 @@ List<SettingsSearchResult> buildSearchIndex(BuildContext context) {
     ...fromGroups(
       buildAppearanceGroups(context),
       categoryName: l10n.settings_appearance,
-      categoryIcon: Icons.color_lens_rounded,
+      categoryIcon: Symbols.color_lens_rounded,
       categoryColor: Colors.teal,
       pageBuilder: ({highlightId}) =>
           AppearancePage(highlightId: highlightId),
@@ -100,7 +101,7 @@ List<SettingsSearchResult> buildSearchIndex(BuildContext context) {
     ...fromGroups(
       buildNetworkGroups(context),
       categoryName: l10n.settings_network,
-      categoryIcon: Icons.network_check_rounded,
+      categoryIcon: Symbols.network_check_rounded,
       categoryColor: Colors.blueGrey,
       pageBuilder: ({highlightId}) =>
           NetworkSettingsPage(highlightId: highlightId),
@@ -108,7 +109,7 @@ List<SettingsSearchResult> buildSearchIndex(BuildContext context) {
     ...fromGroups(
       buildDataManagementGroups(context),
       categoryName: l10n.settings_dataManagement,
-      categoryIcon: Icons.storage_rounded,
+      categoryIcon: Symbols.storage_rounded,
       categoryColor: Colors.brown,
       pageBuilder: ({highlightId}) =>
           DataManagementPage(highlightId: highlightId),
@@ -118,7 +119,7 @@ List<SettingsSearchResult> buildSearchIndex(BuildContext context) {
       ...fromGroups(
         buildShortcutGroups(context),
         categoryName: l10n.settings_shortcuts,
-        categoryIcon: Icons.keyboard_rounded,
+        categoryIcon: Symbols.keyboard_rounded,
         categoryColor: Colors.cyan,
         pageBuilder: ({highlightId}) =>
             ShortcutSettingsPage(highlightId: highlightId),

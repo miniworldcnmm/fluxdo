@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/search_filter.dart';
 import '../models/topic.dart';
@@ -147,7 +148,7 @@ class _MyTopicsPageState extends ConsumerState<MyTopicsPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(
-                    Icons.article_outlined,
+                    Symbols.article_rounded,
                     size: 64,
                     color: Colors.grey,
                   ),

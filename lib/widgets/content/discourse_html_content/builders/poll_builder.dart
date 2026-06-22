@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../../models/topic.dart';
 import 'package:dio/dio.dart';
 import '../../../../services/app_error_handler.dart';
@@ -265,7 +266,7 @@ class _PollWidgetState extends State<_PollWidget> {
             child: Row(
               children: [
                 Icon(
-                  isClosed ? Icons.lock_outline : Icons.poll_outlined,
+                  isClosed ? Symbols.lock_rounded : Symbols.poll_rounded,
                   size: 16,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -384,8 +385,8 @@ class _PollWidgetState extends State<_PollWidget> {
                 // 单选/多选图标
                 Icon(
                   _isMultiple
-                      ? (isUserVoted ? Icons.check_box : Icons.check_box_outline_blank)
-                      : (isUserVoted ? Icons.radio_button_checked : Icons.radio_button_unchecked),
+                      ? (isUserVoted ? Symbols.check_box_rounded : Symbols.check_box_outline_blank_rounded)
+                      : (isUserVoted ? Symbols.radio_button_checked_rounded : Symbols.radio_button_unchecked_rounded),
                   size: 20,
                   color: isUserVoted ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant,
                 ),
@@ -441,7 +442,7 @@ class _PollWidgetState extends State<_PollWidget> {
                       children: [
                         if (isUserVoted) ...[
                           Icon(
-                            Icons.check_circle,
+                            Symbols.check_circle_rounded,
                             size: 16,
                             color: theme.colorScheme.primary,
                           ),

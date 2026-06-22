@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_riverpod/legacy.dart';
@@ -49,9 +50,9 @@ extension NavTapActionX on NavTapAction {
       case NavTapAction.none:
         return null;
       case NavTapAction.scrollToTop:
-        return Icons.keyboard_double_arrow_up_rounded;
+        return Symbols.keyboard_double_arrow_up_rounded;
       case NavTapAction.refresh:
-        return Icons.refresh_rounded;
+        return Symbols.refresh_rounded;
     }
   }
 

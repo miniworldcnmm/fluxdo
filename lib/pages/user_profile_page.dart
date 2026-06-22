@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:extended_nested_scroll_view/extended_nested_scroll_view.dart';
@@ -352,7 +353,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                       if (isSuspended)
                         _buildRestrictionSection(
                           theme,
-                          icon: Icons.block_rounded,
+                          icon: Symbols.block_rounded,
                           title: context.l10n.userProfile_suspendedStatus,
                           label: _user!.isSuspendedForever
                               ? context.l10n.userProfile_permanentlySuspended
@@ -363,7 +364,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                       if (isSilenced)
                         _buildRestrictionSection(
                           theme,
-                          icon: Icons.mic_off_rounded,
+                          icon: Symbols.mic_off_rounded,
                           title: context.l10n.userProfile_silencedStatus,
                           label: _user!.isSilencedForever
                               ? context.l10n.userProfile_permanentlySilenced
@@ -405,7 +406,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                         if (hasLocation)
                           _buildInfoRow(
                             context,
-                            Icons.location_on_outlined,
+                            Symbols.location_on_rounded,
                             context.l10n.userProfile_location,
                             _user!.location!,
                           ),
@@ -413,7 +414,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                         if (hasWebsite)
                           _buildInfoRow(
                             context,
-                            Icons.link_rounded,
+                            Symbols.link_rounded,
                             context.l10n.userProfile_website,
                             _user!.websiteName ?? _user!.website!,
                             url: _user!.website,
@@ -423,7 +424,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                         if (hasJoinedAt)
                           _buildInfoRow(
                             context,
-                            Icons.calendar_today_rounded,
+                            Symbols.calendar_today_rounded,
                             context.l10n.userProfile_joinDate,
                             TimeUtils.formatFullDate(_user!.createdAt),
                           ),
@@ -547,7 +548,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
             ),
             if (isLink)
               Icon(
-                Icons.open_in_new_rounded,
+                Symbols.open_in_new_rounded,
                 size: 16,
                 color: theme.colorScheme.outline.withValues(alpha:0.5),
               ),
@@ -788,17 +789,17 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
       iconTheme: const IconThemeData(color: Colors.white),
       actions: [
         IconButton(
-          icon: const Icon(Icons.search),
+          icon: const Icon(Symbols.search_rounded),
           onPressed: () => _openUserSearch(),
         ),
         if (_user != null && _user!.canSendPrivateMessageToUser != false)
           IconButton(
             onPressed: _openMessageDialog,
-            icon: const Icon(Icons.mail_outline_rounded),
+            icon: const Icon(Symbols.mail_rounded),
             tooltip: context.l10n.userProfile_message,
           ),
         SwipeDismissiblePopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert),
+          icon: const Icon(Symbols.more_vert_rounded),
           onSelected: (value) {
             switch (value) {
               case 'about':
@@ -820,7 +821,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                 value: 'about',
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline_rounded, size: 20, color: theme.colorScheme.onSurface),
+                    Icon(Symbols.info_rounded, size: 20, color: theme.colorScheme.onSurface),
                     const SizedBox(width: 12),
                     Text(context.l10n.common_about),
                   ],
@@ -830,7 +831,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                 value: 'share',
                 child: Row(
                   children: [
-                    Icon(Icons.share_outlined, size: 20, color: theme.colorScheme.onSurface),
+                    Icon(Symbols.share_rounded, size: 20, color: theme.colorScheme.onSurface),
                     const SizedBox(width: 12),
                     Text(context.l10n.userProfile_shareUser),
                   ],
@@ -843,11 +844,11 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                   value: 'level_normal',
                   child: Row(
                     children: [
-                      Icon(Icons.notifications_outlined, size: 20, color: theme.colorScheme.onSurface),
+                      Icon(Symbols.notifications_rounded, size: 20, color: theme.colorScheme.onSurface),
                       const SizedBox(width: 12),
                       Expanded(child: Text(context.l10n.userProfile_normal)),
                       if (_notificationLevel == 'normal')
-                        Icon(Icons.check, size: 18, color: theme.colorScheme.primary),
+                        Icon(Symbols.check_rounded, size: 18, color: theme.colorScheme.primary),
                     ],
                   ),
                 ),
@@ -856,11 +857,11 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                     value: 'level_mute',
                     child: Row(
                       children: [
-                        Icon(Icons.notifications_off_outlined, size: 20, color: theme.colorScheme.onSurface),
+                        Icon(Symbols.notifications_off_rounded, size: 20, color: theme.colorScheme.onSurface),
                         const SizedBox(width: 12),
                         Expanded(child: Text(context.l10n.userProfile_mute)),
                         if (_notificationLevel == 'mute')
-                          Icon(Icons.check, size: 18, color: theme.colorScheme.primary),
+                          Icon(Symbols.check_rounded, size: 18, color: theme.colorScheme.primary),
                       ],
                     ),
                   ),
@@ -869,11 +870,11 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                     value: 'level_ignore',
                     child: Row(
                       children: [
-                        Icon(Icons.visibility_off_outlined, size: 20, color: theme.colorScheme.onSurface),
+                        Icon(Symbols.visibility_off_rounded, size: 20, color: theme.colorScheme.onSurface),
                         const SizedBox(width: 12),
                         Expanded(child: Text(context.l10n.userProfile_ignored)),
                         if (_notificationLevel == 'ignore')
-                          Icon(Icons.check, size: 18, color: theme.colorScheme.primary),
+                          Icon(Symbols.check_rounded, size: 18, color: theme.colorScheme.primary),
                       ],
                     ),
                   ),
@@ -1106,7 +1107,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                               // 封禁提示
                               if (_user!.isSuspended) ...[
                                 _buildRestrictionBanner(
-                                  icon: Icons.block_rounded,
+                                  icon: Symbols.block_rounded,
                                   label: _user!.isSuspendedForever
                                       ? context.l10n.userProfile_suspendedBannerForever
                                       : context.l10n.userProfile_suspendedBannerUntil(TimeUtils.formatFullDate(_user!.suspendedTill)),
@@ -1119,7 +1120,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                               // 禁言提示
                               if (_user!.isSilenced)
                                 _buildRestrictionBanner(
-                                  icon: Icons.mic_off_rounded,
+                                  icon: Symbols.mic_off_rounded,
                                   label: _user!.isSilencedForever
                                       ? context.l10n.userProfile_silencedBannerForever
                                       : context.l10n.userProfile_silencedBannerUntil(TimeUtils.formatFullDate(_user!.silencedTill)),
@@ -1170,7 +1171,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                                 if (hasInfo) ...[
                                   const SizedBox(width: 8),
                                   Icon(
-                                    Icons.chevron_right,
+                                    Symbols.chevron_right_rounded,
                                     size: 16,
                                     color: Colors.white.withValues(alpha:0.6),
                                   ),
@@ -1247,7 +1248,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.flash_on_rounded, size: 12, color: Colors.white70),
+                              const Icon(Symbols.flash_on_rounded, size: 12, color: Colors.white70),
                               const SizedBox(width: 4),
                               RelativeTimeText(
                                 dateTime: _user?.lastSeenAt ?? _user!.lastPostedAt!,
@@ -1373,7 +1374,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
         : TextButton.icon(
             onPressed: _toggleFollow,
             icon: Icon(
-              _isFollowed ? Icons.check_rounded : Icons.add_rounded,
+              _isFollowed ? Symbols.check_rounded : Symbols.add_rounded,
               size: 16,
             ),
             label: Text(_isFollowed ? context.l10n.userProfile_followed : context.l10n.userProfile_follow),
@@ -1493,7 +1494,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.inbox_outlined, size: 48, color: Colors.grey[400]),
+            Icon(Symbols.inbox_rounded, size: 48, color: Colors.grey[400]),
             const SizedBox(height: 8),
             Text(context.l10n.userProfile_noContent, style: TextStyle(color: Colors.grey[600])),
           ],
@@ -1546,7 +1547,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
       children: [
         // 热门话题
         if (summary.topics.isNotEmpty) ...[
-          _buildSectionHeader(theme, Icons.article_rounded, context.l10n.userProfile_topTopics),
+          _buildSectionHeader(theme, Symbols.article_rounded, context.l10n.userProfile_topTopics),
           const SizedBox(height: 8),
           ...summary.topics.map((topic) => _buildSummaryTopicItem(theme, topic)),
           const SizedBox(height: 20),
@@ -1554,7 +1555,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
 
         // 热门回复
         if (summary.replies.isNotEmpty) ...[
-          _buildSectionHeader(theme, Icons.chat_bubble_rounded, context.l10n.userProfile_topReplies),
+          _buildSectionHeader(theme, Symbols.chat_bubble_rounded, context.l10n.userProfile_topReplies),
           const SizedBox(height: 8),
           ...summary.replies.map((reply) => _buildSummaryReplyItem(theme, reply)),
           const SizedBox(height: 20),
@@ -1562,7 +1563,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
 
         // 热门链接
         if (summary.links.isNotEmpty) ...[
-          _buildSectionHeader(theme, Icons.link_rounded, context.l10n.userProfile_topLinks),
+          _buildSectionHeader(theme, Symbols.link_rounded, context.l10n.userProfile_topLinks),
           const SizedBox(height: 8),
           ...summary.links.map((link) => _buildSummaryLinkItem(theme, link)),
           const SizedBox(height: 20),
@@ -1570,7 +1571,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
 
         // 最多回复至
         if (summary.mostRepliedToUsers.isNotEmpty) ...[
-          _buildSectionHeader(theme, Icons.reply_rounded, context.l10n.userProfile_mostRepliedTo),
+          _buildSectionHeader(theme, Symbols.reply_rounded, context.l10n.userProfile_mostRepliedTo),
           const SizedBox(height: 8),
           _buildUserChips(theme, summary.mostRepliedToUsers),
           const SizedBox(height: 20),
@@ -1578,7 +1579,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
 
         // 被谁赞的最多
         if (summary.mostLikedByUsers.isNotEmpty) ...[
-          _buildSectionHeader(theme, Icons.favorite_rounded, context.l10n.userProfile_mostLikedBy),
+          _buildSectionHeader(theme, Symbols.favorite_rounded, context.l10n.userProfile_mostLikedBy),
           const SizedBox(height: 8),
           _buildUserChips(theme, summary.mostLikedByUsers),
           const SizedBox(height: 20),
@@ -1586,7 +1587,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
 
         // 赞最多
         if (summary.mostLikedUsers.isNotEmpty) ...[
-          _buildSectionHeader(theme, Icons.thumb_up_rounded, context.l10n.userProfile_mostLiked),
+          _buildSectionHeader(theme, Symbols.thumb_up_rounded, context.l10n.userProfile_mostLiked),
           const SizedBox(height: 8),
           _buildUserChips(theme, summary.mostLikedUsers),
           const SizedBox(height: 20),
@@ -1594,7 +1595,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
 
         // 热门类别
         if (summary.topCategories.isNotEmpty) ...[
-          _buildSectionHeader(theme, Icons.category_rounded, context.l10n.userProfile_topCategories),
+          _buildSectionHeader(theme, Symbols.category_rounded, context.l10n.userProfile_topCategories),
           const SizedBox(height: 8),
           ...summary.topCategories.map((cat) => _buildSummaryCategoryItem(theme, cat)),
           const SizedBox(height: 20),
@@ -1602,7 +1603,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
 
         // 热门徽章
         if (summary.badges.isNotEmpty) ...[
-          _buildSectionHeader(theme, Icons.military_tech_rounded, context.l10n.userProfile_topBadges),
+          _buildSectionHeader(theme, Symbols.military_tech_rounded, context.l10n.userProfile_topBadges),
           const SizedBox(height: 8),
           _buildBadgeChips(theme, summary.badges),
           const SizedBox(height: 20),
@@ -1622,7 +1623,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
               padding: const EdgeInsets.only(top: 80),
               child: Column(
                 children: [
-                  Icon(Icons.summarize_outlined, size: 48, color: Colors.grey[400]),
+                  Icon(Symbols.summarize_rounded, size: 48, color: Colors.grey[400]),
                   const SizedBox(height: 8),
                   Text(context.l10n.userProfile_noSummary, style: TextStyle(color: Colors.grey[600])),
                 ],
@@ -1679,7 +1680,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
               ),
               if (topic.likeCount > 0) ...[
                 const SizedBox(width: 8),
-                Icon(Icons.favorite_rounded, size: 14, color: theme.colorScheme.outline),
+                Icon(Symbols.favorite_rounded, size: 14, color: theme.colorScheme.outline),
                 const SizedBox(width: 2),
                 Text(
                   '${topic.likeCount}',
@@ -1730,7 +1731,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
               ),
               if (reply.likeCount > 0) ...[
                 const SizedBox(width: 8),
-                Icon(Icons.favorite_rounded, size: 14, color: theme.colorScheme.outline),
+                Icon(Symbols.favorite_rounded, size: 14, color: theme.colorScheme.outline),
                 const SizedBox(width: 2),
                 Text(
                   '${reply.likeCount}',
@@ -1770,7 +1771,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
           padding: const EdgeInsets.all(12),
           child: Row(
             children: [
-              Icon(Icons.open_in_new_rounded, size: 16, color: theme.colorScheme.outline),
+              Icon(Symbols.open_in_new_rounded, size: 16, color: theme.colorScheme.outline),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -1981,7 +1982,7 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.emoji_emotions_outlined, size: 48, color: Colors.grey[400]),
+            Icon(Symbols.emoji_emotions_rounded, size: 48, color: Colors.grey[400]),
             const SizedBox(height: 8),
             Text(context.l10n.userProfile_noReactions, style: TextStyle(color: Colors.grey[600])),
           ],
@@ -2144,10 +2145,10 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                       image: emojiImageProvider(emojiUrl),
                       width: 20,
                       height: 20,
-                      errorBuilder: (_, _, _) => const Icon(Icons.emoji_emotions, size: 20),
+                      errorBuilder: (_, _, _) => const Icon(Symbols.emoji_emotions_rounded, size: 20),
                     )
                   else
-                    const Icon(Icons.emoji_emotions, size: 20),
+                    const Icon(Symbols.emoji_emotions_rounded, size: 20),
                   const SizedBox(width: 8),
                   Text(
                     context.l10n.userProfile_reacted,
@@ -2202,15 +2203,15 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
   IconData _getActionIcon(int? type) {
     switch (type) {
       case UserActionType.like:
-        return Icons.favorite_rounded;
+        return Symbols.favorite_rounded;
       case UserActionType.wasLiked:
-        return Icons.favorite_border_rounded;
+        return Symbols.favorite_border_rounded;
       case UserActionType.newTopic:
-        return Icons.article_rounded;
+        return Symbols.article_rounded;
       case UserActionType.reply:
-        return Icons.chat_bubble_rounded;
+        return Symbols.chat_bubble_rounded;
       default:
-        return Icons.history_rounded;
+        return Symbols.history_rounded;
     }
   }
 

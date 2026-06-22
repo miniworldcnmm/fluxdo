@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ai_model_manager/ai_model_manager.dart';
@@ -24,7 +25,7 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
     // ── 语言 ──────────────────────────────────────────────────────
     SettingsGroup(
       title: l10n.appearance_language,
-      icon: Icons.language_outlined,
+      icon: Symbols.language_rounded,
       items: [
         CustomModel(
           id: 'language',
@@ -34,11 +35,11 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
             final label = _localeLabel(context.l10n, locale);
             return ListTile(
               leading: Icon(
-                Icons.translate,
+                Symbols.translate_rounded,
                 color: Theme.of(context).colorScheme.primary,
               ),
               title: Text(label),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(Symbols.chevron_right_rounded),
               onTap: () => _showLanguagePicker(context, ref, locale),
             );
           },
@@ -49,7 +50,7 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
     // ── 主题模式 ───────────────────────────────────────────────────
     SettingsGroup(
       title: l10n.appearance_themeMode,
-      icon: Icons.brightness_6_outlined,
+      icon: Symbols.brightness_6_rounded,
       wrapInCard: false,
       items: [
         CustomModel(
@@ -80,19 +81,19 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
             final modes = [
               (
                 ThemeMode.system,
-                Icons.auto_mode,
+                Symbols.auto_mode_rounded,
                 l10n.appearance_modeAuto,
                 null,
               ),
               (
                 ThemeMode.light,
-                Icons.light_mode,
+                Symbols.light_mode_rounded,
                 l10n.appearance_modeLight,
                 lightScheme,
               ),
               (
                 ThemeMode.dark,
-                Icons.dark_mode,
+                Symbols.dark_mode_rounded,
                 l10n.appearance_modeDark,
                 darkScheme,
               ),
@@ -134,7 +135,7 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
     // ── 主题色 ────────────────────────────────────────────────────
     SettingsGroup(
       title: l10n.appearance_themeColor,
-      icon: Icons.color_lens_outlined,
+      icon: Symbols.color_lens_rounded,
       wrapInCard: false,
       items: [
         CustomModel(
@@ -148,7 +149,7 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
     // ── 应用图标（仅 iOS/Android）────────────────────────────────
     SettingsGroup(
       title: l10n.appearance_appIcon,
-      icon: Icons.app_shortcut_outlined,
+      icon: Symbols.app_shortcut_rounded,
       wrapInCard: false,
       items: [
         PlatformConditionalModel(
@@ -203,7 +204,7 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
     // ── 字体 ──────────────────────────────────────────────────────
     SettingsGroup(
       title: l10n.appearance_font,
-      icon: Icons.font_download_outlined,
+      icon: Symbols.font_download_rounded,
       items: [
         CustomModel(
           id: 'font',
@@ -248,14 +249,14 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
     // ── 屏幕帧率（仅 Android）──────────────────────────────────────
     SettingsGroup(
       title: l10n.appearance_displayMode,
-      icon: Icons.monitor_outlined,
+      icon: Symbols.monitor_rounded,
       items: [
         PlatformConditionalModel(
           condition: () => !kIsWeb && Platform.isAndroid,
           inner: ActionModel(
             id: 'displayMode',
             title: l10n.appearance_displayMode,
-            icon: Icons.monitor_heart_outlined,
+            icon: Symbols.monitor_heart_rounded,
             getDynamicSubtitle: (ref) {
               final rate = ref
                   .watch(preferencesProvider)
@@ -273,13 +274,13 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
     // ── 对话框模糊 ──────────────────────────────────────────────────
     SettingsGroup(
       title: l10n.appearance_dialogBlur,
-      icon: Icons.blur_on_outlined,
+      icon: Symbols.blur_on_rounded,
       items: [
         SwitchModel(
           id: 'dialogBlur',
           title: l10n.appearance_dialogBlur,
           subtitle: l10n.appearance_dialogBlurDesc,
-          icon: Icons.blur_on_rounded,
+          icon: Symbols.blur_on_rounded,
           getValue: (ref) => ref.watch(preferencesProvider).dialogBlur,
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setDialogBlur(v),
@@ -317,7 +318,7 @@ void _showLanguagePicker(
               title: Text(label),
               trailing: _localeKey(locale) == _localeKey(currentLocale)
                   ? Icon(
-                      Icons.check,
+                      Symbols.check_rounded,
                       color: Theme.of(sheetContext).colorScheme.primary,
                     )
                   : null,
@@ -1111,7 +1112,7 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
                                 setState(() => _removableColor = null);
                               },
                               iconSize: 28,
-                              icon: Icon(Icons.delete, color: cs.primary),
+                              icon: Icon(Symbols.delete_rounded, color: cs.primary),
                             ),
                           ),
                       ],
@@ -1127,7 +1128,7 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
                       child: IconButton.filledTonal(
                         onPressed: () => _showColorPicker(context),
                         iconSize: 28,
-                        icon: Icon(Icons.add, color: cs.primary),
+                        icon: Icon(Symbols.add_rounded, color: cs.primary),
                       ),
                     ),
                   ),
@@ -1567,7 +1568,7 @@ class _ColorSwatchCard extends StatelessWidget {
                       color: Colors.black.withValues(alpha: 0.12),
                       alignment: Alignment.center,
                       child: Icon(
-                        Icons.check_circle_rounded,
+                        Symbols.check_circle_rounded,
                         color: tileScheme.onPrimary,
                         size: 26,
                       ),
@@ -1578,7 +1579,7 @@ class _ColorSwatchCard extends StatelessWidget {
                       top: 5,
                       right: 5,
                       child: Icon(
-                        Icons.auto_awesome,
+                        Symbols.auto_awesome_rounded,
                         size: 14,
                         color: tileScheme.onPrimary.withValues(alpha: 0.85),
                       ),

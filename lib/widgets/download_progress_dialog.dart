@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:paper_shaders/paper_shaders.dart';
@@ -133,17 +134,17 @@ class DownloadProgressDialog extends ConsumerWidget {
 
       switch (status) {
         case ApkDownloadStatus.installing:
-          icon = Icons.install_mobile_outlined;
+          icon = Symbols.install_mobile_rounded;
           break;
         case ApkDownloadStatus.completed:
-          icon = Icons.check_circle_outline;
+          icon = Symbols.check_circle_rounded;
           break;
         case ApkDownloadStatus.error:
-          icon = Icons.error_outline;
+          icon = Symbols.error_rounded;
           iconColor = isDark ? Colors.white : Colors.red.shade700;
           break;
         default:
-          icon = Icons.download;
+          icon = Symbols.download_rounded;
       }
 
       return Icon(icon, size: 72, color: iconColor);

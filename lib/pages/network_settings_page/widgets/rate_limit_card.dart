@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../l10n/s.dart';
@@ -94,7 +95,7 @@ class _RateLimitCardState extends ConsumerState<RateLimitCard> {
               child: Row(
                 children: [
                   Icon(
-                    Icons.tune,
+                    Symbols.tune_rounded,
                     size: 18,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -109,7 +110,7 @@ class _RateLimitCardState extends ConsumerState<RateLimitCard> {
                     turns: advancedOpen ? 0.5 : 0,
                     duration: const Duration(milliseconds: 180),
                     child: Icon(
-                      Icons.expand_more,
+                      Symbols.expand_more_rounded,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
@@ -128,7 +129,7 @@ class _RateLimitCardState extends ConsumerState<RateLimitCard> {
               child: Column(
                 children: [
                   _SliderTile(
-                    icon: Icons.swap_horiz,
+                    icon: Symbols.swap_horiz_rounded,
                     label: l10n.networkSettings_maxConcurrent,
                     helper: l10n.networkSettings_maxConcurrentDesc,
                     value: prefs.maxConcurrent,
@@ -138,7 +139,7 @@ class _RateLimitCardState extends ConsumerState<RateLimitCard> {
                   ),
                   const Divider(height: 1, indent: 56),
                   _SliderTile(
-                    icon: Icons.speed,
+                    icon: Symbols.speed_rounded,
                     label: l10n.networkSettings_maxPerWindow,
                     helper: l10n.networkSettings_maxPerWindowDesc,
                     value: prefs.maxPerWindow,
@@ -148,7 +149,7 @@ class _RateLimitCardState extends ConsumerState<RateLimitCard> {
                   ),
                   const Divider(height: 1, indent: 56),
                   _SliderTile(
-                    icon: Icons.timer_outlined,
+                    icon: Symbols.timer_rounded,
                     label: l10n.networkSettings_windowSeconds,
                     helper: l10n.networkSettings_windowSecondsDesc,
                     value: prefs.windowSeconds,
@@ -257,7 +258,7 @@ class _Header extends StatelessWidget {
           IconButton(
             tooltip: context.l10n.networkSettings_rateLimitReset,
             onPressed: onReset,
-            icon: const Icon(Icons.restore, size: 20),
+            icon: const Icon(Symbols.restore_rounded, size: 20),
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ],

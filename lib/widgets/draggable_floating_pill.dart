@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import 'floating_widget_mixin.dart';
 
@@ -169,8 +170,7 @@ class _DraggableFloatingPillState extends State<DraggableFloatingPill>
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      _isExpanded ? Icons.gpp_maybe : Icons.gpp_maybe_outlined,
+                    Icon(Symbols.gpp_maybe_rounded, fill: _isExpanded ? 1 : 0,
                       size: 20,
                       color: contentColor,
                     ),
@@ -198,7 +198,7 @@ class _DraggableFloatingPillState extends State<DraggableFloatingPill>
                       Padding(
                         padding: const EdgeInsets.only(left: 4),
                         child: Icon(
-                          Icons.chevron_right,
+                          Symbols.chevron_right_rounded,
                           size: 16,
                           color: contentColor.withValues(alpha: 0.7),
                         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../models/category.dart';
@@ -66,7 +67,7 @@ Widget _buildCategoryIcon(
   }
 
   if (category.readRestricted) {
-    return Icon(Icons.lock, size: size * 0.7, color: color);
+    return Icon(Symbols.lock_rounded, size: size * 0.7, color: color);
   }
 
   return _buildColorDot(color, size * 0.5);
@@ -231,7 +232,7 @@ class _BrowseContent extends ConsumerWidget {
                   ),
                 );
               },
-              icon: const Icon(Icons.edit_outlined, size: 14),
+              icon: const Icon(Symbols.edit_rounded, size: 14),
               label: Text(S.current.common_edit),
               style: TextButton.styleFrom(
                 visualDensity: VisualDensity.compact,
@@ -425,7 +426,7 @@ class _CategoryGridItem extends StatelessWidget {
               ),
               if (hasSubs)
                 Icon(
-                  Icons.arrow_drop_down,
+                  Symbols.arrow_drop_down_rounded,
                   size: 14,
                   color: colorScheme.outline,
                 ),
@@ -752,7 +753,7 @@ class _PinnedCategoryTile extends StatelessWidget {
             GestureDetector(
               onTap: onRemove,
               child: Icon(
-                Icons.remove_circle_outline,
+                Symbols.remove_circle_rounded,
                 size: 20,
                 color: colorScheme.error,
               ),
@@ -761,7 +762,7 @@ class _PinnedCategoryTile extends StatelessWidget {
             ReorderableDragStartListener(
               index: index,
               child: Icon(
-                Icons.drag_indicator,
+                Symbols.drag_indicator_rounded,
                 size: 20,
                 color: colorScheme.outline,
               ),

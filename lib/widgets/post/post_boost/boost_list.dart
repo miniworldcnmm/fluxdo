@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:popover/popover.dart';
 
 import '../../../models/topic.dart';
@@ -287,7 +288,7 @@ class _BoostListState extends State<BoostList> with SingleTickerProviderStateMix
     return _WrapEntry(
       width: _estimateControlChipWidth(),
       child: _InlineControlChip(
-        icon: expanded ? Icons.chevron_left : Icons.chevron_right,
+        icon: expanded ? Symbols.chevron_left_rounded : Symbols.chevron_right_rounded,
         onTap: _toggleRows,
       ),
     );
@@ -309,7 +310,7 @@ class _BoostListState extends State<BoostList> with SingleTickerProviderStateMix
               shape: BoxShape.circle,
             ),
             child: Icon(
-              Icons.rocket_launch_outlined,
+              Symbols.rocket_launch_rounded,
               size: 14,
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -510,7 +511,7 @@ class _InlineControlChip extends StatelessWidget {
     final theme = Theme.of(context);
     return Semantics(
       button: true,
-      label: icon == Icons.chevron_left ? '收起' : '展开',
+      label: icon == Symbols.chevron_left_rounded ? '收起' : '展开',
       child: GestureDetector(
         onTap: onTap,
         child: Container(

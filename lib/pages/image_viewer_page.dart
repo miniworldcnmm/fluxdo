@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:common_ui/common_ui.dart';
 import 'package:extended_image_lite/extended_image_lite.dart';
 import 'package:jovial_svg/jovial_svg.dart';
@@ -376,21 +377,21 @@ class _ImageViewerPageState extends State<ImageViewerPage>
             PopupMenuItem(
               value: 'save',
               child: _BytesMenuRow(
-                icon: Icons.save_alt,
+                icon: Symbols.save_alt_rounded,
                 label: S.current.share_saveToGallery,
               ),
             ),
             PopupMenuItem(
               value: 'copy',
               child: _BytesMenuRow(
-                icon: Icons.copy,
+                icon: Symbols.content_copy_rounded,
                 label: S.current.image_copyImage,
               ),
             ),
             PopupMenuItem(
               value: 'share',
               child: _BytesMenuRow(
-                icon: Icons.share,
+                icon: Symbols.share_rounded,
                 label: S.current.common_shareImage,
               ),
             ),
@@ -417,7 +418,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.save_alt),
+              leading: const Icon(Symbols.save_alt_rounded),
               title: Text(S.current.share_saveToGallery),
               onTap: () {
                 Navigator.pop(ctx);
@@ -425,7 +426,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
               },
             ),
             ListTile(
-              leading: const Icon(Icons.copy),
+              leading: const Icon(Symbols.content_copy_rounded),
               title: Text(S.current.image_copyImage),
               onTap: () {
                 Navigator.pop(ctx);
@@ -433,7 +434,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
               },
             ),
             ListTile(
-              leading: const Icon(Icons.share),
+              leading: const Icon(Symbols.share_rounded),
               title: Text(S.current.common_shareImage),
               onTap: () {
                 Navigator.pop(ctx);
@@ -597,7 +598,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                               ),
                               child: IconButton(
                                 icon: const Icon(
-                                  Icons.close,
+                                  Symbols.close_rounded,
                                   color: Colors.white,
                                 ),
                                 onPressed: () => Navigator.of(context).pop(),
@@ -625,7 +626,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                                     )
                                   : IconButton(
                                       icon: const Icon(
-                                        Icons.save_alt,
+                                        Symbols.save_alt_rounded,
                                         color: Colors.white,
                                       ),
                                       onPressed: _saveMemoryImage,
@@ -926,7 +927,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                             ),
                             child: IconButton(
                               icon: const Icon(
-                                Icons.close,
+                                Symbols.close_rounded,
                                 color: Colors.white,
                               ),
                               onPressed: () => Navigator.of(context).pop(),
@@ -956,7 +957,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                                   )
                                 : IconButton(
                                     icon: const Icon(
-                                      Icons.save_alt,
+                                      Symbols.save_alt_rounded,
                                       color: Colors.white,
                                     ),
                                     onPressed: _saveCurrentImage,
@@ -987,7 +988,7 @@ class _ImageViewerPageState extends State<ImageViewerPage>
                                     )
                                   : IconButton(
                                       icon: const Icon(
-                                        Icons.share,
+                                        Symbols.share_rounded,
                                         color: Colors.white,
                                       ),
                                       onPressed: _shareImage,
@@ -1188,7 +1189,7 @@ class _ImageDecodeFallbackState extends State<_ImageDecodeFallback> {
 
     // 不是 SVG 也不是 AVIF，显示错误图标
     return const Center(
-      child: Icon(Icons.broken_image_outlined, size: 64, color: Colors.white54),
+      child: Icon(Symbols.broken_image_rounded, size: 64, color: Colors.white54),
     );
   }
 }

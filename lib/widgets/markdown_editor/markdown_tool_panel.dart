@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/preferences_provider.dart';
@@ -99,7 +100,7 @@ class _MarkdownToolPanelState extends ConsumerState<MarkdownToolPanel> {
               // 混排优化：依赖编辑器回调，不参与外显自定义
               if (widget.onApplyPangu != null && !_customizing)
                 _ToolCell(
-                  icon: const Icon(Icons.auto_fix_high_rounded),
+                  icon: const Icon(Symbols.auto_fix_high_rounded),
                   label: s.toolbar_mixOptimize,
                   onTap: () {
                     widget.onApplyPangu!();
@@ -210,7 +211,7 @@ class _ToolCellBody extends StatelessWidget {
                     ),
                   ),
                   child: Icon(
-                    pinned ? Icons.check : Icons.add,
+                    pinned ? Symbols.check_rounded : Symbols.add_rounded,
                     size: 12,
                     color: pinned
                         ? theme.colorScheme.onPrimary

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../../../l10n/s.dart';
 import '../../../models/topic.dart';
@@ -7,7 +8,7 @@ import '../../../utils/time_utils.dart';
 /// 帖子编辑指示器：铅笔图标 + 编辑次数,紧贴时间右侧。
 ///
 /// 对齐 discourse 网页版 `post/meta-data/edits-indicator.gjs`：
-/// - 图标：普通帖 [Icons.edit_outlined]，wiki 帖 [Icons.auto_stories_outlined]
+/// - 图标：普通帖 [Symbols.edit_rounded]，wiki 帖 [Symbols.auto_stories_rounded]
 /// - 数字：[Post.editsCount]（首次发布不显示数字）
 /// - tooltip：显示最后编辑时间(wiki / 普通文案不同)
 /// - 点击三分支：
@@ -41,7 +42,7 @@ class EditsIndicator extends StatelessWidget {
     final enabled = canEnterEditor || canShowHistory;
 
     final tooltip = _buildTooltip(context, enabled: enabled);
-    final iconData = post.wiki ? Icons.auto_stories_outlined : Icons.edit_outlined;
+    final iconData = post.wiki ? Symbols.auto_stories_rounded : Symbols.edit_rounded;
 
     final content = Row(
       mainAxisSize: MainAxisSize.min,

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../../../utils/link_launcher.dart';
 import 'onebox_base.dart';
 
@@ -137,7 +139,7 @@ class SocialOneboxBuilder {
                 imageUrl: images.first,
                 size: 150,
                 borderRadius: 8,
-                fallbackIcon: Icons.image,
+                fallbackIcon: Symbols.image_rounded,
               ),
             ),
           ],
@@ -159,14 +161,14 @@ class SocialOneboxBuilder {
               ],
               if (retweets != null && retweets.isNotEmpty)
                 OneboxStatItem(
-                  icon: Icons.repeat,
+                  icon: Symbols.repeat_rounded,
                   value: retweets,
                   iconColor: const Color(0xFF00ba7c),
                 ),
               if (retweets != null && likes != null) const SizedBox(width: 12),
               if (likes != null && likes.isNotEmpty)
                 OneboxStatItem(
-                  icon: Icons.favorite_outline,
+                  icon: Symbols.favorite_rounded,
                   value: likes,
                   iconColor: const Color(0xFFf91880),
                 ),
@@ -238,8 +240,8 @@ class SocialOneboxBuilder {
                   color: const Color(0xFFFF4500),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  Icons.reddit,
+                child: const FaIcon(
+                  FontAwesomeIcons.redditAlien,
                   size: 16,
                   color: Colors.white,
                 ),
@@ -293,7 +295,7 @@ class SocialOneboxBuilder {
                     imageUrl: thumbnailUrl,
                     size: 70,
                     borderRadius: 6,
-                    fallbackIcon: Icons.image,
+                    fallbackIcon: Symbols.image_rounded,
                   ),
                 ),
               ],
@@ -317,14 +319,14 @@ class SocialOneboxBuilder {
             children: [
               if (score != null && score.isNotEmpty)
                 OneboxStatItem(
-                  icon: Icons.arrow_upward,
+                  icon: Symbols.arrow_upward_rounded,
                   value: score,
                   iconColor: const Color(0xFFFF4500),
                 ),
               if (score != null && comments != null) const SizedBox(width: 16),
               if (comments != null && comments.isNotEmpty)
                 OneboxStatItem(
-                  icon: Icons.chat_bubble_outline,
+                  icon: Symbols.chat_bubble_rounded,
                   value: comments,
                 ),
               const Spacer(),
@@ -386,7 +388,7 @@ class SocialOneboxBuilder {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
-                  Icons.camera_alt,
+                  Symbols.camera_alt_rounded,
                   size: 18,
                   color: Colors.white,
                 ),
@@ -413,7 +415,7 @@ class SocialOneboxBuilder {
                   imageUrl: imageUrl,
                   size: double.infinity,
                   borderRadius: 8,
-                  fallbackIcon: Icons.image,
+                  fallbackIcon: Symbols.image_rounded,
                 ),
               ),
             ),

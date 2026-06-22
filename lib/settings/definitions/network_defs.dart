@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../../l10n/s.dart';
 import '../../pages/network_settings_page/widgets/cf_verify_card.dart';
@@ -18,7 +19,7 @@ List<SettingsGroup> buildNetworkGroups(BuildContext context) {
     // 网络引擎
     SettingsGroup(
       title: l10n.networkSettings_engine,
-      icon: Icons.speed_outlined,
+      icon: Symbols.speed_rounded,
       wrapInCard: false,
       items: [
         CustomModel(
@@ -33,7 +34,7 @@ List<SettingsGroup> buildNetworkGroups(BuildContext context) {
     // 网络代理
     SettingsGroup(
       title: l10n.networkSettings_proxy,
-      icon: Icons.dns_outlined,
+      icon: Symbols.dns_rounded,
       wrapInCard: false,
       items: [
         CustomModel(
@@ -54,7 +55,7 @@ List<SettingsGroup> buildNetworkGroups(BuildContext context) {
     // 辅助功能
     SettingsGroup(
       title: l10n.networkSettings_auxiliary,
-      icon: Icons.tune_outlined,
+      icon: Symbols.tune_rounded,
       wrapInCard: false,
       items: [
         CustomModel(
@@ -75,7 +76,7 @@ List<SettingsGroup> buildNetworkGroups(BuildContext context) {
     // 高级
     SettingsGroup(
       title: l10n.networkSettings_advanced,
-      icon: Icons.settings_outlined,
+      icon: Symbols.settings_rounded,
       wrapInCard: false,
       items: [
         CustomModel(
@@ -90,7 +91,7 @@ List<SettingsGroup> buildNetworkGroups(BuildContext context) {
     // 调试
     SettingsGroup(
       title: l10n.networkSettings_debug,
-      icon: Icons.bug_report_outlined,
+      icon: Symbols.bug_report_rounded,
       wrapInCard: false,
       items: [
         CustomModel(

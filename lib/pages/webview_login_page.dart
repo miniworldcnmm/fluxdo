@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -99,13 +100,13 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
         title: Text(context.l10n.webviewLogin_title),
         actions: [
           IconButton(
-            icon: const Icon(Icons.content_paste_outlined),
+            icon: const Icon(Symbols.content_paste_rounded),
             tooltip: context.l10n.webviewLogin_emailLoginPaste,
             onPressed: _pasteEmailLoginLink,
           ),
           if (_savedUsername != null)
             SwipeDismissiblePopupMenuButton<String>(
-              icon: const Icon(Icons.key_rounded),
+              icon: const Icon(Symbols.key_rounded),
               tooltip: context.l10n.webviewLogin_savedPassword,
               onSelected: (value) {
                 if (value == 'clear') {
@@ -124,7 +125,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
                   value: 'clear',
                   child: Row(
                     children: [
-                      const Icon(Icons.delete_outline_rounded, size: 20),
+                      const Icon(Symbols.delete_rounded, size: 20),
                       const SizedBox(width: 8),
                       Text(context.l10n.webviewLogin_clearSaved),
                     ],
@@ -133,7 +134,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
               ],
             ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Symbols.refresh_rounded),
             onPressed: () => _controller?.reload(),
             tooltip: context.l10n.common_refresh,
           ),
@@ -151,7 +152,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
             child: Row(
               children: [
                 Icon(
-                  Icons.lock,
+                  Symbols.lock_rounded,
                   size: 14,
                   color: Theme.of(context).colorScheme.primary,
                 ),

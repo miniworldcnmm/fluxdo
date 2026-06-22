@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../l10n/s.dart';
 import '../../../pages/webview_page.dart';
@@ -42,7 +43,7 @@ class LdcRewardConfigTile extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
-                  Icons.volunteer_activism_rounded,
+                  Symbols.volunteer_activism_rounded,
                   size: 32,
                   color: theme.colorScheme.onSecondaryContainer,
                 ),
@@ -70,7 +71,7 @@ class LdcRewardConfigTile extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               Icon(
-                isConfigured ? Icons.check_circle : Icons.settings,
+                isConfigured ? Symbols.check_circle_rounded : Symbols.settings_rounded,
                 color: isConfigured
                     ? Colors.green
                     : theme.colorScheme.onSurfaceVariant,

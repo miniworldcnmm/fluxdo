@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/topic.dart';
@@ -297,7 +298,7 @@ class _ExportSheetState extends ConsumerState<ExportSheet> {
                     color: Colors.white,
                   ),
                 )
-              : const Icon(Icons.download),
+              : const Icon(Symbols.download_rounded),
           label: Text(_buttonLabel(context)),
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -327,12 +328,12 @@ class _ExportSheetState extends ConsumerState<ExportSheet> {
                 ButtonSegment(
                   value: ExportScope.firstPostOnly,
                   label: Text(context.l10n.export_firstPostOnly),
-                  icon: const Icon(Icons.article_outlined),
+                  icon: const Icon(Symbols.article_rounded),
                 ),
                 ButtonSegment(
                   value: ExportScope.allPosts,
                   label: Text(context.l10n.common_all),
-                  icon: const Icon(Icons.forum_outlined),
+                  icon: const Icon(Symbols.forum_rounded),
                 ),
               ],
               selected: {_scope},
@@ -360,17 +361,17 @@ class _ExportSheetState extends ConsumerState<ExportSheet> {
                 ButtonSegment(
                   value: _ExportTarget.md,
                   label: Text('MD'),
-                  icon: Icon(Icons.code),
+                  icon: Icon(Symbols.code_rounded),
                 ),
                 ButtonSegment(
                   value: _ExportTarget.html,
                   label: Text('HTML'),
-                  icon: Icon(Icons.html),
+                  icon: Icon(Symbols.html_rounded),
                 ),
                 ButtonSegment(
                   value: _ExportTarget.notion,
                   label: Text('Notion'),
-                  icon: Icon(Icons.cloud_sync_rounded),
+                  icon: Icon(Symbols.cloud_sync_rounded),
                 ),
               ],
               selected: {_target},
@@ -387,7 +388,7 @@ class _ExportSheetState extends ConsumerState<ExportSheet> {
               child: Row(
                 children: [
                   Icon(
-                    Icons.info_outline,
+                    Symbols.info_rounded,
                     size: 14,
                     color: theme.colorScheme.primary,
                   ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../../l10n/s.dart';
 import '../../../../models/topic.dart';
 import '../../../../services/discourse/discourse_service.dart';
@@ -124,7 +125,7 @@ class _PostReactionUsersSheetState extends State<PostReactionUsersSheet> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.error_outline, color: theme.colorScheme.error, size: 32),
+            Icon(Symbols.error_rounded, color: theme.colorScheme.error, size: 32),
             const SizedBox(height: 8),
             Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
           ],
@@ -148,7 +149,7 @@ class _PostReactionUsersSheetState extends State<PostReactionUsersSheet> {
       contentPadding: EdgeInsets.zero,
       titleWidget: Row(
         children: [
-          Icon(Icons.emoji_emotions_outlined, color: theme.colorScheme.primary),
+          Icon(Symbols.emoji_emotions_rounded, color: theme.colorScheme.primary),
           const SizedBox(width: 8),
           Text(
             context.l10n.post_reactions,

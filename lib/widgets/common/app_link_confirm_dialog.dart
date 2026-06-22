@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../l10n/s.dart';
 import '../../services/local_notification_service.dart';
 
@@ -357,7 +358,7 @@ class _AppLinkBannerState extends State<_AppLinkBanner>
         borderRadius: BorderRadius.circular(10),
       ),
       child: Icon(
-        Icons.open_in_new_rounded,
+        Symbols.open_in_new_rounded,
         color: colorScheme.onPrimaryContainer,
         size: 20,
       ),

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../../../../constants.dart';
 import '../../../../utils/layout_lock.dart';
@@ -234,7 +235,7 @@ class _IframeWidgetState extends State<IframeWidget> with RouteAware {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.close, size: 18, color: Colors.white),
+                    const Icon(Symbols.close_rounded, size: 18, color: Colors.white),
                     const SizedBox(width: 6),
                     Text(
                       S.current.iframe_exitInteraction,
@@ -367,7 +368,7 @@ class _IframeWidgetState extends State<IframeWidget> with RouteAware {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      Icons.error_outline,
+                      Symbols.error_rounded,
                       size: 48,
                       color: theme.colorScheme.error,
                     ),
@@ -391,7 +392,7 @@ class _IframeWidgetState extends State<IframeWidget> with RouteAware {
                   color: Colors.black38,
                   child: const Center(
                     child: Icon(
-                      Icons.touch_app,
+                      Symbols.touch_app_rounded,
                       size: 48,
                       color: Colors.white70,
                     ),
