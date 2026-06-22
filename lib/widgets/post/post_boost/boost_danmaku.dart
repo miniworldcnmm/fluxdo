@@ -210,31 +210,35 @@ class _BoostDanmakuState extends State<BoostDanmaku>
             child: SizedBox(
               width: _viewportWidth,
               height: height,
-              child: ClipRect(
-                child: Stack(
-                  clipBehavior: Clip.hardEdge,
-                  children: [
-                    for (final item in _flying)
-                      Positioned(
-                        key: ObjectKey(item),
-                        left: item.x,
-                        top: item.track * widget.trackHeight,
-                        // 不设固定 height —— 让弹幕条按内容自适应，避免阴影/头像被裁
-                        child: _DanmakuItem(
-                          item: item,
-                          trackHeight: widget.trackHeight,
-                          onTap: widget.onBoostTap == null
-                              ? null
-                              : () =>
-                                    widget.onBoostTap!(item.group.boosts.first),
-                          onSize: (size) {
-                            if ((size.width - item.width).abs() > 0.5) {
-                              item.width = size.width;
-                            }
-                          },
+              // RepaintBoundary 隔离 Ticker 每帧 setState 触发的重绘,
+              // 避免弹幕飞行连累整个 post item 重绘。
+              child: RepaintBoundary(
+                child: ClipRect(
+                  child: Stack(
+                    clipBehavior: Clip.hardEdge,
+                    children: [
+                      for (final item in _flying)
+                        Positioned(
+                          key: ObjectKey(item),
+                          left: item.x,
+                          top: item.track * widget.trackHeight,
+                          // 不设固定 height —— 让弹幕条按内容自适应，避免阴影/头像被裁
+                          child: _DanmakuItem(
+                            item: item,
+                            trackHeight: widget.trackHeight,
+                            onTap: widget.onBoostTap == null
+                                ? null
+                                : () =>
+                                      widget.onBoostTap!(item.group.boosts.first),
+                            onSize: (size) {
+                              if ((size.width - item.width).abs() > 0.5) {
+                                item.width = size.width;
+                              }
+                            },
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

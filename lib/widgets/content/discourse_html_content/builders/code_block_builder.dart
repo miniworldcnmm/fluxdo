@@ -420,27 +420,30 @@ class _MermaidWidgetState extends State<_MermaidWidget> with SingleTickerProvide
     final controller = _shimmerController;
     if (controller == null) return const SizedBox(height: 100);
 
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, child) {
-        return Container(
-          height: 100,
-          margin: withMargin ? const EdgeInsets.all(12) : null,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            gradient: LinearGradient(
-              begin: Alignment(-1.0 + 2.0 * controller.value, 0),
-              end: Alignment(-0.5 + 2.0 * controller.value, 0),
-              colors: [
-                theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-                theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-              ],
-              stops: const [0.0, 0.5, 1.0],
+    // RepaintBoundary 隔离 60fps shimmer 重绘,避免连累整个帖子内容重绘。
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, child) {
+          return Container(
+            height: 100,
+            margin: withMargin ? const EdgeInsets.all(12) : null,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              gradient: LinearGradient(
+                begin: Alignment(-1.0 + 2.0 * controller.value, 0),
+                end: Alignment(-0.5 + 2.0 * controller.value, 0),
+                colors: [
+                  theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                  theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 

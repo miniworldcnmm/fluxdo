@@ -763,7 +763,7 @@ class _ImageGenerationPlaceholderState
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   Timer? _ticker;
-  int _seconds = 0;
+  final ValueNotifier<int> _seconds = ValueNotifier(0);
 
   @override
   void initState() {
@@ -773,21 +773,24 @@ class _ImageGenerationPlaceholderState
       duration: const Duration(seconds: 2),
     )..repeat();
     _syncElapsedSeconds();
+    // ValueNotifier 让秒数更新只触发 Text 局部 rebuild,
+    // 避免每秒整个 placeholder(含 shimmer)重建。
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      setState(_syncElapsedSeconds);
+      _syncElapsedSeconds();
     });
   }
 
   void _syncElapsedSeconds() {
     final elapsed = DateTime.now().difference(widget.startedAt).inSeconds;
-    _seconds = elapsed < 0 ? 0 : elapsed;
+    _seconds.value = elapsed < 0 ? 0 : elapsed;
   }
 
   @override
   void dispose() {
     _controller.dispose();
     _ticker?.cancel();
+    _seconds.dispose();
     super.dispose();
   }
 
@@ -806,25 +809,28 @@ class _ImageGenerationPlaceholderState
           alignment: Alignment.center,
           children: [
             // shimmer 渐变扫光
-            AnimatedBuilder(
-              animation: _controller,
-              builder: (context, _) {
-                return ShaderMask(
-                  shaderCallback: (rect) {
-                    final t = _controller.value;
-                    return LinearGradient(
-                      begin: Alignment(-1 + 2 * t, 0),
-                      end: Alignment(0 + 2 * t, 0),
-                      colors: [
-                        theme.colorScheme.surfaceContainerHigh,
-                        theme.colorScheme.surfaceContainerHighest,
-                        theme.colorScheme.surfaceContainerHigh,
-                      ],
-                    ).createShader(rect);
-                  },
-                  child: Container(color: Colors.white),
-                );
-              },
+            // RepaintBoundary 隔离 60fps ShaderMask 重建,避免连累整个消息列表。
+            RepaintBoundary(
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, _) {
+                  return ShaderMask(
+                    shaderCallback: (rect) {
+                      final t = _controller.value;
+                      return LinearGradient(
+                        begin: Alignment(-1 + 2 * t, 0),
+                        end: Alignment(0 + 2 * t, 0),
+                        colors: [
+                          theme.colorScheme.surfaceContainerHigh,
+                          theme.colorScheme.surfaceContainerHighest,
+                          theme.colorScheme.surfaceContainerHigh,
+                        ],
+                      ).createShader(rect);
+                    },
+                    child: Container(color: Colors.white),
+                  );
+                },
+              ),
             ),
             if (!widget.compact)
               Column(
@@ -848,13 +854,18 @@ class _ImageGenerationPlaceholderState
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '${_seconds}s',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant
-                          .withValues(alpha: 0.6),
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
+                  ValueListenableBuilder<int>(
+                    valueListenable: _seconds,
+                    builder: (context, seconds, _) {
+                      return Text(
+                        '${seconds}s',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.6),
+                          fontFeatures: const [FontFeature.tabularFigures()],
+                        ),
+                      );
+                    },
                   ),
                 ],
               )

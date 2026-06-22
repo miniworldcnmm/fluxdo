@@ -46,11 +46,14 @@ class _SkeletonState extends State<Skeleton> {
       tileMode: TileMode.clamp,
     );
 
-    return _Shimmer(
-      linearGradient: shimmerGradient,
-      child: _ShimmerLoading(
-        isLoading: true,
-        child: widget.child,
+    // RepaintBoundary 隔离 60fps shimmer 重绘,避免连累 Skeleton 外的 page。
+    return RepaintBoundary(
+      child: _Shimmer(
+        linearGradient: shimmerGradient,
+        child: _ShimmerLoading(
+          isLoading: true,
+          child: widget.child,
+        ),
       ),
     );
   }

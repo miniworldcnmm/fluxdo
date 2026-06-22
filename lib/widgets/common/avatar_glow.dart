@@ -36,31 +36,35 @@ class _AvatarGlowState extends State<AvatarGlow>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        // ease-in-out 曲线
-        final t = Curves.easeInOut.transform(_controller.value);
-        // 光晕半径在 8~20 之间脉冲
-        final blurRadius = 8.0 + t * 12.0;
-        // 透明度在 0.3~0.8 之间脉冲
-        final opacity = 0.3 + t * 0.5;
+    // RepaintBoundary 隔离 60fps 的 blurRadius/opacity 脉冲动画,
+    // 避免连累整个 post item / list item 重绘。
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          // ease-in-out 曲线
+          final t = Curves.easeInOut.transform(_controller.value);
+          // 光晕半径在 8~20 之间脉冲
+          final blurRadius = 8.0 + t * 12.0;
+          // 透明度在 0.3~0.8 之间脉冲
+          final opacity = 0.3 + t * 0.5;
 
-        return Container(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: widget.glowColor.withValues(alpha: opacity),
-                blurRadius: blurRadius,
-                spreadRadius: 1,
-              ),
-            ],
-          ),
-          child: child,
-        );
-      },
-      child: widget.child,
+          return Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: widget.glowColor.withValues(alpha: opacity),
+                  blurRadius: blurRadius,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+            child: child,
+          );
+        },
+        child: widget.child,
+      ),
     );
   }
 }

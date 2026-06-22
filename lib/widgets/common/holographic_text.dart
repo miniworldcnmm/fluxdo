@@ -53,32 +53,36 @@ class _HolographicTextState extends State<HolographicText>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final colors = isDark ? _darkColors : _lightColors;
 
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final offset = _controller.value;
-        return ShaderMask(
-          shaderCallback: (bounds) {
-            return LinearGradient(
-              colors: colors,
-              stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
-              begin: Alignment(-1.0 + offset * 4, -1.0 + offset * 4),
-              end: Alignment(1.0 + offset * 4, 1.0 + offset * 4),
-              tileMode: TileMode.mirror,
-            ).createShader(bounds);
-          },
-          blendMode: BlendMode.srcIn,
-          child: child!,
-        );
-      },
-      child: Text(
-        widget.text,
-        style: TextStyle(
-          fontSize: widget.fontSize,
-          fontWeight: FontWeight.w600,
+    // RepaintBoundary 隔离 60fps 的 ShaderMask 重建,
+    // 避免持续连累整个 post header / list item 重绘。
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final offset = _controller.value;
+          return ShaderMask(
+            shaderCallback: (bounds) {
+              return LinearGradient(
+                colors: colors,
+                stops: const [0.0, 0.25, 0.5, 0.75, 1.0],
+                begin: Alignment(-1.0 + offset * 4, -1.0 + offset * 4),
+                end: Alignment(1.0 + offset * 4, 1.0 + offset * 4),
+                tileMode: TileMode.mirror,
+              ).createShader(bounds);
+            },
+            blendMode: BlendMode.srcIn,
+            child: child!,
+          );
+        },
+        child: Text(
+          widget.text,
+          style: TextStyle(
+            fontSize: widget.fontSize,
+            fontWeight: FontWeight.w600,
+          ),
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
         ),
-        overflow: TextOverflow.ellipsis,
-        maxLines: 1,
       ),
     );
   }
