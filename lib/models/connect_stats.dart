@@ -30,8 +30,11 @@ class ConnectStats {
     final document = html_parser.parse(htmlContent);
     final cardDiv = document.querySelector('div.card');
     if (cardDiv == null) {
-
       throw Exception('未找到统计卡片');
+    }
+
+    if (cardDiv.classes.contains('empty-state')) {
+      return const ConnectStats();
     }
 
     // 收集所有指标：label → value
@@ -65,7 +68,6 @@ class ConnectStats {
       if (label.isNotEmpty) metrics[label] = finalVal;
     }
 
-
     // 从副标题解析时间周期
     int timePeriod = 100;
     final subtitle = cardDiv.querySelector('.card-subtitle')?.text.trim() ?? '';
@@ -80,8 +82,16 @@ class ConnectStats {
       topicsRepliedTo: _match(metrics, ['回复话题', '回复主题', 'topics replied']),
       topicsViewed: _match(metrics, ['浏览话题', 'topics viewed', '浏览主题']),
       postsRead: _match(metrics, ['浏览帖子', '已读帖子', 'posts read']),
-      likesGiven: _matchExclude(metrics, ['点赞', '送赞', 'likes given'], ['获', 'received']),
-      likesReceived: _matchExclude(metrics, ['获赞', 'likes received'], ['天数', '用户', '人数', 'days', 'users']),
+      likesGiven: _matchExclude(
+        metrics,
+        ['点赞', '送赞', 'likes given'],
+        ['获', 'received'],
+      ),
+      likesReceived: _matchExclude(
+        metrics,
+        ['获赞', 'likes received'],
+        ['天数', '用户', '人数', 'days', 'users'],
+      ),
       likesReceivedDays: _match(metrics, ['获赞天数', 'liked days']),
       likesReceivedUsers: _match(metrics, ['获赞用户', '获赞人数', 'liked users']),
       timePeriod: timePeriod,
