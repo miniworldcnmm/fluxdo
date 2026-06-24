@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:intl/intl.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:popover/popover.dart';
 
 import '../../../../utils/time_utils.dart';
@@ -183,8 +183,8 @@ class _LocalDateChipState extends State<_LocalDateChip> {
             children: [
               Icon(
                 widget.opts.countdown
-                    ? PhosphorIconsRegular.clock
-                    : PhosphorIconsRegular.globeHemisphereEast,
+                    ? Symbols.schedule_rounded
+                    : Symbols.public_rounded,
                 size: fontSize * 0.95,
                 color: color,
               ),

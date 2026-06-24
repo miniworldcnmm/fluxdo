@@ -79,6 +79,22 @@ void handleNotificationTap(
       }
       break;
 
+    case NotificationType.edited:
+      // 帖子被编辑通知:跳转到对应话题 + 打开编辑历史 modal 到指定 revision。
+      // 对齐 discourse 网页版 `edited.js` 的 `setLastEditNotificationClick` 逻辑。
+      if (notification.topicId != null) {
+        _pushOnRootNavigator(
+          context,
+          TopicDetailPage(
+            topicId: notification.topicId!,
+            scrollToPostNumber: notification.postNumber,
+            initialRevisionPostNumber: notification.postNumber,
+            initialRevisionNumber: notification.data.revisionNumber,
+          ),
+        );
+      }
+      break;
+
     default:
       if (notification.topicId != null) {
         _pushOnRootNavigator(

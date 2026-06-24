@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/shortcut_binding.dart';
 import '../providers/discourse_providers.dart';
@@ -571,7 +572,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
             ),
             suffixIcon: _searchController.text.isNotEmpty
                 ? IconButton(
-                    icon: const Icon(Icons.close, size: 20),
+                    icon: const Icon(Symbols.close_rounded, size: 20),
                     onPressed: _clearSearch,
                   )
                 : null,
@@ -582,7 +583,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
+            icon: const Icon(Symbols.search_rounded),
             onPressed: () => _onSearch(_searchController.text),
             tooltip: context.l10n.common_search,
           ),
@@ -590,7 +591,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
           Stack(
             children: [
               IconButton(
-                icon: const Icon(Icons.tune),
+                icon: const Icon(Symbols.tune_rounded),
                 onPressed: _openFilterPanel,
                 tooltip: context.l10n.search_advancedSearch,
               ),
@@ -693,7 +694,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search, size: 64, color: theme.colorScheme.outline),
+          Icon(Symbols.search_rounded, size: 64, color: theme.colorScheme.outline),
           const SizedBox(height: 16),
           Text(
             context.l10n.search_emptyHint,
@@ -729,7 +730,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         child: Row(
           children: [
             Icon(
-              Icons.history,
+              Symbols.history_rounded,
               size: 20,
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -744,7 +745,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Icon(Icons.north_west, size: 16, color: theme.colorScheme.outline),
+            Icon(Symbols.north_west_rounded, size: 16, color: theme.colorScheme.outline),
           ],
         ),
       ),
@@ -810,7 +811,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
                       ),
                     ),
                   Icon(
-                    Icons.auto_awesome,
+                    Symbols.auto_awesome_rounded,
                     size: 16,
                     color:
                         ref.watch(searchSettingsProvider).sortOrder ==
@@ -976,7 +977,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.search_off, size: 64, color: theme.colorScheme.outline),
+          Icon(Symbols.search_off_rounded, size: 64, color: theme.colorScheme.outline),
           const SizedBox(height: 16),
           Text(
             context.l10n.search_noResults,
@@ -1067,7 +1068,7 @@ class _SearchUserCard extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: theme.colorScheme.outline),
+              Icon(Symbols.chevron_right_rounded, color: theme.colorScheme.outline),
             ],
           ),
         ),

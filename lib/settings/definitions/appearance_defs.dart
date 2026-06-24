@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_displaymode/flutter_displaymode.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ai_model_manager/ai_model_manager.dart';
@@ -13,6 +14,7 @@ import '../../providers/preferences_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../services/toast_service.dart';
 import '../../utils/dialog_utils.dart';
+import '../../widgets/common/app_bottom_sheet.dart';
 import '../../utils/platform_utils.dart';
 import '../settings_model.dart';
 
@@ -23,7 +25,7 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
     // ── 语言 ──────────────────────────────────────────────────────
     SettingsGroup(
       title: l10n.appearance_language,
-      icon: Icons.language_outlined,
+      icon: Symbols.language_rounded,
       items: [
         CustomModel(
           id: 'language',
@@ -33,11 +35,11 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
             final label = _localeLabel(context.l10n, locale);
             return ListTile(
               leading: Icon(
-                Icons.translate,
+                Symbols.translate_rounded,
                 color: Theme.of(context).colorScheme.primary,
               ),
               title: Text(label),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: const Icon(Symbols.chevron_right_rounded),
               onTap: () => _showLanguagePicker(context, ref, locale),
             );
           },
@@ -48,7 +50,7 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
     // ── 主题模式 ───────────────────────────────────────────────────
     SettingsGroup(
       title: l10n.appearance_themeMode,
-      icon: Icons.brightness_6_outlined,
+      icon: Symbols.brightness_6_rounded,
       wrapInCard: false,
       items: [
         CustomModel(
@@ -77,9 +79,24 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
             );
 
             final modes = [
-              (ThemeMode.system, Icons.auto_mode, l10n.appearance_modeAuto, null),
-              (ThemeMode.light, Icons.light_mode, l10n.appearance_modeLight, lightScheme),
-              (ThemeMode.dark, Icons.dark_mode, l10n.appearance_modeDark, darkScheme),
+              (
+                ThemeMode.system,
+                Symbols.auto_mode_rounded,
+                l10n.appearance_modeAuto,
+                null,
+              ),
+              (
+                ThemeMode.light,
+                Symbols.light_mode_rounded,
+                l10n.appearance_modeLight,
+                lightScheme,
+              ),
+              (
+                ThemeMode.dark,
+                Symbols.dark_mode_rounded,
+                l10n.appearance_modeDark,
+                darkScheme,
+              ),
             ];
 
             return Align(
@@ -118,7 +135,7 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
     // ── 主题色 ────────────────────────────────────────────────────
     SettingsGroup(
       title: l10n.appearance_themeColor,
-      icon: Icons.color_lens_outlined,
+      icon: Symbols.color_lens_rounded,
       wrapInCard: false,
       items: [
         CustomModel(
@@ -132,7 +149,7 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
     // ── 应用图标（仅 iOS/Android）────────────────────────────────
     SettingsGroup(
       title: l10n.appearance_appIcon,
-      icon: Icons.app_shortcut_outlined,
+      icon: Symbols.app_shortcut_rounded,
       wrapInCard: false,
       items: [
         PlatformConditionalModel(
@@ -171,8 +188,7 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
                       assetPath: isDark
                           ? 'assets/images/icon_modern_preview.png'
                           : 'assets/images/icon_modern_light_preview.png',
-                      isSelected:
-                          iconState.currentStyle == AppIconStyle.modern,
+                      isSelected: iconState.currentStyle == AppIconStyle.modern,
                       isChanging: iconState.isChanging,
                       theme: theme,
                     ),
@@ -188,14 +204,15 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
     // ── 字体 ──────────────────────────────────────────────────────
     SettingsGroup(
       title: l10n.appearance_font,
-      icon: Icons.font_download_outlined,
+      icon: Symbols.font_download_rounded,
       items: [
         CustomModel(
           id: 'font',
           title: l10n.appearance_font,
           builder: (context, ref) {
-            final fontFamily =
-                ref.watch(themeProvider.select((s) => s.fontFamily));
+            final fontFamily = ref.watch(
+              themeProvider.select((s) => s.fontFamily),
+            );
             final l10n = context.l10n;
             final options = <(String, AppFontFamily)>[
               (l10n.appearance_fontSystem, AppFontFamily.system),
@@ -232,14 +249,14 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
     // ── 屏幕帧率（仅 Android）──────────────────────────────────────
     SettingsGroup(
       title: l10n.appearance_displayMode,
-      icon: Icons.monitor_outlined,
+      icon: Symbols.monitor_rounded,
       items: [
         PlatformConditionalModel(
           condition: () => !kIsWeb && Platform.isAndroid,
           inner: ActionModel(
             id: 'displayMode',
             title: l10n.appearance_displayMode,
-            icon: Icons.monitor_heart_outlined,
+            icon: Symbols.monitor_heart_rounded,
             getDynamicSubtitle: (ref) {
               final rate = ref
                   .watch(preferencesProvider)
@@ -257,13 +274,13 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
     // ── 对话框模糊 ──────────────────────────────────────────────────
     SettingsGroup(
       title: l10n.appearance_dialogBlur,
-      icon: Icons.blur_on_outlined,
+      icon: Symbols.blur_on_rounded,
       items: [
         SwitchModel(
           id: 'dialogBlur',
           title: l10n.appearance_dialogBlur,
           subtitle: l10n.appearance_dialogBlurDesc,
-          icon: Icons.blur_on_rounded,
+          icon: Symbols.blur_on_rounded,
           getValue: (ref) => ref.watch(preferencesProvider).dialogBlur,
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setDialogBlur(v),
@@ -289,34 +306,31 @@ void _showLanguagePicker(
     (l10n.appearance_languageEn, const Locale('en', 'US')),
   ];
 
-  showAppBottomSheet<void>(
+  AppBottomSheet.show<void>(
     context: context,
-    showDragHandle: true,
+    contentPadding: EdgeInsets.zero,
     builder: (sheetContext) {
-      return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final (label, locale) in options)
-              ListTile(
-                title: Text(label),
-                trailing: _localeKey(locale) == _localeKey(currentLocale)
-                    ? Icon(
-                        Icons.check,
-                        color: Theme.of(sheetContext).colorScheme.primary,
-                      )
-                    : null,
-                onTap: () {
-                  ref.read(localeProvider.notifier).setLocale(locale);
-                  final effectiveLocale =
-                      locale ??
-                      WidgetsBinding.instance.platformDispatcher.locale;
-                  AiL10n.configureLocale(effectiveLocale);
-                  Navigator.pop(sheetContext);
-                },
-              ),
-          ],
-        ),
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final (label, locale) in options)
+            ListTile(
+              title: Text(label),
+              trailing: _localeKey(locale) == _localeKey(currentLocale)
+                  ? Icon(
+                      Symbols.check_rounded,
+                      color: Theme.of(sheetContext).colorScheme.primary,
+                    )
+                  : null,
+              onTap: () {
+                ref.read(localeProvider.notifier).setLocale(locale);
+                final effectiveLocale =
+                    locale ?? WidgetsBinding.instance.platformDispatcher.locale;
+                AiL10n.configureLocale(effectiveLocale);
+                Navigator.pop(sheetContext);
+              },
+            ),
+        ],
       );
     },
   );
@@ -324,10 +338,7 @@ void _showLanguagePicker(
 
 // ── 屏幕帧率选择器（仅 Android）────────────────────────────────
 
-Future<void> _showDisplayModeSheet(
-  BuildContext context,
-  WidgetRef ref,
-) async {
+Future<void> _showDisplayModeSheet(BuildContext context, WidgetRef ref) async {
   await showAppBottomSheet<void>(
     context: context,
     showDragHandle: true,
@@ -344,8 +355,7 @@ class _DisplayModeSheetBody extends ConsumerStatefulWidget {
       _DisplayModeSheetBodyState();
 }
 
-class _DisplayModeSheetBodyState
-    extends ConsumerState<_DisplayModeSheetBody> {
+class _DisplayModeSheetBodyState extends ConsumerState<_DisplayModeSheetBody> {
   late Future<_DisplayModeData> _future;
 
   @override
@@ -360,7 +370,11 @@ class _DisplayModeSheetBodyState
     return _DisplayModeData(modes: modes, active: active);
   }
 
-  Future<void> _apply(int rate, List<DisplayMode> modes, DisplayMode active) async {
+  Future<void> _apply(
+    int rate,
+    List<DisplayMode> modes,
+    DisplayMode active,
+  ) async {
     await ref
         .read(preferencesProvider.notifier)
         .setDisplayModeRefreshRate(rate);
@@ -410,8 +424,9 @@ class _DisplayModeSheetBodyState
           }
 
           final data = snapshot.data!;
-          final currentRate =
-              ref.watch(preferencesProvider).displayModeRefreshRate;
+          final currentRate = ref
+              .watch(preferencesProvider)
+              .displayModeRefreshRate;
 
           // 去重 + 高到低排序
           final uniqueRates = <int>{};
@@ -529,8 +544,9 @@ Widget _buildIconOption(
         ? null
         : () async {
             final l10n = context.l10n;
-            final success =
-                await ref.read(appIconProvider.notifier).setIconStyle(style);
+            final success = await ref
+                .read(appIconProvider.notifier)
+                .setIconStyle(style);
             if (!success) {
               ToastService.showError(l10n.appearance_switchIconFailed);
             }
@@ -678,8 +694,9 @@ class _ThemeModeCard extends StatelessWidget {
                     label,
                     style: currentTheme.textTheme.labelSmall?.copyWith(
                       color: isSelected ? cs.primary : cs.onSurfaceVariant,
-                      fontWeight:
-                          isSelected ? FontWeight.w500 : FontWeight.normal,
+                      fontWeight: isSelected
+                          ? FontWeight.w500
+                          : FontWeight.normal,
                     ),
                   ),
                 ],
@@ -712,10 +729,7 @@ class _ThemeModeCard extends StatelessWidget {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
-      child: SizedBox(
-        height: 64,
-        child: _buildMiniScreen(previewScheme!),
-      ),
+      child: SizedBox(height: 64, child: _buildMiniScreen(previewScheme!)),
     );
   }
 
@@ -811,7 +825,8 @@ class _SplitThemePreviewPainter extends CustomPainter {
 
     // ── app bar 背景条 ──
     _drawSplitRRect(
-      canvas, size,
+      canvas,
+      size,
       rect: Rect.fromLTWH(pad, pad, size.width - pad * 2, 10),
       radius: 3,
       lightColor: lightScheme.surfaceContainerHighest,
@@ -820,7 +835,8 @@ class _SplitThemePreviewPainter extends CustomPainter {
 
     // ── app bar 标题 ──
     _drawSplitRRect(
-      canvas, size,
+      canvas,
+      size,
       rect: Rect.fromLTWH(pad + 3, pad + 2.5, 16, 5),
       radius: 2,
       lightColor: lightScheme.onSurface.withValues(alpha: 0.6),
@@ -830,7 +846,8 @@ class _SplitThemePreviewPainter extends CustomPainter {
     // ── 内容行 1 ──
     final y1 = pad + 13.0;
     _drawSplitRRect(
-      canvas, size,
+      canvas,
+      size,
       rect: Rect.fromLTWH(pad, y1, (size.width - pad * 2) * 0.7, 4),
       radius: 2,
       lightColor: lightScheme.onSurface.withValues(alpha: 0.15),
@@ -840,7 +857,8 @@ class _SplitThemePreviewPainter extends CustomPainter {
     // ── 内容行 2 ──
     final y2 = y1 + 6;
     _drawSplitRRect(
-      canvas, size,
+      canvas,
+      size,
       rect: Rect.fromLTWH(pad, y2, (size.width - pad * 2) * 0.5, 4),
       radius: 2,
       lightColor: lightScheme.onSurface.withValues(alpha: 0.15),
@@ -852,7 +870,8 @@ class _SplitThemePreviewPainter extends CustomPainter {
     final btnH = 6.0;
     final btnY = y2 + 8;
     _drawSplitRRect(
-      canvas, size,
+      canvas,
+      size,
       rect: Rect.fromLTWH(size.width - pad - btnW, btnY, btnW, btnH),
       radius: 3,
       lightColor: lightScheme.primary,
@@ -933,7 +952,10 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
     final viewport = _variantScrollCtrl.position.viewportDimension;
     final maxScroll = _variantScrollCtrl.position.maxScrollExtent;
     // 尽量让选中项居中显示
-    final centered = (targetOffset - (viewport - itemW) / 2).clamp(0.0, maxScroll);
+    final centered = (targetOffset - (viewport - itemW) / 2).clamp(
+      0.0,
+      maxScroll,
+    );
     _variantScrollCtrl.animateTo(
       centered,
       duration: const Duration(milliseconds: 300),
@@ -1019,8 +1041,7 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
             final maxWidth = constraints.maxWidth;
             final columns = (maxWidth / 88).floor().clamp(3, 6);
             const spacing = 14.0;
-            final itemWidth =
-                (maxWidth - (columns - 1) * spacing) / columns;
+            final itemWidth = (maxWidth - (columns - 1) * spacing) / columns;
 
             return Wrap(
               spacing: spacing,
@@ -1043,7 +1064,8 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
                   _ColorSwatchCard(
                     size: itemWidth,
                     seedColor: color,
-                    isSelected: !isDynamic &&
+                    isSelected:
+                        !isDynamic &&
                         color.toARGB32() == currentColor.toARGB32(),
                     variant: variant,
                     onTap: () {
@@ -1063,7 +1085,8 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
                         _ColorSwatchCard(
                           size: itemWidth,
                           seedColor: color,
-                          isSelected: !isDynamic &&
+                          isSelected:
+                              !isDynamic &&
                               color.toARGB32() == currentColor.toARGB32(),
                           variant: variant,
                           onTap: () {
@@ -1089,7 +1112,7 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
                                 setState(() => _removableColor = null);
                               },
                               iconSize: 28,
-                              icon: Icon(Icons.delete, color: cs.primary),
+                              icon: Icon(Symbols.delete_rounded, color: cs.primary),
                             ),
                           ),
                       ],
@@ -1105,7 +1128,7 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
                       child: IconButton.filledTonal(
                         onPressed: () => _showColorPicker(context),
                         iconSize: 28,
-                        icon: Icon(Icons.add, color: cs.primary),
+                        icon: Icon(Symbols.add_rounded, color: cs.primary),
                       ),
                     ),
                   ),
@@ -1126,8 +1149,7 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
     final hexController = TextEditingController(text: 'E57373');
 
     void syncHex() {
-      final color =
-          HSVColor.fromAHSV(1.0, hue, saturation, value).toColor();
+      final color = HSVColor.fromAHSV(1.0, hue, saturation, value).toColor();
       hexController.text = color
           .toARGB32()
           .toRadixString(16)
@@ -1144,8 +1166,12 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
-            final color =
-                HSVColor.fromAHSV(1.0, hue, saturation, value).toColor();
+            final color = HSVColor.fromAHSV(
+              1.0,
+              hue,
+              saturation,
+              value,
+            ).toColor();
             final variant = ref.read(themeProvider).schemeVariant;
             final scheme = ColorScheme.fromSeed(
               seedColor: color,
@@ -1170,10 +1196,7 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
                           decoration: BoxDecoration(
                             color: scheme.surfaceContainerLow,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: scheme.primary,
-                              width: 2,
-                            ),
+                            border: Border.all(color: scheme.primary, width: 2),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1215,9 +1238,9 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
                                         .titleMedium
                                         ?.copyWith(
                                           fontWeight: FontWeight.w500,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSurfaceVariant,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
                                         ),
                                   ),
                                   const SizedBox(width: 4),
@@ -1238,7 +1261,9 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
                                       ),
                                       onSubmitted: (hex) {
                                         final parsed = int.tryParse(
-                                            'FF$hex', radix: 16);
+                                          'FF$hex',
+                                          radix: 16,
+                                        );
                                         if (parsed != null) {
                                           final c = Color(parsed);
                                           final hsv = HSVColor.fromColor(c);
@@ -1258,13 +1283,11 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
                                 'H:${hue.round()}\u00B0  '
                                 'S:${(saturation * 100).round()}%  '
                                 'B:${(value * 100).round()}%',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodySmall
+                                style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
                                     ),
                               ),
                             ],
@@ -1288,8 +1311,12 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
                     _GradientSlider(
                       label: 'S',
                       value: saturation,
-                      thumbColor: HSVColor.fromAHSV(1, hue, saturation, 1)
-                          .toColor(),
+                      thumbColor: HSVColor.fromAHSV(
+                        1,
+                        hue,
+                        saturation,
+                        1,
+                      ).toColor(),
                       gradientColors: [
                         HSVColor.fromAHSV(1, hue, 0, value).toColor(),
                         HSVColor.fromAHSV(1, hue, 1, value).toColor(),
@@ -1305,8 +1332,12 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
                     _GradientSlider(
                       label: 'B',
                       value: value,
-                      thumbColor: HSVColor.fromAHSV(1, hue, saturation, value)
-                          .toColor(),
+                      thumbColor: HSVColor.fromAHSV(
+                        1,
+                        hue,
+                        saturation,
+                        value,
+                      ).toColor(),
                       gradientColors: [
                         HSVColor.fromAHSV(1, hue, saturation, 0).toColor(),
                         HSVColor.fromAHSV(1, hue, saturation, 1).toColor(),
@@ -1411,7 +1442,9 @@ class _VariantChip extends StatelessWidget {
         foregroundDecoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected ? scheme.primary : cs.outlineVariant.withValues(alpha: 0.3),
+            color: isSelected
+                ? scheme.primary
+                : cs.outlineVariant.withValues(alpha: 0.3),
             width: isSelected ? 1.5 : 1,
           ),
         ),
@@ -1440,10 +1473,9 @@ class _VariantChip extends StatelessWidget {
               child: Text(
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: isSelected ? scheme.primary : cs.onSurfaceVariant,
-                      fontWeight:
-                          isSelected ? FontWeight.w500 : FontWeight.normal,
-                    ),
+                  color: isSelected ? scheme.primary : cs.onSurfaceVariant,
+                  fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
+                ),
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -1516,11 +1548,13 @@ class _ColorSwatchCard extends StatelessWidget {
         foregroundDecoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isSelected ? tileScheme.primary : tileScheme.outlineVariant.withValues(alpha: 0.3),
+            color: isSelected
+                ? tileScheme.primary
+                : tileScheme.outlineVariant.withValues(alpha: 0.3),
             width: isSelected ? 2 : 1,
           ),
         ),
-          child: Column(
+        child: Column(
           children: [
             // 上方 ~70%: primary 色填充
             Expanded(
@@ -1534,7 +1568,7 @@ class _ColorSwatchCard extends StatelessWidget {
                       color: Colors.black.withValues(alpha: 0.12),
                       alignment: Alignment.center,
                       child: Icon(
-                        Icons.check_circle_rounded,
+                        Symbols.check_circle_rounded,
                         color: tileScheme.onPrimary,
                         size: 26,
                       ),
@@ -1545,7 +1579,7 @@ class _ColorSwatchCard extends StatelessWidget {
                       top: 5,
                       right: 5,
                       child: Icon(
-                        Icons.auto_awesome,
+                        Symbols.auto_awesome_rounded,
                         size: 14,
                         color: tileScheme.onPrimary.withValues(alpha: 0.85),
                       ),
@@ -1621,12 +1655,7 @@ class _HueBar extends StatelessWidget {
           ),
           overlayShape: const RoundSliderOverlayShape(overlayRadius: 22),
         ),
-        child: Slider(
-          value: hue,
-          min: 0,
-          max: 360,
-          onChanged: onChanged,
-        ),
+        child: Slider(value: hue, min: 0, max: 360, onChanged: onChanged),
       ),
     );
   }
@@ -1637,8 +1666,7 @@ class _HueThumbShape extends SliderComponentShape {
   const _HueThumbShape({required this.color});
 
   @override
-  Size getPreferredSize(bool isEnabled, bool isDiscrete) =>
-      const Size(28, 28);
+  Size getPreferredSize(bool isEnabled, bool isDiscrete) => const Size(28, 28);
 
   @override
   void paint(
@@ -1719,13 +1747,9 @@ class _GradientSlider extends StatelessWidget {
                 trackHeight: 28,
                 trackShape: const _TransparentTrackShape(),
                 thumbShape: _HueThumbShape(color: thumbColor),
-                overlayShape:
-                    const RoundSliderOverlayShape(overlayRadius: 18),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 18),
               ),
-              child: Slider(
-                value: value,
-                onChanged: onChanged,
-              ),
+              child: Slider(value: value, onChanged: onChanged),
             ),
           ),
         ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/core_providers.dart';
 import '../providers/ldc_providers.dart';
@@ -82,7 +83,7 @@ class LdcBalanceCard extends ConsumerWidget {
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        Icons.account_balance_wallet_rounded,
+                        Symbols.account_balance_wallet_rounded,
                         size: 20,
                         color: theme.colorScheme.onPrimaryContainer,
                       ),
@@ -123,7 +124,7 @@ class LdcBalanceCard extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              Icons.trending_up_rounded,
+                              Symbols.trending_up_rounded,
                               size: 14,
                               color: theme.colorScheme.primary,
                             ),
@@ -143,7 +144,7 @@ class LdcBalanceCard extends ConsumerWidget {
                       LoadingSpinner(size: 20, color: theme.colorScheme.primary)
                     else
                       Icon(
-                        Icons.chevron_right_rounded,
+                        Symbols.chevron_right_rounded,
                         color: theme.colorScheme.outline.withValues(alpha: 0.4),
                         size: 20,
                       ),
@@ -192,7 +193,7 @@ class LdcBalanceCard extends ConsumerWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.account_balance_wallet_rounded,
+                    Symbols.account_balance_wallet_rounded,
                     size: 20,
                     color: theme.colorScheme.onPrimaryContainer,
                   ),
@@ -233,7 +234,7 @@ class LdcBalanceCard extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          Icons.trending_up_rounded,
+                          Symbols.trending_up_rounded,
                           size: 14,
                           color: theme.colorScheme.primary,
                         ),
@@ -283,7 +284,7 @@ class LdcBalanceCard extends ConsumerWidget {
                 right: -20,
                 top: -20,
                 child: Icon(
-                  Icons.account_balance_wallet_rounded,
+                  Symbols.account_balance_wallet_rounded,
                   size: 150,
                   color: Colors.white.withValues(alpha: 0.1),
                 ),
@@ -302,7 +303,7 @@ class LdcBalanceCard extends ConsumerWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(
-                            Icons.auto_awesome,
+                            Symbols.auto_awesome_rounded,
                             color: Colors.white,
                             size: 20,
                           ),
@@ -329,7 +330,7 @@ class LdcBalanceCard extends ConsumerWidget {
                                 shape: BoxShape.circle,
                               ),
                               child: Icon(
-                                Icons.power_settings_new_rounded,
+                                Symbols.power_settings_new_rounded,
                                 color: Colors.white.withValues(alpha: 0.7),
                                 size: 18,
                               ),
@@ -361,7 +362,7 @@ class LdcBalanceCard extends ConsumerWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             const Icon(
-                              Icons.trending_up,
+                              Symbols.trending_up_rounded,
                               color: Colors.greenAccent,
                               size: 16,
                             ),
@@ -418,8 +419,8 @@ class LdcBalanceCard extends ConsumerWidget {
                     ),
                     child: Icon(
                       isExpired
-                          ? Icons.lock_clock_rounded
-                          : Icons.error_outline_rounded,
+                          ? Symbols.lock_clock_rounded
+                          : Symbols.error_rounded,
                       size: 20,
                       color: isExpired
                           ? theme.colorScheme.error
@@ -510,8 +511,8 @@ class LdcBalanceCard extends ConsumerWidget {
                 ),
                 child: Icon(
                   isExpired
-                      ? Icons.lock_clock_rounded
-                      : Icons.error_outline_rounded,
+                      ? Symbols.lock_clock_rounded
+                      : Symbols.error_rounded,
                   size: 20,
                   color: isExpired
                       ? theme.colorScheme.error
@@ -589,8 +590,8 @@ class LdcBalanceCard extends ConsumerWidget {
               top: -20,
               child: Icon(
                 isExpired
-                    ? Icons.lock_clock_rounded
-                    : Icons.error_outline_rounded,
+                    ? Symbols.lock_clock_rounded
+                    : Symbols.error_rounded,
                 size: 150,
                 color: Colors.white.withValues(alpha: 0.1),
               ),
@@ -610,8 +611,8 @@ class LdcBalanceCard extends ConsumerWidget {
                         ),
                         child: Icon(
                           isExpired
-                              ? Icons.lock_clock_rounded
-                              : Icons.error_outline_rounded,
+                              ? Symbols.lock_clock_rounded
+                              : Symbols.error_rounded,
                           color: Colors.white,
                           size: 20,
                         ),
@@ -636,7 +637,7 @@ class LdcBalanceCard extends ConsumerWidget {
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
-                              Icons.power_settings_new_rounded,
+                              Symbols.power_settings_new_rounded,
                               color: Colors.white.withValues(alpha: 0.7),
                               size: 18,
                             ),
@@ -668,7 +669,7 @@ class LdcBalanceCard extends ConsumerWidget {
                   if (isExpired && onReauthorize != null)
                     FilledButton.icon(
                       onPressed: onReauthorize,
-                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      icon: const Icon(Symbols.refresh_rounded, size: 18),
                       label: Text(S.current.common_reAuth),
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.white.withValues(alpha: 0.2),
@@ -679,7 +680,7 @@ class LdcBalanceCard extends ConsumerWidget {
                     FilledButton.icon(
                       onPressed: () =>
                           ref.read(ldcUserInfoProvider.notifier).refresh(),
-                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                      icon: const Icon(Symbols.refresh_rounded, size: 18),
                       label: Text(S.current.common_retry),
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.white.withValues(alpha: 0.2),
@@ -712,7 +713,7 @@ class LdcBalanceCard extends ConsumerWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    Icons.account_balance_wallet_rounded,
+                    Symbols.account_balance_wallet_rounded,
                     size: 20,
                     color: theme.colorScheme.onPrimaryContainer,
                   ),
@@ -765,7 +766,7 @@ class LdcBalanceCard extends ConsumerWidget {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.account_balance_wallet_rounded,
+                  Symbols.account_balance_wallet_rounded,
                   size: 20,
                   color: theme.colorScheme.onPrimaryContainer,
                 ),
@@ -810,7 +811,7 @@ class LdcBalanceCard extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(12),
               ),
               child: const Icon(
-                Icons.auto_awesome,
+                Symbols.auto_awesome_rounded,
                 color: Colors.white,
                 size: 20,
               ),

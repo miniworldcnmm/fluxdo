@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import '../../constants.dart';
@@ -11,7 +12,10 @@ import '../../services/cf_challenge_service.dart';
 import '../../services/discourse/discourse_service.dart';
 import '../../services/network/cookie/boundary_sync_service.dart';
 import '../../services/network/cookie/cookie_jar_service.dart';
+import '../../services/network/cookie/webview_cookie_priming.dart';
+import '../../services/preloaded_data_service.dart';
 import '../../services/toast_service.dart';
+import '../../services/webview_session_cookie_refresh_service.dart';
 import '../../services/webview_settings.dart';
 import '../../services/windows_webview_environment_service.dart';
 
@@ -338,25 +342,13 @@ class _WebViewLoginDialogState extends State<_WebViewLoginDialog> {
   /// WebViewEnvironment 才物理同 store, iOS/Android/Linux 的共享行为不一致。
   /// [LoginPage._ensureCfClearance] 已保证 jar 有 cf_clearance, 这里以 jar 为准
   /// 灌进 store, 确保同源 fetch 能带上 cf_clearance 过 CF。
-  /// 范式对齐 webview_http_adapter.dart 的 _syncCookiesViaCookieManager。
+  /// 必须走 canonical Set-Cookie 写入，不能把 Cookie header 拆成 name/value，
+  /// 否则会丢 Domain/Path 并制造 host-only 副本。
   Future<void> _primeCookiesFromJar() async {
     if (_cookiesPrimed) return;
     _cookiesPrimed = true;
     try {
-      final header = await CookieJarService().getCookieHeader();
-      if (header == null || header.isEmpty) return;
-      final cookieManager = Platform.isWindows
-          ? WindowsWebViewEnvironmentService.instance.cookieManager
-          : CookieManager.instance();
-      final url = WebUri(AppConstants.baseUrl);
-      for (final pair in header.split('; ')) {
-        final idx = pair.indexOf('=');
-        if (idx <= 0) continue;
-        final name = pair.substring(0, idx).trim();
-        final value = pair.substring(idx + 1).trim();
-        if (name.isEmpty) continue;
-        await cookieManager.setCookie(url: url, name: name, value: value);
-      }
+      await WebViewCookiePriming.instance.prime(AppConstants.baseUrl);
       debugPrint('[WebViewLogin] 已从 jar 预灌 cookie 到登录 WebView store');
     } catch (e) {
       debugPrint('[WebViewLogin] 预灌 cookie 失败 (继续, 依赖共享 store): $e');
@@ -532,7 +524,7 @@ document.close();
     for (var i = 0; i < 3; i++) {
       await BoundarySyncService.instance.syncFromWebView(
         cookieNames: null,
-        excludeCookieNames: CookieJarService.sessionCookieNames,
+        excludeCookieNames: CookieJarService.authCookieNames,
         requestGeneration: _flowGeneration,
       );
       final clearance = await CookieJarService().getCfClearance();
@@ -584,14 +576,48 @@ document.close();
       }
       return;
     }
-    // pop 前用 controller 把会话 cookie 落 jar (pop 后 WebView dispose, CDP 读不到)
+    // pop 前在同源轻量页里跑站点 session bootstrap，再把 cookie 落 jar。
+    // 不能加载完整 Discourse 前端，低版本 iOS/WKWebView 兼容性不够稳定。
     try {
+      final controller = _controller;
+      var bootstrapped = false;
+      if (controller != null) {
+        final bootstrapResult = await WebViewSessionCookieRefreshService
+            .instance
+            .runOnController(
+              controller,
+              reason: 'native_login_success',
+              pluginCandidates: PreloadedDataService().pluginCandidatesSync,
+            );
+        bootstrapped = bootstrapResult.ok;
+      }
       await BoundarySyncService.instance.syncFromWebView(
-        controller: _controller,
+        controller: controller,
         currentUrl: 'https://linux.do/',
-        cookieNames: CookieJarService.sessionCookieNames,
+        cookieNames: null,
         allowLowConfidenceSessionCookies: true,
         requestGeneration: _flowGeneration,
+        trusted: true,
+      );
+      final runtimeDetails = await CookieJarService()
+          .getCookieDiagnosticsForRequest(
+            Uri.parse(AppConstants.baseUrl),
+            names: const {'_rt'},
+          );
+      final hasRuntimeCookie = runtimeDetails.any(
+        (cookie) => (cookie['valueLength'] as int? ?? 0) > 0,
+      );
+      final tToken = await CookieJarService().getTToken();
+      if (hasRuntimeCookie) {
+        WebViewSessionCookieRefreshService.instance.markSynced(
+          reason: 'native_login_success',
+          tToken: tToken,
+          hasRuntimeCookie: hasRuntimeCookie,
+        );
+      }
+      await WebViewSessionCookieRefreshService.instance.logCookieSummary(
+        reason: 'native_login_success',
+        bootstrapOk: bootstrapped,
       );
     } catch (e) {
       debugPrint('[WebViewLogin] syncFromWebView 失败: $e');
@@ -817,7 +843,7 @@ class _Header extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Icon(Icons.verified_user_outlined, size: 20, color: scheme.primary),
+          Icon(Symbols.verified_user_rounded, size: 20, color: scheme.primary),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -828,7 +854,7 @@ class _Header extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close, size: 22),
+            icon: const Icon(Symbols.close_rounded, size: 22),
             tooltip: '取消',
             onPressed: onClose,
             visualDensity: VisualDensity.compact,

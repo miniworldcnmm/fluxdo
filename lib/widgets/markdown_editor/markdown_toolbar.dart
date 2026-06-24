@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:file_picker/file_picker.dart';
@@ -19,7 +20,7 @@ import 'editor_tools.dart';
 import 'image_upload_dialog.dart';
 import 'link_insert_dialog.dart';
 import 'template_insert_dialog.dart';
-import '../common/dismissible_popup_menu.dart';
+import 'package:common_ui/common_ui.dart';
 import '../../../../../l10n/s.dart';
 
 /// Markdown 工具栏组件
@@ -1007,7 +1008,7 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
                       IconButton(
                         visualDensity: VisualDensity.compact,
                         icon: Icon(
-                          Icons.auto_fix_high_rounded,
+                          Symbols.auto_fix_high_rounded,
                           size: 20,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -1019,8 +1020,8 @@ class MarkdownToolbarState extends State<MarkdownToolbar> {
                         visualDensity: VisualDensity.compact,
                         icon: Icon(
                           widget.isPreview
-                              ? Icons.visibility_off_outlined
-                              : Icons.visibility_outlined,
+                              ? Symbols.visibility_off_rounded
+                              : Symbols.visibility_rounded,
                           size: 20,
                           color: widget.isPreview
                               ? theme.colorScheme.primary

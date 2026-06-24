@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../l10n/s.dart';
@@ -90,7 +91,7 @@ class TopicDetailHeader extends ConsumerWidget {
                       child: Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: Icon(
-                          Icons.mail_outline,
+                          Symbols.mail_rounded,
                           size: 20,
                           color: theme.colorScheme.primary,
                         ),
@@ -102,7 +103,7 @@ class TopicDetailHeader extends ConsumerWidget {
                       child: Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: Icon(
-                          Icons.lock_rounded,
+                          Symbols.lock_rounded,
                           size: 20,
                           color: theme.colorScheme.outline,
                         ),
@@ -114,7 +115,7 @@ class TopicDetailHeader extends ConsumerWidget {
                       child: Padding(
                         padding: const EdgeInsets.only(right: 8),
                         child: Icon(
-                          Icons.check_box,
+                          Symbols.check_box_rounded,
                           size: 20,
                           color: Colors.green,
                         ),
@@ -188,13 +189,13 @@ class TopicDetailHeader extends ConsumerWidget {
                   children: [
                     _buildMetadataItem(
                       context,
-                      Icons.chat_bubble_outline_rounded,
+                      Symbols.chat_bubble_rounded,
                       '${detail.postsCount - 1}',
                       label: context.l10n.topicDetail_replyLabel,
                     ),
                     _buildMetadataItem(
                       context,
-                      Icons.visibility_outlined,
+                      Symbols.visibility_rounded,
                       NumberUtils.formatCount(detail.views),
                       label: context.l10n.topicDetail_viewsLabel,
                     ),
@@ -204,7 +205,7 @@ class TopicDetailHeader extends ConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.schedule_rounded,
+                            Symbols.schedule_rounded,
                             size: 14,
                             color: Theme.of(context)
                                 .colorScheme

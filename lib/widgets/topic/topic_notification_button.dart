@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../models/topic.dart';
 import '../../models/category.dart';
 import '../../utils/dialog_utils.dart';
+import '../common/app_bottom_sheet.dart';
 import '../../../../../l10n/s.dart';
 
-enum TopicNotificationButtonStyle {
-  icon,
-  chip,
-}
+enum TopicNotificationButtonStyle { icon, chip }
 
 /// 显示订阅级别选择面板
 void showNotificationLevelSheet(
@@ -17,6 +16,8 @@ void showNotificationLevelSheet(
 ) {
   showAppBottomSheet(
     context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
     builder: (context) => _NotificationLevelSheet(
       currentLevel: currentLevel,
       onSelected: (newLevel) {
@@ -42,13 +43,13 @@ class TopicNotificationButton extends StatelessWidget {
   static IconData getIcon(TopicNotificationLevel level) {
     switch (level) {
       case TopicNotificationLevel.muted:
-        return Icons.notifications_off_outlined;
+        return Symbols.notifications_off_rounded;
       case TopicNotificationLevel.regular:
-        return Icons.notifications_none_outlined;
+        return Symbols.notifications_none_rounded;
       case TopicNotificationLevel.tracking:
-        return Icons.notifications_outlined;
+        return Symbols.notifications_rounded;
       case TopicNotificationLevel.watching:
-        return Icons.notifications_active;
+        return Symbols.notifications_active_rounded;
     }
   }
 
@@ -62,16 +63,17 @@ class TopicNotificationButton extends StatelessWidget {
 
   Widget _buildChip(BuildContext context) {
     final theme = Theme.of(context);
-    final isWatching = level == TopicNotificationLevel.watching || 
-                       level == TopicNotificationLevel.tracking;
-    
+    final isWatching =
+        level == TopicNotificationLevel.watching ||
+        level == TopicNotificationLevel.tracking;
+
     // 适配 AI 摘要按钮风格
-    final bgColor = isWatching 
-        ? theme.colorScheme.primaryContainer 
-        : theme.colorScheme.primaryContainer.withValues(alpha:0.3);
-    
-    final fgColor = isWatching 
-        ? theme.colorScheme.primary 
+    final bgColor = isWatching
+        ? theme.colorScheme.primaryContainer
+        : theme.colorScheme.primaryContainer.withValues(alpha: 0.3);
+
+    final fgColor = isWatching
+        ? theme.colorScheme.primary
         : theme.colorScheme.primary;
 
     return Material(
@@ -81,23 +83,24 @@ class TopicNotificationButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(8), // 统一圆角为 8
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8), // 统一 Padding
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 8,
+          ), // 统一 Padding
           decoration: BoxDecoration(
             color: bgColor,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
-              color: isWatching ? theme.colorScheme.primary : Colors.transparent,
+              color: isWatching
+                  ? theme.colorScheme.primary
+                  : Colors.transparent,
               width: 1,
             ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                getIcon(level),
-                size: 16,
-                color: fgColor,
-              ),
+              Icon(getIcon(level), size: 16, color: fgColor),
               const SizedBox(width: 6),
               Text(
                 level.label,
@@ -140,20 +143,14 @@ class _NotificationLevelSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return SafeArea(
+    return AppSheetScaffold(
+      title: S.current.topic_notificationSettings,
+      showCloseButton: false,
+      contentPadding: EdgeInsets.zero,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Text(
-              S.current.topic_notificationSettings,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
           ...TopicNotificationLevel.values.map((level) {
             final isSelected = level == currentLevel;
             return ListTile(
@@ -175,12 +172,11 @@ class _NotificationLevelSheet extends StatelessWidget {
                 ),
               ),
               trailing: isSelected
-                  ? Icon(Icons.check, color: theme.colorScheme.primary)
+                  ? Icon(Symbols.check_rounded, color: theme.colorScheme.primary)
                   : null,
               onTap: () => onSelected(level),
             );
           }),
-          const SizedBox(height: 8),
         ],
       ),
     );
@@ -195,15 +191,15 @@ class _NotificationLevelSheet extends StatelessWidget {
 IconData getCategoryNotificationIcon(CategoryNotificationLevel level) {
   switch (level) {
     case CategoryNotificationLevel.muted:
-      return Icons.notifications_off_outlined;
+      return Symbols.notifications_off_rounded;
     case CategoryNotificationLevel.regular:
-      return Icons.notifications_none_outlined;
+      return Symbols.notifications_none_rounded;
     case CategoryNotificationLevel.tracking:
-      return Icons.notifications_outlined;
+      return Symbols.notifications_rounded;
     case CategoryNotificationLevel.watching:
-      return Icons.notifications_active;
+      return Symbols.notifications_active_rounded;
     case CategoryNotificationLevel.watchingFirstPost:
-      return Icons.notification_add_outlined;
+      return Symbols.notification_add_rounded;
   }
 }
 
@@ -222,7 +218,8 @@ class CategoryNotificationButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isMuted = level == CategoryNotificationLevel.muted;
-    final isWatching = level == CategoryNotificationLevel.watching ||
+    final isWatching =
+        level == CategoryNotificationLevel.watching ||
         level == CategoryNotificationLevel.tracking ||
         level == CategoryNotificationLevel.watchingFirstPost;
 
@@ -231,7 +228,9 @@ class CategoryNotificationButton extends StatelessWidget {
     final Color borderColor;
 
     if (isMuted) {
-      bgColor = theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5);
+      bgColor = theme.colorScheme.surfaceContainerHighest.withValues(
+        alpha: 0.5,
+      );
       fgColor = theme.colorScheme.onSurfaceVariant;
       borderColor = Colors.transparent;
     } else if (isWatching) {
@@ -285,6 +284,8 @@ class CategoryNotificationButton extends StatelessWidget {
     if (onChanged == null) return;
     showAppBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => _CategoryNotificationLevelSheet(
         currentLevel: level,
         onSelected: (newLevel) {
@@ -309,55 +310,40 @@ class _CategoryNotificationLevelSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-            child: Text(
-              S.current.topic_notificationSettings,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
+    return AppSheetScaffold(
+      title: S.current.topic_notificationSettings,
+      showCloseButton: false,
+      contentPadding: EdgeInsets.zero,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: CategoryNotificationLevel.values.map((level) {
+            final isSelected = level == currentLevel;
+            return ListTile(
+              leading: Icon(
+                getCategoryNotificationIcon(level),
+                color: isSelected ? theme.colorScheme.primary : null,
               ),
-            ),
-          ),
-          Flexible(
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: CategoryNotificationLevel.values.map((level) {
-                  final isSelected = level == currentLevel;
-                  return ListTile(
-                    leading: Icon(
-                      getCategoryNotificationIcon(level),
-                      color: isSelected ? theme.colorScheme.primary : null,
-                    ),
-                    title: Text(
-                      level.label,
-                      style: TextStyle(
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                        color: isSelected ? theme.colorScheme.primary : null,
-                      ),
-                    ),
-                    subtitle: Text(
-                      level.description,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    trailing: isSelected
-                        ? Icon(Icons.check, color: theme.colorScheme.primary)
-                        : null,
-                    onTap: () => onSelected(level),
-                  );
-                }).toList(),
+              title: Text(
+                level.label,
+                style: TextStyle(
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  color: isSelected ? theme.colorScheme.primary : null,
+                ),
               ),
-            ),
-          ),
-          const SizedBox(height: 8),
-        ],
+              subtitle: Text(
+                level.description,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              trailing: isSelected
+                  ? Icon(Symbols.check_rounded, color: theme.colorScheme.primary)
+                  : null,
+              onTap: () => onSelected(level),
+            );
+          }).toList(),
+        ),
       ),
     );
   }

@@ -4,6 +4,7 @@ import 'package:ai_model_manager/ai_model_manager.dart'
     show SwipeActionCell, SwipeAction, SwipeActionScope;
 import 'package:cross_file/cross_file.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
@@ -12,6 +13,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../l10n/s.dart';
 import '../providers/export_history_provider.dart';
 import '../services/toast_service.dart';
+import 'package:common_ui/common_ui.dart';
 import '../storage/export_history_dao.dart';
 import '../utils/dialog_utils.dart';
 import '../utils/platform_utils.dart';
@@ -46,7 +48,7 @@ class _ExportHistoryPageState extends ConsumerState<ExportHistoryPage> {
               onChange: (v) => setState(() => _filter = v),
             ),
             IconButton(
-              icon: const Icon(Icons.delete_sweep_rounded),
+              icon: const Icon(Symbols.delete_sweep_rounded),
               tooltip: context.l10n.exportHistory_clearAll,
               onPressed: _confirmClear,
             ),
@@ -66,7 +68,7 @@ class _ExportHistoryPageState extends ConsumerState<ExportHistoryPage> {
                     key: ValueKey(entry.id),
                     trailingActions: [
                       SwipeAction(
-                        icon: Icons.delete_outline,
+                        icon: Symbols.delete_rounded,
                         color: Colors.red,
                         label: context.l10n.exportHistory_deleteRecord,
                         onPressed: () => ref
@@ -183,12 +185,12 @@ class _FilterMenu extends StatelessWidget {
       (ExportHistoryFormat.html, 'HTML'),
       (ExportHistoryFormat.notion, 'Notion'),
     ];
-    return PopupMenuButton<String>(
+    return SwipeDismissiblePopupMenuButton<String>(
       tooltip: context.l10n.exportHistory_filterAll,
       icon: Stack(
         clipBehavior: Clip.none,
         children: [
-          const Icon(Icons.filter_list_rounded),
+          const Icon(Symbols.filter_list_rounded),
           if (active)
             Positioned(
               right: -1,
@@ -217,8 +219,8 @@ class _FilterMenu extends StatelessWidget {
               children: [
                 Icon(
                   current == value
-                      ? Icons.check_rounded
-                      : Icons.circle_outlined,
+                      ? Symbols.check_rounded
+                      : Symbols.circle_rounded,
                   size: 16,
                   color: current == value
                       ? theme.colorScheme.primary
@@ -245,7 +247,7 @@ class _EmptyState extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
-            Icons.history_edu_rounded,
+            Symbols.history_edu_rounded,
             size: 64,
             color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
           ),
@@ -372,9 +374,9 @@ class _ExportEntryCard extends StatelessWidget {
   }
 
   IconData get _icon => switch (entry.format) {
-    ExportHistoryFormat.markdown => Icons.description_rounded,
-    ExportHistoryFormat.html => Icons.public_rounded,
-    ExportHistoryFormat.notion => Icons.cloud_sync_rounded,
+    ExportHistoryFormat.markdown => Symbols.description_rounded,
+    ExportHistoryFormat.html => Symbols.public_rounded,
+    ExportHistoryFormat.notion => Symbols.cloud_sync_rounded,
   };
 
   Color get _accentColor => switch (entry.format) {
@@ -390,10 +392,10 @@ class _ExportEntryCard extends StatelessWidget {
   };
 
   IconData get _trailingIcon => switch (entry.targetType) {
-    ExportHistoryTarget.notion => Icons.north_east_rounded,
+    ExportHistoryTarget.notion => Symbols.north_east_rounded,
     ExportHistoryTarget.localFile => PlatformUtils.isDesktop
-        ? Icons.folder_open_rounded
-        : Icons.ios_share_rounded,
+        ? Symbols.folder_open_rounded
+        : Symbols.ios_share_rounded,
   };
 
   String _formatSize(int bytes) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../models/category.dart';
@@ -94,7 +95,7 @@ class SearchPostCard extends ConsumerWidget {
                         if (post.isAiGenerated)
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
-                            child: Icon(Icons.auto_awesome, size: 14, color: theme.colorScheme.tertiary),
+                            child: Icon(Symbols.auto_awesome_rounded, size: 14, color: theme.colorScheme.tertiary),
                           ),
                         if (post.postNumber > 1)
                           Container(
@@ -157,7 +158,7 @@ class SearchPostCard extends ConsumerWidget {
                             if (post.likeCount > 0) ...[
                               _buildStat(
                                 context,
-                                Icons.favorite_border_rounded,
+                                Symbols.favorite_border_rounded,
                                 post.likeCount,
                               ),
                               const SizedBox(width: 6),
@@ -216,7 +217,7 @@ class SearchPostCard extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: Icon(
-                  Icons.lock_outline,
+                  Symbols.lock_rounded,
                   size: 16,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -228,7 +229,7 @@ class SearchPostCard extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.only(right: 4),
                 child: Icon(
-                  Icons.archive_outlined,
+                  Symbols.archive_rounded,
                   size: 16,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -253,7 +254,7 @@ class SearchPostCard extends ConsumerWidget {
         alignment: PlaceholderAlignment.middle,
         child: Padding(
           padding: const EdgeInsets.only(right: 4),
-          child: Icon(Icons.lock_outline, size: 16, color: theme.colorScheme.onSurfaceVariant),
+          child: Icon(Symbols.lock_rounded, size: 16, color: theme.colorScheme.onSurfaceVariant),
         ),
       ));
     }
@@ -262,7 +263,7 @@ class SearchPostCard extends ConsumerWidget {
         alignment: PlaceholderAlignment.middle,
         child: Padding(
           padding: const EdgeInsets.only(right: 4),
-          child: Icon(Icons.archive_outlined, size: 16, color: theme.colorScheme.onSurfaceVariant),
+          child: Icon(Symbols.archive_rounded, size: 16, color: theme.colorScheme.onSurfaceVariant),
         ),
       ));
     }

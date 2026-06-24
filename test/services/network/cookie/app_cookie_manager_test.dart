@@ -4,24 +4,21 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxdo/services/network/cookie/app_cookie_manager.dart';
+import 'package:fluxdo/services/network/cookie/cookie_jar_service.dart';
 
 void main() {
   group('AppCookieManager.loadCookies', () {
     test('忽略 RequestOptions 上残留的旧 Cookie 头，始终使用 CookieJar 最新值', () async {
       final jar = CookieJar();
       final uri = Uri.parse('https://linux.do/session/csrf');
-      await jar.saveFromResponse(uri, [
-        Cookie('_t', 'new-token')..path = '/',
-      ]);
+      await jar.saveFromResponse(uri, [Cookie('_t', 'new-token')..path = '/']);
 
       final manager = AppCookieManager(jar);
       final options = RequestOptions(
         path: '/session/csrf',
         baseUrl: 'https://linux.do',
         method: 'GET',
-        headers: {
-          HttpHeaders.cookieHeader: '_t=old-token; other=legacy',
-        },
+        headers: {HttpHeaders.cookieHeader: '_t=old-token; other=legacy'},
       );
 
       final cookieHeader = await manager.loadCookies(options);
@@ -52,6 +49,88 @@ void main() {
 
       expect(cookieHeader, '_t=host-token');
       expect(cookieHeader, isNot(contains('domain-token')));
+    });
+
+    test('会话 Cookie 即使 path 不同也只发送主站根路径 winner', () async {
+      final jar = CookieJar();
+      final uri = Uri.parse('https://linux.do/session/csrf');
+      await jar.saveFromResponse(uri, [
+        Cookie('_t', 'root-token')..path = '/',
+        Cookie('_t', 'scoped-token')..path = '/session',
+      ]);
+
+      final manager = AppCookieManager(jar);
+      final options = RequestOptions(
+        path: '/session/csrf',
+        baseUrl: 'https://linux.do',
+        method: 'GET',
+      );
+
+      final cookieHeader = await manager.loadCookies(options);
+
+      expect(cookieHeader, '_t=root-token');
+      expect(cookieHeader, isNot(contains('scoped-token')));
+    });
+
+    test('会话 Cookie 的 domain 污染副本不会发送到子域名', () async {
+      final jar = CookieJar();
+      await jar.saveFromResponse(Uri.parse('https://linux.do'), [
+        Cookie('_t', 'polluted-token')
+          ..domain = '.linux.do'
+          ..path = '/',
+      ]);
+
+      final manager = AppCookieManager(jar);
+      final options = RequestOptions(
+        path: '/api/v1/oauth/user-info',
+        baseUrl: 'https://cdk.linux.do',
+        method: 'GET',
+      );
+
+      final cookieHeader = await manager.loadCookies(options);
+
+      expect(cookieHeader, isEmpty);
+    });
+
+    test('非会话同名不同 path Cookie 仍按 RFC 同时发送', () async {
+      final jar = CookieJar();
+      final uri = Uri.parse('https://linux.do/session/csrf');
+      await jar.saveFromResponse(uri, [
+        Cookie('theme', 'root')..path = '/',
+        Cookie('theme', 'scoped')..path = '/session',
+      ]);
+
+      final manager = AppCookieManager(jar);
+      final options = RequestOptions(
+        path: '/session/csrf',
+        baseUrl: 'https://linux.do',
+        method: 'GET',
+      );
+
+      final cookieHeader = await manager.loadCookies(options);
+
+      expect(cookieHeader, contains('theme=scoped'));
+      expect(cookieHeader, contains('theme=root'));
+    });
+  });
+
+  group('CookieJarService.buildCookieHeaderForRequest', () {
+    test('CDK retry header 保留业务 domain cookie 且不带主站登录 cookie', () {
+      final header = CookieJarService.buildCookieHeaderForRequest([
+        Cookie('cf_clearance', 'cf-token')
+          ..domain = '.linux.do'
+          ..path = '/',
+        Cookie('linux_do_cdk_session_id', 'cdk-token')
+          ..domain = '.linux.do'
+          ..path = '/',
+        Cookie('_t', 'polluted-token')
+          ..domain = '.linux.do'
+          ..path = '/',
+      ], Uri.parse('https://cdk.linux.do/api/v1/oauth/user-info'));
+
+      expect(header, contains('cf_clearance=cf-token'));
+      expect(header, contains('linux_do_cdk_session_id=cdk-token'));
+      expect(header, isNot(contains('_t=')));
     });
   });
 }

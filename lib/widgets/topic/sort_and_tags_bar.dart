@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../providers/topic_list/filter_provider.dart';
 import '../../providers/topic_list/sort_provider.dart';
 import '../common/topic_badges.dart';
@@ -153,9 +154,9 @@ class _AddTagButton extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.add, size: 14, color: colorScheme.onSurfaceVariant),
+            Icon(Symbols.add_rounded, size: 14, color: colorScheme.onSurfaceVariant),
             const SizedBox(width: 2),
-            Icon(Icons.label_outline, size: 14, color: colorScheme.onSurfaceVariant),
+            Icon(Symbols.label_rounded, size: 14, color: colorScheme.onSurfaceVariant),
           ],
         ),
       ),

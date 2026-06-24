@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 
 import '../../../../l10n/s.dart';
@@ -6,6 +7,7 @@ import '../../../../models/topic.dart';
 import '../../../../services/preloaded_data_service.dart';
 import '../../../../services/toast_service.dart';
 import '../../../../utils/url_helper.dart';
+import '../../../common/app_bottom_sheet.dart';
 
 typedef BoostFlagTypesLoader = Future<List<FlagType>> Function();
 typedef BoostFlagSubmitter =
@@ -231,133 +233,106 @@ class _BoostFlagSheetState extends State<BoostFlagSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      margin: const EdgeInsets.all(16),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.7,
+    return AppSheetScaffold(
+      style: AppSheetStyle.card,
+      maxHeightFactor: 0.7,
+      contentPadding: EdgeInsets.zero,
+      titleWidget: Row(
+        children: [
+          Icon(Symbols.flag_rounded, color: theme.colorScheme.error),
+          const SizedBox(width: 8),
+          Text(
+            context.l10n.boost_flagTitle,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
+      footer: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: SizedBox(
+          width: double.infinity,
+          child: FilledButton(
+            onPressed:
+                _selectedType == null ||
+                    _isSubmitting ||
+                    _isLoading ||
+                    (_selectedType?.requireMessage == true &&
+                        _messageController.text.trim().isEmpty) ||
+                    widget.submitFlag == null
+                ? null
+                : _submitFlag,
+            child: _isSubmitting
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(context.l10n.post_submitFlag),
+          ),
+        ),
       ),
-      child: SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
-              child: Row(
-                children: [
-                  Icon(Icons.flag_outlined, color: theme.colorScheme.error),
-                  const SizedBox(width: 8),
-                  Text(
-                    context.l10n.boost_flagTitle,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
+            if (_isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (_flagTypes.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: Text(
+                    context.l10n.common_noData,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                    visualDensity: VisualDensity.compact,
+                ),
+              )
+            else ...[
+              if (_notifyUserTypes.isNotEmpty) ...[
+                _buildSectionHeader(
+                  context.l10n.post_flagMessageUser(widget.boost.user.username),
+                  theme,
+                ),
+                ..._notifyUserTypes.map(
+                  (type) => _buildFlagOption(type, theme),
+                ),
+                const SizedBox(height: 16),
+                Divider(color: theme.colorScheme.outlineVariant),
+                const SizedBox(height: 16),
+              ],
+              if (_moderatorTypes.isNotEmpty) ...[
+                _buildSectionHeader(
+                  context.l10n.post_flagNotifyModerators,
+                  theme,
+                ),
+                ..._moderatorTypes.map((type) => _buildFlagOption(type, theme)),
+              ],
+            ],
+            if (_selectedType?.requireMessage == true) ...[
+              const SizedBox(height: 16),
+              TextField(
+                controller: _messageController,
+                maxLines: 3,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  hintText: context.l10n.post_flagDescriptionHint,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ],
-              ),
-            ),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (_isLoading)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(20),
-                          child: CircularProgressIndicator(),
-                        ),
-                      )
-                    else if (_flagTypes.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        child: Center(
-                          child: Text(
-                            context.l10n.common_noData,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      )
-                    else ...[
-                      if (_notifyUserTypes.isNotEmpty) ...[
-                        _buildSectionHeader(
-                          context.l10n.post_flagMessageUser(
-                            widget.boost.user.username,
-                          ),
-                          theme,
-                        ),
-                        ..._notifyUserTypes.map(
-                          (type) => _buildFlagOption(type, theme),
-                        ),
-                        const SizedBox(height: 16),
-                        Divider(color: theme.colorScheme.outlineVariant),
-                        const SizedBox(height: 16),
-                      ],
-                      if (_moderatorTypes.isNotEmpty) ...[
-                        _buildSectionHeader(
-                          context.l10n.post_flagNotifyModerators,
-                          theme,
-                        ),
-                        ..._moderatorTypes.map(
-                          (type) => _buildFlagOption(type, theme),
-                        ),
-                      ],
-                    ],
-                    if (_selectedType?.requireMessage == true) ...[
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _messageController,
-                        maxLines: 3,
-                        onChanged: (_) => setState(() {}),
-                        decoration: InputDecoration(
-                          hintText: context.l10n.post_flagDescriptionHint,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          contentPadding: const EdgeInsets.all(12),
-                        ),
-                      ),
-                    ],
-                  ],
+                  contentPadding: const EdgeInsets.all(12),
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed:
-                      _selectedType == null ||
-                          _isSubmitting ||
-                          _isLoading ||
-                          (_selectedType?.requireMessage == true &&
-                              _messageController.text.trim().isEmpty) ||
-                          widget.submitFlag == null
-                      ? null
-                      : _submitFlag,
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : Text(context.l10n.post_submitFlag),
-                ),
-              ),
-            ),
+            ],
           ],
         ),
       ),
@@ -400,7 +375,9 @@ class _BoostFlagSheetState extends State<BoostFlagSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
-              isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+              isSelected
+                  ? Symbols.radio_button_checked_rounded
+                  : Symbols.radio_button_unchecked_rounded,
               size: 20,
               color: isSelected
                   ? theme.colorScheme.primary

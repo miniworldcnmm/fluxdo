@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../../l10n/s.dart';
 import '../chunked/html_chunk.dart';
 import '../chunked/html_chunker.dart';
@@ -214,7 +215,7 @@ class _DetailsWidgetState extends State<_DetailsWidget>
                     RotationTransition(
                       turns: _iconTurns,
                       child: Icon(
-                        Icons.arrow_right_rounded,
+                        Symbols.arrow_right_rounded,
                         size: 20,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),

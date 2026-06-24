@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../../../l10n/s.dart';
 import '../../../services/network/doh/network_settings_service.dart';
@@ -25,6 +26,7 @@ class HttpProxyCard extends StatelessWidget {
         networkService.notifier,
         vpnService.enabledNotifier,
         vpnService.vpnActiveNotifier,
+        vpnService.suppressionNotifier,
       ]),
       builder: (context, _) {
         final proxySettings = proxyService.notifier.value;
@@ -64,6 +66,9 @@ class _HttpProxyCardInner extends StatelessWidget {
       builder: (context, _) {
         final isTesting = proxyService.isTesting.value;
         final testResult = proxyService.testResultNotifier.value;
+        // VPN 活跃 + 自动切换开启 = 接管期，代理开关在此期间一律锁定
+        final vpnLocked = VpnAutoToggleService.instance.enabled &&
+            VpnAutoToggleService.instance.vpnActive;
 
         return Card(
           clipBehavior: Clip.antiAlias,
@@ -83,48 +88,53 @@ class _HttpProxyCardInner extends StatelessWidget {
               SwitchListTile(
                 title: Text(context.l10n.httpProxy_title),
                 subtitle: Text(
-                  isSuppressedByVpn
-                      ? context.l10n.httpProxy_suppressedByVpn
+                  vpnLocked
+                      ? (isSuppressedByVpn
+                          ? context.l10n.httpProxy_suppressedByVpn
+                          : context.l10n.vpnToggle_lockedHint)
                       : proxySettings.enabled
                           ? context.l10n.httpProxy_enabledDesc(proxySettings.protocol.displayName)
                           : context.l10n.httpProxy_disabledDesc,
                 ),
                 secondary: Icon(
-                  proxySettings.enabled ? Icons.vpn_key : Icons.vpn_key_outlined,
-                  color: proxySettings.enabled
+                  (vpnLocked ? isSuppressedByVpn : proxySettings.enabled)
+                      ? Symbols.vpn_key_rounded
+                      : Symbols.vpn_key_rounded,
+                  color: (vpnLocked ? isSuppressedByVpn : proxySettings.enabled)
                       ? theme.colorScheme.tertiary
                       : null,
                 ),
-                value: proxySettings.enabled,
-                onChanged: (value) async {
-                  if (value && !proxySettings.hasServer) {
-                    final saved = await _showProxyConfigDialog(
-                      context,
-                      proxySettings,
-                    );
-                    if (!saved) {
-                      return;
-                    }
-                  }
+                // VPN 接管期间：开关照常可拨，但操作的是"VPN 断开后是否启用"的意图标记，
+                // 不立即生效（功能仍由自动切换接管）。
+                value: vpnLocked ? isSuppressedByVpn : proxySettings.enabled,
+                onChanged: vpnLocked
+                    ? (value) =>
+                        VpnAutoToggleService.instance.setProxySuppressed(value)
+                    : (value) async {
+                        if (value && !proxySettings.hasServer) {
+                          final saved = await _showProxyConfigDialog(
+                            context,
+                            proxySettings,
+                          );
+                          if (!saved) {
+                            return;
+                          }
+                        }
 
-                  await proxyService.setEnabled(value);
-                  // 用户在 VPN 活跃时手动开启，清除压制标记
-                  if (value && isSuppressedByVpn) {
-                    VpnAutoToggleService.instance.clearProxySuppression();
-                  }
-                  if (!value) {
-                    return;
-                  }
+                        await proxyService.setEnabled(value);
+                        if (!value) {
+                          return;
+                        }
 
-                  final previous = proxyService.testResultNotifier.value;
-                  final shouldRetest = previous == null ||
-                      !previous.success ||
-                      DateTime.now().difference(previous.testedAt) >
-                          const Duration(seconds: 30);
-                  if (shouldRetest) {
-                    await _runProxyTest(showToast: true);
-                  }
-                },
+                        final previous = proxyService.testResultNotifier.value;
+                        final shouldRetest = previous == null ||
+                            !previous.success ||
+                            DateTime.now().difference(previous.testedAt) >
+                                const Duration(seconds: 30);
+                        if (shouldRetest) {
+                          await _runProxyTest(showToast: true);
+                        }
+                      },
               ),
               if (proxySettings.hasServer || proxySettings.enabled) ...[
                 Divider(
@@ -132,14 +142,14 @@ class _HttpProxyCardInner extends StatelessWidget {
                   color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
                 ),
                 ListTile(
-                  leading: const Icon(Icons.dns),
+                  leading: const Icon(Symbols.dns_rounded),
                   title: Text(context.l10n.httpProxy_server),
                   subtitle: Text(
                     proxySettings.host.isNotEmpty
                         ? _buildProxySummary(proxySettings)
                         : context.l10n.common_notConfigured,
                   ),
-                  trailing: const Icon(Icons.edit, size: 20),
+                  trailing: const Icon(Symbols.edit_rounded, size: 20),
                   onTap: () => _showProxyConfigDialog(context, proxySettings),
                 ),
                 if (!proxySettings.isShadowsocks &&
@@ -150,7 +160,7 @@ class _HttpProxyCardInner extends StatelessWidget {
                     color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
                   ),
                   ListTile(
-                    leading: const Icon(Icons.person),
+                    leading: const Icon(Symbols.person_rounded),
                     title: Text(context.l10n.httpProxy_auth),
                     subtitle: Text(context.l10n.httpProxy_username(proxySettings.username!)),
                     dense: true,
@@ -191,7 +201,7 @@ class _HttpProxyCardInner extends StatelessWidget {
                     child: Row(
                       children: [
                         Icon(
-                          Icons.hub_outlined,
+                          Symbols.hub_rounded,
                           size: 16,
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -214,7 +224,7 @@ class _HttpProxyCardInner extends StatelessWidget {
                   child: Row(
                     children: [
                       Icon(
-                        Icons.info_outline,
+                        Symbols.info_rounded,
                         size: 16,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -341,7 +351,7 @@ class _HttpProxyCardInner extends StatelessWidget {
                                   : S.current.httpProxy_ssImportSuccess,
                             );
                           },
-                          icon: const Icon(Icons.download_rounded),
+                          icon: const Icon(Symbols.download_rounded),
                           label: Text(S.current.httpProxy_importSsLink),
                         ),
                       ),
@@ -564,12 +574,12 @@ class _HttpProxyCardInner extends StatelessWidget {
 
   IconData _resolveTestIcon(bool isTesting, ProxyTestResult? testResult) {
     if (isTesting) {
-      return Icons.network_check;
+      return Symbols.network_check_rounded;
     }
     if (testResult == null) {
-      return Icons.checklist_rtl_outlined;
+      return Symbols.checklist_rtl_rounded;
     }
-    return testResult.success ? Icons.check_circle_outline : Icons.error_outline;
+    return testResult.success ? Symbols.check_circle_rounded : Symbols.error_rounded;
   }
 
   Color? _resolveTestColor(

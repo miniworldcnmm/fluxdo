@@ -1,6 +1,7 @@
 import 'dart:io' as io;
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,7 +16,7 @@ import '../widgets/common/app_link_confirm_dialog.dart';
 import '../providers/web_bookmark_provider.dart';
 import '../providers/web_history_provider.dart';
 import '../providers/download_provider.dart';
-import '../widgets/common/dismissible_popup_menu.dart';
+import 'package:common_ui/common_ui.dart';
 import '../l10n/s.dart';
 import '../utils/dialog_utils.dart';
 
@@ -108,7 +109,7 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
               child: Row(
                 children: [
                   Icon(
-                    Icons.lock_outline,
+                    Symbols.lock_rounded,
                     size: 14,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -146,7 +147,7 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
-                  Icons.close_rounded,
+                  Symbols.close_rounded,
                   size: 18,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -157,7 +158,7 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
           actions: [
             IconButton(
               icon: Icon(
-                Icons.chevron_left_rounded,
+                Symbols.chevron_left_rounded,
                 color: _canGoBack ? null : theme.disabledColor,
               ),
               onPressed: _canGoBack ? () => _controller?.goBack() : null,
@@ -165,14 +166,14 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
             ),
             IconButton(
               icon: Icon(
-                Icons.chevron_right_rounded,
+                Symbols.chevron_right_rounded,
                 color: _canGoForward ? null : theme.disabledColor,
               ),
               onPressed: _canGoForward ? () => _controller?.goForward() : null,
               tooltip: context.l10n.webview_goForward,
             ),
             IconButton(
-              icon: const Icon(Icons.refresh),
+              icon: const Icon(Symbols.refresh_rounded),
               onPressed: () => _controller?.reload(),
               tooltip: context.l10n.common_refresh,
             ),
@@ -183,10 +184,7 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
                   value: 'toggle_bookmark',
                   child: Row(
                     children: [
-                      Icon(
-                        isBookmarked
-                            ? Icons.star_rounded
-                            : Icons.star_outline_rounded,
+                      Icon(Symbols.star_rounded, fill: isBookmarked ? 1 : 0,
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -201,7 +199,7 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
                   value: 'copy_url',
                   child: Row(
                     children: [
-                      const Icon(Icons.copy),
+                      const Icon(Symbols.content_copy_rounded),
                       const SizedBox(width: 8),
                       Text(context.l10n.common_copyLink),
                     ],
@@ -211,7 +209,7 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
                   value: 'open_external',
                   child: Row(
                     children: [
-                      const Icon(Icons.open_in_browser),
+                      const Icon(Symbols.open_in_browser_rounded),
                       const SizedBox(width: 8),
                       Text(context.l10n.webview_openExternal),
                     ],
@@ -455,7 +453,7 @@ class _WebViewPageState extends ConsumerState<WebViewPage> {
             decoration: InputDecoration(
               hintText: 'https://',
               suffixIcon: IconButton(
-                icon: const Icon(Icons.clear, size: 18),
+                icon: const Icon(Symbols.clear_rounded, size: 18),
                 onPressed: () => textController.clear(),
               ),
             ),

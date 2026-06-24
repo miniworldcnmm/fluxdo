@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:share_plus/share_plus.dart';
@@ -22,13 +23,13 @@ import '../../../../post/post_boost/boost_list.dart';
 import '../../../../post/post_boost/boost_input.dart';
 import '../boost_flag_sheet.dart';
 import '../post_flag_sheet.dart';
-import '../post_reaction_picker.dart';
 import '../post_reaction_users_sheet.dart';
 import '../post_replies_list.dart';
 import '../post_solution_banner.dart';
 import '../../../../post/post_replies_sheet.dart';
 import '../../../../user/user_card.dart';
 import '../../../../../utils/dialog_utils.dart';
+import '../../../../common/app_bottom_sheet.dart';
 
 part 'actions/bookmark_actions.dart';
 part 'actions/manage_actions.dart';
@@ -52,6 +53,7 @@ class PostFooterSection extends ConsumerStatefulWidget {
   final bool useReplyDialog;
   final String? topicTitle;
   final bool isPrivateMessageTopic;
+  final bool isPmWithNonHumanUser;
 
   /// 隐藏回复列表按钮（弹框内使用时不需要展示）
   final bool hideRepliesButton;
@@ -96,6 +98,7 @@ class PostFooterSection extends ConsumerStatefulWidget {
     this.useReplyDialog = false,
     this.topicTitle,
     this.isPrivateMessageTopic = false,
+    this.isPmWithNonHumanUser = false,
     this.hideRepliesButton = false,
     this.onShowPostDetail,
     this.postDetailLabel,
@@ -305,6 +308,7 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      enableDrag: false, // 举报表单(card):禁止下滑误关
       builder: (context) => BoostFlagSheet(
         boost: boost,
         submitFlag: (flagTypeId, message) async {
@@ -378,91 +382,66 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
       ToastService.showInfo(S.current.boost_flagAlreadyReported);
     }
 
-    showAppBottomSheet(
+    AppBottomSheet.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      contentPadding: EdgeInsets.zero,
+      maxHeightFactor: 0.86,
       builder: (ctx) {
-        final theme = Theme.of(ctx);
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 16),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(ctx).size.height * 0.86,
-              ),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (canEmbedAuthorPreview)
-                      UserCardContent(
-                        username: resolvedBoost.user.username,
-                        topicId: widget.topicId,
-                        topicTitle: widget.topicTitle,
-                        postNumber: widget.post.postNumber,
-                        avatarFallbackUrl:
-                            resolvedBoost.user.avatarTemplate.isEmpty
-                            ? null
-                            : resolvedBoost.user.getAvatarUrl(size: 144),
-                        nameFallback: resolvedBoost.user.name,
-                        flairUrl: null,
-                        flairName: null,
-                        flairBgColor: null,
-                        flairColor: null,
-                        anchorContext: context,
-                        onClose: () => Navigator.pop(ctx),
-                      ),
-                    Container(
-                      margin: EdgeInsets.only(
-                        top: canEmbedAuthorPreview ? 12 : 0,
-                      ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.surface,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (canFlag)
-                            ListTile(
-                              leading: const Icon(
-                                Icons.flag_outlined,
-                                color: Colors.red,
-                              ),
-                              title: Text(
-                                S.current.common_report,
-                                style: const TextStyle(color: Colors.red),
-                              ),
-                              onTap: () {
-                                Navigator.pop(ctx);
-                                _showBoostFlagSheet(resolvedBoost);
-                              },
-                            ),
-                          if (canDelete)
-                            ListTile(
-                              leading: const Icon(
-                                Icons.delete_outline,
-                                color: Colors.red,
-                              ),
-                              title: Text(S.current.common_delete),
-                              onTap: () {
-                                Navigator.pop(ctx);
-                                _deleteBoost(resolvedBoost);
-                              },
-                            ),
-                          ListTile(
-                            leading: const Icon(Icons.close),
-                            title: Text(S.current.common_cancel),
-                            onTap: () => Navigator.pop(ctx),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
+        return SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (canEmbedAuthorPreview)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 36, 12, 12),
+                  child: UserCardContent(
+                    username: resolvedBoost.user.username,
+                    topicId: widget.topicId,
+                    topicTitle: widget.topicTitle,
+                    postNumber: widget.post.postNumber,
+                    avatarFallbackUrl: resolvedBoost.user.avatarTemplate.isEmpty
+                        ? null
+                        : resolvedBoost.user.getAvatarUrl(size: 144),
+                    nameFallback: resolvedBoost.user.name,
+                    flairUrl: null,
+                    flairName: null,
+                    flairBgColor: null,
+                    flairColor: null,
+                    anchorContext: context,
+                    menuNavigatorKey: null,
+                    onClose: () => Navigator.pop(ctx),
+                  ),
                 ),
+              if (canFlag)
+                ListTile(
+                  leading: const Icon(Symbols.flag_rounded, color: Colors.red),
+                  title: Text(
+                    S.current.common_report,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showBoostFlagSheet(resolvedBoost);
+                  },
+                ),
+              if (canDelete)
+                ListTile(
+                  leading: const Icon(
+                    Symbols.delete_rounded,
+                    color: Colors.red,
+                  ),
+                  title: Text(S.current.common_delete),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _deleteBoost(resolvedBoost);
+                  },
+                ),
+              ListTile(
+                leading: const Icon(Symbols.close_rounded),
+                title: Text(S.current.common_cancel),
+                onTap: () => Navigator.pop(ctx),
               ),
-            ),
+            ],
           ),
         );
       },
@@ -563,7 +542,7 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
             showRepliesNotifier: _showRepliesNotifier,
             hideRepliesButton: widget.hideRepliesButton,
             onToggleLike: _toggleLike,
-            onShowReactionPicker: () => _showReactionPicker(context, theme),
+            onReactionSelected: _toggleReaction,
             onShowReactionUsers: (reactionId) =>
                 _showReactionUsers(context, reactionId: reactionId),
             onReply: widget.onReply == null ? null : () => widget.onReply!(),

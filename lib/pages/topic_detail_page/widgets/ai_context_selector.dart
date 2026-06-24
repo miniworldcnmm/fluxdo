@@ -1,6 +1,7 @@
 import 'package:ai_model_manager/ai_model_manager.dart';
 import 'package:flutter/material.dart';
-import '../../../widgets/common/dismissible_popup_menu.dart';
+import 'package:app_icons/app_icons.dart';
+import 'package:common_ui/common_ui.dart';
 import '../../../l10n/s.dart';
 
 /// 上下文范围选择器
@@ -27,7 +28,7 @@ class AiContextSelector extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.article_outlined, size: 16, color: theme.colorScheme.onSurfaceVariant),
+            Icon(Symbols.article_rounded, size: 16, color: theme.colorScheme.onSurfaceVariant),
             const SizedBox(width: 4),
             Text(
               currentScope.label,
@@ -35,7 +36,7 @@ class AiContextSelector extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            Icon(Icons.arrow_drop_down, size: 18, color: theme.colorScheme.onSurfaceVariant),
+            Icon(Symbols.arrow_drop_down_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
           ],
         ),
       ),
@@ -45,7 +46,7 @@ class AiContextSelector extends StatelessWidget {
           child: Row(
             children: [
               if (scope == currentScope)
-                Icon(Icons.check, size: 18, color: theme.colorScheme.primary)
+                Icon(Symbols.check_rounded, size: 18, color: theme.colorScheme.primary)
               else
                 const SizedBox(width: 18),
               const SizedBox(width: 8),

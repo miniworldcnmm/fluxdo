@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:html/dom.dart' as dom;
-import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../../models/topic.dart';
 import '../../../../pages/user_profile_page.dart';
@@ -316,13 +316,13 @@ class _PolicyWidgetState extends State<_PolicyWidget> {
             ? FilledButton.icon(
                 onPressed: _isLoading ? null : _accept,
                 icon: _accepted && !_revoked
-                    ? const Icon(Icons.check, size: 16)
+                    ? const Icon(Symbols.check_rounded, size: 16)
                     : const SizedBox.shrink(),
                 label: Text(widget.acceptLabel),
               )
             : OutlinedButton.icon(
                 onPressed: _isLoading ? null : _accept,
-                icon: const Icon(Icons.check, size: 16),
+                icon: const Icon(Symbols.check_rounded, size: 16),
                 label: Text(widget.acceptLabel),
               ),
       );
@@ -344,7 +344,7 @@ class _PolicyWidgetState extends State<_PolicyWidget> {
               )
             : OutlinedButton.icon(
                 onPressed: _isLoading ? null : _revoke,
-                icon: const Icon(Icons.check, size: 16),
+                icon: const Icon(Symbols.check_rounded, size: 16),
                 label: Text(widget.revokeLabel),
               ),
       );
@@ -374,7 +374,7 @@ class _PolicyWidgetState extends State<_PolicyWidget> {
         if (_acceptedCount > 0)
           _buildCountToggle(
             theme,
-            icon: PhosphorIconsRegular.userCircleCheck,
+            icon: Symbols.account_circle_rounded,
             count: _acceptedCount,
             active: !_showNotAccepted,
             onTap: () => setState(() => _showNotAccepted = false),
@@ -390,7 +390,7 @@ class _PolicyWidgetState extends State<_PolicyWidget> {
         if (_notAcceptedCount > 0)
           _buildCountToggle(
             theme,
-            icon: PhosphorIconsRegular.userCircleMinus,
+            icon: Symbols.cancel_rounded,
             count: _notAcceptedCount,
             active: _showNotAccepted,
             onTap: () => setState(() => _showNotAccepted = true),

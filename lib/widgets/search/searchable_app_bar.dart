@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../l10n/s.dart';
 
 /// 可搜索的 AppBar
@@ -145,12 +146,12 @@ class _SearchableAppBarState extends State<SearchableAppBar>
     return AppBar(
       leading: widget.isSearchMode
           ? IconButton(
-              icon: const Icon(Icons.arrow_back),
+              icon: const Icon(Symbols.arrow_back_rounded),
               onPressed: widget.onCloseSearch,
             )
           : (widget.onBackPressed != null
                 ? IconButton(
-                    icon: const Icon(Icons.arrow_back),
+                    icon: const Icon(Symbols.arrow_back_rounded),
                     onPressed: widget.onBackPressed,
                   )
                 : null),
@@ -183,7 +184,7 @@ class _SearchableAppBarState extends State<SearchableAppBar>
                 ),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.close, size: 20),
+                        icon: const Icon(Symbols.close_rounded, size: 20),
                         onPressed: _handleClear,
                       )
                     : null,
@@ -195,7 +196,7 @@ class _SearchableAppBarState extends State<SearchableAppBar>
       actions: widget.isSearchMode
           ? [
               IconButton(
-                icon: const Icon(Icons.search),
+                icon: const Icon(Symbols.search_rounded),
                 onPressed: () => _handleSubmit(_searchController.text),
                 tooltip: context.l10n.common_search,
               ),
@@ -204,7 +205,7 @@ class _SearchableAppBarState extends State<SearchableAppBar>
           : [
               if (widget.showSearchButton)
                 IconButton(
-                  icon: const Icon(Icons.search),
+                  icon: const Icon(Symbols.search_rounded),
                   onPressed: widget.onSearchPressed,
                   tooltip: context.l10n.common_search,
                 ),
@@ -218,7 +219,7 @@ class _SearchableAppBarState extends State<SearchableAppBar>
     return Stack(
       children: [
         IconButton(
-          icon: const Icon(Icons.tune),
+          icon: const Icon(Symbols.tune_rounded),
           onPressed: widget.onFilterPressed,
           tooltip: context.l10n.common_filter,
         ),

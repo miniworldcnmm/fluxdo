@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../../l10n/s.dart';
 import '../../../../models/topic.dart';
 import '../../../common/smart_avatar.dart';
@@ -45,7 +46,7 @@ class PostReplyHistory extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  Icons.format_quote_rounded,
+                  Symbols.format_quote_rounded,
                   size: 16,
                   color: theme.colorScheme.primary,
                 ),
@@ -66,7 +67,7 @@ class PostReplyHistory extends StatelessWidget {
                   child: Padding(
                     padding: const EdgeInsets.all(4),
                     child: Icon(
-                      Icons.close,
+                      Symbols.close_rounded,
                       size: 16,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -121,7 +122,7 @@ class PostReplyHistory extends StatelessWidget {
                               ),
                               const Spacer(),
                               Icon(
-                                Icons.arrow_outward,
+                                Symbols.arrow_outward_rounded,
                                 size: 12,
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),

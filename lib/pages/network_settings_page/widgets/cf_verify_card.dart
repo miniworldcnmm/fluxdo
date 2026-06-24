@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../l10n/s.dart';
@@ -23,7 +24,7 @@ class CfVerifyCard extends ConsumerWidget {
       child: Column(
         children: [
           SwitchListTile(
-            secondary: const Icon(Icons.shield_outlined),
+            secondary: const Icon(Symbols.shield_rounded),
             title: Text(context.l10n.cfVerify_autoTitle),
             subtitle: Text(context.l10n.cfVerify_autoDesc),
             value: autoEnabled,
@@ -36,10 +37,10 @@ class CfVerifyCard extends ConsumerWidget {
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
           ),
           ListTile(
-            leading: const Icon(Icons.security),
+            leading: const Icon(Symbols.security_rounded),
             title: Text(context.l10n.cf_securityVerifyTitle),
             subtitle: Text(context.l10n.error_securityChallenge),
-            trailing: const Icon(Icons.chevron_right, size: 20),
+            trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
             onTap: () => _showManualVerify(context),
           ),
         ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../../../utils/link_launcher.dart';
 import 'onebox_base.dart';
 
@@ -117,7 +118,7 @@ Widget _buildWithThumbnail({
           imageUrl: thumbnailUrl,
           size: 80,
           borderRadius: 6,
-          fallbackIcon: Icons.image,
+          fallbackIcon: Symbols.image_rounded,
         ),
       ),
     ],

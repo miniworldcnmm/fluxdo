@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/topic.dart';
@@ -318,7 +319,7 @@ class _TagTopicsPageState extends ConsumerState<TagTopicsPage> {
         centerTitle: false,
         actions: [
           IconButton(
-            icon: const Icon(Icons.search),
+            icon: const Icon(Symbols.search_rounded),
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -369,7 +370,7 @@ class _TagTopicsPageState extends ConsumerState<TagTopicsPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.inbox_outlined,
+              Symbols.inbox_rounded,
               size: 48,
               color: Theme.of(context).colorScheme.outline,
             ),

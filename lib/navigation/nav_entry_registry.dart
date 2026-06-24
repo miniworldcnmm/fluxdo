@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/s.dart';
@@ -28,8 +29,8 @@ class NavEntryRegistry {
       NavEntry(
         id: NavEntryIds.home,
         kind: NavEntryKind.page,
-        iconData: Icons.home_outlined,
-        selectedIconData: Icons.home,
+        iconData: Symbols.home_rounded,
+        selectedIconData: Symbols.home_rounded,
         label: (ctx) => ctx.l10n.nav_home,
         pageBuilder: (ctx, isActive) => TopicsScreen(isActive: isActive),
         locked: true,
@@ -38,8 +39,8 @@ class NavEntryRegistry {
       NavEntry(
         id: NavEntryIds.profile,
         kind: NavEntryKind.page,
-        iconData: Icons.person_outline,
-        selectedIconData: Icons.person,
+        iconData: Symbols.person_rounded,
+        selectedIconData: Symbols.person_rounded,
         label: (ctx) => ctx.l10n.nav_mine,
         pageBuilder: (ctx, isActive) => ProfilePage(isActive: isActive),
         locked: true,
@@ -53,8 +54,8 @@ class NavEntryRegistry {
       NavEntry(
         id: NavEntryIds.bookmarks,
         kind: NavEntryKind.page,
-        iconData: Icons.bookmark_outline_rounded,
-        selectedIconData: Icons.bookmark_rounded,
+        iconData: Symbols.bookmark_rounded,
+        selectedIconData: Symbols.bookmark_rounded,
         label: (ctx) => ctx.l10n.nav_bookmarks,
         pageBuilder: (ctx, isActive) => BookmarksPage(isActive: isActive),
         requiresLogin: true,
@@ -62,8 +63,8 @@ class NavEntryRegistry {
       NavEntry(
         id: NavEntryIds.history,
         kind: NavEntryKind.page,
-        iconData: Icons.history_rounded,
-        selectedIconData: Icons.history_rounded,
+        iconData: Symbols.history_rounded,
+        selectedIconData: Symbols.history_rounded,
         label: (ctx) => ctx.l10n.nav_history,
         pageBuilder: (ctx, isActive) =>
             BrowsingHistoryPage(isActive: isActive),
@@ -72,8 +73,8 @@ class NavEntryRegistry {
       NavEntry(
         id: NavEntryIds.drafts,
         kind: NavEntryKind.page,
-        iconData: Icons.drafts_outlined,
-        selectedIconData: Icons.drafts_rounded,
+        iconData: Symbols.drafts_rounded,
+        selectedIconData: Symbols.drafts_rounded,
         label: (ctx) => ctx.l10n.nav_drafts,
         pageBuilder: (ctx, isActive) => DraftsPage(isActive: isActive),
         requiresLogin: true,
@@ -81,8 +82,8 @@ class NavEntryRegistry {
       NavEntry(
         id: NavEntryIds.messages,
         kind: NavEntryKind.page,
-        iconData: Icons.mail_outline_rounded,
-        selectedIconData: Icons.mail_rounded,
+        iconData: Symbols.mail_rounded,
+        selectedIconData: Symbols.mail_rounded,
         label: (ctx) => ctx.l10n.nav_messages,
         pageBuilder: (ctx, isActive) =>
             PrivateMessagesPage(isActive: isActive),
@@ -91,8 +92,8 @@ class NavEntryRegistry {
       NavEntry(
         id: NavEntryIds.notifications,
         kind: NavEntryKind.panel,
-        iconData: Icons.notifications_outlined,
-        selectedIconData: Icons.notifications_rounded,
+        iconData: Symbols.notifications_rounded,
+        selectedIconData: Symbols.notifications_rounded,
         label: (ctx) => ctx.l10n.nav_notifications,
         onPanelTap: (ctx, ref) => NotificationQuickPanel.show(ctx),
         requiresLogin: true,
@@ -143,5 +144,5 @@ Widget _profileIcon(
       fallbackText: user?.username,
     );
   }
-  return Icon(selected ? Icons.person : Icons.person_outline);
+  return Icon(Symbols.person_rounded, fill: selected ? 1 : 0);
 }

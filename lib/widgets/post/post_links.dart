@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../l10n/s.dart';
 import '../../models/topic.dart';
 import '../../pages/topic_detail_page/topic_detail_page.dart';
@@ -115,7 +116,7 @@ class _PostLinksState extends State<PostLinks> with SingleTickerProviderStateMix
               child: Row(
                 children: [
                   Icon(
-                    Icons.link,
+                    Symbols.link_rounded,
                     size: 16,
                     color: theme.colorScheme.primary,
                   ),
@@ -147,7 +148,7 @@ class _PostLinksState extends State<PostLinks> with SingleTickerProviderStateMix
                     turns: _expanded ? 0.5 : 0,
                     duration: const Duration(milliseconds: 200),
                     child: Icon(
-                      Icons.expand_more,
+                      Symbols.expand_more_rounded,
                       size: 20,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
@@ -182,7 +183,7 @@ class _PostLinksState extends State<PostLinks> with SingleTickerProviderStateMix
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(
-                            Icons.more_horiz,
+                            Symbols.more_horiz_rounded,
                             size: 16,
                             color: theme.colorScheme.primary,
                           ),
@@ -216,7 +217,7 @@ class _PostLinksState extends State<PostLinks> with SingleTickerProviderStateMix
         child: Row(
           children: [
             Icon(
-              Icons.subdirectory_arrow_right,
+              Symbols.subdirectory_arrow_right_rounded,
               size: 16,
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
@@ -250,7 +251,7 @@ class _PostLinksState extends State<PostLinks> with SingleTickerProviderStateMix
             ],
             const SizedBox(width: 4),
             Icon(
-              Icons.arrow_outward,
+              Symbols.arrow_outward_rounded,
               size: 14,
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),

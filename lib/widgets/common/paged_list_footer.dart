@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../../l10n/s.dart';
+import 'loading_spinner.dart';
 
 class PagedListFooter extends StatelessWidget {
   const PagedListFooter({
@@ -28,7 +30,7 @@ class PagedListFooter extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
-              Icons.refresh,
+              Symbols.refresh_rounded,
               size: 16,
               color: Theme.of(context).colorScheme.primary,
             ),
@@ -44,7 +46,7 @@ class PagedListFooter extends StatelessWidget {
         ),
       );
     } else if (isLoadingMore) {
-      child = const CircularProgressIndicator();
+      child = const LoadingSpinner(size: 24);
     } else if (!hasMore) {
       child = Text(
         context.l10n.common_noMore,

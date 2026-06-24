@@ -1,6 +1,7 @@
 // ignore_for_file: deprecated_member_use
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../l10n/s.dart';
 import '../services/deep_link_service.dart';
 import '../widgets/common/ambient_background.dart';
@@ -104,7 +105,7 @@ class _OnboardingPageState extends State<OnboardingPage> with TickerProviderStat
       child: FadeTransition(
         opacity: _fadeAnimations[0],
         child: AmbientIconButton(
-          icon: Icons.network_check_rounded,
+          icon: Symbols.network_check_rounded,
           tooltip: context.l10n.onboarding_networkSettings,
           onPressed: () => Navigator.push(
             context,

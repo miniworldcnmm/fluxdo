@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -20,6 +22,8 @@ class WindowStateService with WindowListener {
   static const _kLegacyH = 'window_h';
   static const _kLegacyMaximized = 'window_maximized';
   static const _kStateFileName = 'window_state.json';
+  static const _kMinVisibleExtent = 64.0;
+  static const _kWindowsMinimizedPlaceholder = -30000.0;
 
   SharedPreferences? _prefs;
   Timer? _saveTimer;
@@ -37,10 +41,11 @@ class WindowStateService with WindowListener {
     await attach(prefs);
 
     final state = await _loadState();
+    final bounds = await _getRestorableBounds(state?.bounds);
     _isMaximizedCache = state?.isMaximized ?? false;
 
-    if (state?.bounds != null) {
-      await windowManager.setBounds(state!.bounds);
+    if (bounds != null) {
+      await windowManager.setBounds(bounds);
     }
     if (state?.isMaximized == true) {
       await windowManager.maximize();
@@ -66,13 +71,20 @@ class WindowStateService with WindowListener {
   Future<void> save() async {
     try {
       final file = await _getStateFile();
-      final isMaximized = _isMaximizedCache ?? await windowManager.isMaximized();
+      final isMaximized =
+          _isMaximizedCache ?? await windowManager.isMaximized();
+      final isMinimized = await windowManager.isMinimized();
       Rect? bounds;
       _isMaximizedCache = isMaximized;
 
-      // 最大化时不覆盖尺寸和位置，恢复时使用最大化前的值
-      if (!isMaximized) {
-        bounds = await windowManager.getBounds();
+      // 最大化/最小化时不覆盖尺寸和位置，避免持久化不可恢复的窗口坐标
+      if (!isMaximized && !isMinimized) {
+        final currentBounds = await windowManager.getBounds();
+        if (isBoundsRestorable(currentBounds, const <Rect>[])) {
+          bounds = currentBounds;
+        } else {
+          debugPrint('[WindowStateService] 忽略无效窗口位置: $currentBounds');
+        }
       }
 
       final state = _StoredWindowState(
@@ -170,10 +182,78 @@ class WindowStateService with WindowListener {
       return null;
     }
 
-    return _StoredWindowState(
-      isMaximized: isMaximized,
-      bounds: bounds,
-    );
+    return _StoredWindowState(isMaximized: isMaximized, bounds: bounds);
+  }
+
+  Future<Rect?> _getRestorableBounds(Rect? bounds) async {
+    if (bounds == null) return null;
+
+    if (!isBoundsRestorable(bounds, const <Rect>[])) {
+      debugPrint('[WindowStateService] 忽略无效窗口位置: $bounds');
+      return null;
+    }
+
+    try {
+      final visibleAreas = await _loadVisibleDisplayAreas();
+      if (!isBoundsRestorable(bounds, visibleAreas)) {
+        debugPrint('[WindowStateService] 忽略屏幕外窗口位置: $bounds');
+        return null;
+      }
+    } catch (e) {
+      debugPrint('[WindowStateService] 校验屏幕位置失败: $e');
+    }
+
+    return bounds;
+  }
+
+  Future<List<Rect>> _loadVisibleDisplayAreas() async {
+    final displays = await screenRetriever.getAllDisplays();
+    return displays
+        .map(_visibleAreaOf)
+        .where(_isFinitePositiveRect)
+        .toList(growable: false);
+  }
+
+  static Rect _visibleAreaOf(Display display) {
+    final position = display.visiblePosition ?? Offset.zero;
+    final size = display.visibleSize ?? display.size;
+    return position & size;
+  }
+
+  @visibleForTesting
+  static bool isBoundsRestorable(Rect bounds, Iterable<Rect> visibleAreas) {
+    if (!_isFinitePositiveRect(bounds)) return false;
+    if (_looksLikeWindowsMinimizedPlaceholder(bounds)) return false;
+
+    final areas = visibleAreas
+        .where(_isFinitePositiveRect)
+        .toList(growable: false);
+    if (areas.isEmpty) return true;
+
+    for (final area in areas) {
+      if (!area.overlaps(bounds)) continue;
+
+      final overlap = area.intersect(bounds);
+      final minVisibleWidth = math.min(bounds.width, _kMinVisibleExtent);
+      final minVisibleHeight = math.min(bounds.height, _kMinVisibleExtent);
+      if (overlap.width >= minVisibleWidth &&
+          overlap.height >= minVisibleHeight) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  static bool _isFinitePositiveRect(Rect rect) {
+    return rect.isFinite && rect.width > 0 && rect.height > 0;
+  }
+
+  static bool _looksLikeWindowsMinimizedPlaceholder(Rect rect) {
+    return rect.left <= _kWindowsMinimizedPlaceholder &&
+        rect.top <= _kWindowsMinimizedPlaceholder &&
+        rect.width <= 300 &&
+        rect.height <= 300;
   }
 
   Future<File> _getStateFile() async {
@@ -190,10 +270,7 @@ class WindowStateService with WindowListener {
 }
 
 class _StoredWindowState {
-  const _StoredWindowState({
-    required this.isMaximized,
-    required this.bounds,
-  });
+  const _StoredWindowState({required this.isMaximized, required this.bounds});
 
   final bool isMaximized;
   final Rect? bounds;
@@ -228,9 +305,6 @@ class _StoredWindowState {
       return null;
     }
 
-    return _StoredWindowState(
-      isMaximized: isMaximized,
-      bounds: bounds,
-    );
+    return _StoredWindowState(isMaximized: isMaximized, bounds: bounds);
   }
 }

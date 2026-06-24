@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/s.dart';
 import '../../models/nested_topic.dart';
@@ -243,7 +244,7 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
             SizedBox(
               width: _mobileGutterWidth,
               child: Icon(
-                Icons.delete_outline,
+                Symbols.delete_rounded,
                 size: 14,
                 color: theme.colorScheme.onSurfaceVariant.withValues(
                   alpha: 0.4,
@@ -266,7 +267,7 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
               width: _avatarSize,
               height: _avatarSize,
               child: Icon(
-                Icons.delete_outline,
+                Symbols.delete_rounded,
                 size: 18,
                 color: theme.colorScheme.onSurfaceVariant.withValues(
                   alpha: 0.4,
@@ -317,7 +318,7 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
                               color: theme.colorScheme.surface,
                             ),
                             child: Icon(
-                              Icons.remove_circle_outline,
+                              Symbols.remove_circle_rounded,
                               size: 14,
                               color: depthLineColor,
                             ),
@@ -570,6 +571,7 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
           onSolutionChanged: widget.onSolutionChanged,
           topicTitle: widget.detail.title,
           isPrivateMessageTopic: widget.detail.isPrivateMessage,
+          isPmWithNonHumanUser: widget.detail.pmWithNonHumanUser,
           hideRepliesButton: true,
         ),
       ],
@@ -654,7 +656,7 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
         if (post.replyToPostNumber > 0 && post.replyToUser != null) ...[
           const SizedBox(width: 4),
           Icon(
-            Icons.subdirectory_arrow_right,
+            Symbols.subdirectory_arrow_right_rounded,
             size: 12,
             color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
           ),
@@ -725,7 +727,7 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.add_circle_outline,
+            Symbols.add_circle_rounded,
             size: 14,
             color: theme.colorScheme.primary,
           ),
@@ -874,7 +876,7 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            Icons.subdirectory_arrow_right,
+            Symbols.subdirectory_arrow_right_rounded,
             size: 14,
             color: theme.colorScheme.primary,
           ),

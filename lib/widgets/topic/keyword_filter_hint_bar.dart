@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/s.dart';
@@ -37,7 +38,7 @@ class KeywordFilterHintBar extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.visibility_off_outlined,
+                  Symbols.visibility_off_rounded,
                   size: 14,
                   color: mutedColor,
                 ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/ai_chat_providers.dart';
@@ -27,7 +28,7 @@ class AiProvidersPage extends ConsumerWidget {
         children: [
           // 供应商管理
           _SettingsEntry(
-            icon: Icons.dns_outlined,
+            icon: Symbols.dns_rounded,
             title: AiL10n.current.addProvider.replaceAll('添加', '').trim().isEmpty
                 ? 'Providers'
                 : AiL10n.current.addProvider.replaceAll('添加', '').trim(),
@@ -42,7 +43,7 @@ class AiProvidersPage extends ConsumerWidget {
           // 模型配置
           if (hasModels)
             _SettingsEntry(
-              icon: Icons.tune_outlined,
+              icon: Symbols.tune_rounded,
               title: AiL10n.current.modelConfig,
               onTap: () => Navigator.push(
                 context,
@@ -52,7 +53,7 @@ class AiProvidersPage extends ConsumerWidget {
             ),
           // 聊天记录
           _SettingsEntry(
-            icon: Icons.history_outlined,
+            icon: Symbols.history_rounded,
             title: AiL10n.current.chatHistory,
             onTap: () => Navigator.push(
               context,
@@ -64,7 +65,7 @@ class AiProvidersPage extends ConsumerWidget {
           ),
           // 快捷词管理
           _SettingsEntry(
-            icon: Icons.flash_on_outlined,
+            icon: Symbols.flash_on_rounded,
             title: AiL10n.current.quickPromptsManageTitle,
             subtitle: AiL10n.current.quickPromptsManageHint,
             onTap: () => Navigator.push(
@@ -75,7 +76,7 @@ class AiProvidersPage extends ConsumerWidget {
           ),
           // 高级设置
           _SettingsEntry(
-            icon: Icons.settings_outlined,
+            icon: Symbols.settings_rounded,
             title: AiL10n.current.advancedSettings,
             onTap: () => Navigator.push(
               context,
@@ -120,7 +121,7 @@ class _SettingsEntry extends StatelessWidget {
             )
           : null,
       trailing: Icon(
-        Icons.chevron_right_rounded,
+        Symbols.chevron_right_rounded,
         color: theme.colorScheme.outline.withValues(alpha: 0.4),
         size: 20,
       ),

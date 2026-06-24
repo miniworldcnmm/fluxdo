@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 
 import '../l10n/ai_l10n.dart';
@@ -215,7 +216,7 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: Icon(Icons.close, color: cs.onSurface, size: 22),
+                    icon: Icon(Symbols.close_rounded, color: cs.onSurface, size: 22),
                     onPressed: () => Navigator.of(context).pop(),
                     tooltip: AiL10n.current.cancel,
                   ),
@@ -384,7 +385,7 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet> {
                       Center(
                         child: TextButton.icon(
                           onPressed: _resetToAuto,
-                          icon: const Icon(Icons.restart_alt, size: 18),
+                          icon: const Icon(Symbols.restart_alt_rounded, size: 18),
                           label:
                               Text(AiL10n.current.modelDetailResetAuto),
                         ),
@@ -403,7 +404,7 @@ class _ModelDetailSheetState extends State<_ModelDetailSheet> {
                 width: double.infinity,
                 child: FilledButton.icon(
                   onPressed: _save,
-                  icon: Icon(isNew ? Icons.add : Icons.check, size: 20),
+                  icon: Icon(isNew ? Symbols.add_rounded : Symbols.check_rounded, size: 20),
                   label: Text(
                     isNew
                         ? AiL10n.current.modelDetailAddTitle
@@ -503,7 +504,7 @@ class _CapabilityPreview extends StatelessWidget {
                     )
                   : Wrap(spacing: 6, runSpacing: 4, children: chips),
             ),
-            Icon(Icons.tune, size: 18, color: cs.onSurfaceVariant),
+            Icon(Symbols.tune_rounded, size: 18, color: cs.onSurfaceVariant),
           ],
         ),
       ),
@@ -605,7 +606,7 @@ class _SegmentedMulti extends StatelessWidget {
                               Padding(
                                 padding: const EdgeInsets.only(right: 6),
                                 child: Icon(
-                                  Icons.check,
+                                  Symbols.check_rounded,
                                   size: 16,
                                   color: cs.primary,
                                 ),
@@ -683,7 +684,7 @@ class _CopyButtonState extends State<_CopyButton> {
               borderRadius: BorderRadius.circular(10),
             ),
             padding: const EdgeInsets.all(8),
-            child: Icon(Icons.copy, size: 18, color: color),
+            child: Icon(Symbols.content_copy_rounded, size: 18, color: color),
           ),
         ),
       ),

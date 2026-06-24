@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../models/topic.dart';
@@ -138,7 +139,7 @@ class TopicCard extends ConsumerWidget {
                                                 right: 4,
                                               ),
                                               child: Icon(
-                                                Icons.lock_outline,
+                                                Symbols.lock_rounded,
                                                 size: 16,
                                                 color: isUnread
                                                     ? theme
@@ -159,7 +160,7 @@ class TopicCard extends ConsumerWidget {
                                                 right: 4,
                                               ),
                                               child: Icon(
-                                                Icons.check_box,
+                                                Symbols.check_box_rounded,
                                                 size: 16,
                                                 color: Colors.green,
                                               ),
@@ -174,7 +175,7 @@ class TopicCard extends ConsumerWidget {
                                                 right: 4,
                                               ),
                                               child: Icon(
-                                                Icons.check_box_outline_blank,
+                                                Symbols.check_box_outline_blank_rounded,
                                                 size: 16,
                                                 color:
                                                     theme.colorScheme.outline,
@@ -258,7 +259,7 @@ class TopicCard extends ConsumerWidget {
                                     if (topic.likeCount > 0) ...[
                                       _buildStat(
                                         context,
-                                        Icons.favorite_border_rounded,
+                                        Symbols.favorite_border_rounded,
                                         topic.likeCount,
                                       ),
                                       const SizedBox(width: 6),
@@ -367,7 +368,7 @@ class TopicCard extends ConsumerWidget {
       final heatColor = _replyHeatColor(topic, theme);
       return _buildStat(
         context,
-        Icons.chat_bubble_outline_rounded,
+        Symbols.chat_bubble_rounded,
         replies,
         color: heatColor,
         bold: heatColor != null,
@@ -486,7 +487,7 @@ class CompactTopicCard extends ConsumerWidget {
               children: [
                 // 1. 置顶图标
                 Icon(
-                  Icons.push_pin_rounded,
+                  Symbols.push_pin_rounded,
                   size: 14,
                   color: theme.colorScheme.primary,
                 ),
@@ -532,7 +533,7 @@ class CompactTopicCard extends ConsumerWidget {
                             child: Padding(
                               padding: const EdgeInsets.only(right: 3),
                               child: Icon(
-                                Icons.lock_outline,
+                                Symbols.lock_rounded,
                                 size: 12,
                                 color: isUnread
                                     ? theme.colorScheme.onSurface
@@ -546,7 +547,7 @@ class CompactTopicCard extends ConsumerWidget {
                             child: Padding(
                               padding: const EdgeInsets.only(right: 3),
                               child: Icon(
-                                Icons.check_box,
+                                Symbols.check_box_rounded,
                                 size: 12,
                                 color: Colors.green,
                               ),
@@ -558,7 +559,7 @@ class CompactTopicCard extends ConsumerWidget {
                             child: Padding(
                               padding: const EdgeInsets.only(right: 3),
                               child: Icon(
-                                Icons.check_box_outline_blank,
+                                Symbols.check_box_outline_blank_rounded,
                                 size: 12,
                                 color: theme.colorScheme.outline,
                               ),
@@ -611,7 +612,7 @@ class CompactTopicCard extends ConsumerWidget {
                   Row(
                     children: [
                       Icon(
-                        Icons.chat_bubble_outline_rounded,
+                        Symbols.chat_bubble_rounded,
                         size: 12,
                         color: theme.colorScheme.outline.withValues(alpha: 0.7),
                       ),

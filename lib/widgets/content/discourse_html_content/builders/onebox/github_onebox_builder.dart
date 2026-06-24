@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import '../../../../../services/highlighter_service.dart';
 import '../../../../../services/toast_service.dart';
@@ -54,7 +55,7 @@ class GithubOneboxBuilder {
               imageUrl: imageUrl,
               size: 48,
               borderRadius: 8,
-              fallbackIcon: Icons.folder,
+              fallbackIcon: Symbols.folder_rounded,
             ),
             const SizedBox(width: 12),
           ],
@@ -66,7 +67,7 @@ class GithubOneboxBuilder {
                 // 仓库名称（带 GitHub 图标）
                 Row(
                   children: [
-                    const Icon(Icons.code, size: 16),
+                    const Icon(Symbols.code_rounded, size: 16),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -103,25 +104,25 @@ class GithubOneboxBuilder {
                   children: [
                     if (language.isNotEmpty)
                       OneboxStatItem(
-                        icon: Icons.circle,
+                        icon: Symbols.circle_rounded,
                         iconSize: 10,
                         iconColor: _getLanguageColor(language),
                         value: language,
                       ),
                     if (stats.stars != null)
                       OneboxStatItem(
-                        icon: Icons.star_outline,
+                        icon: Symbols.star_rounded,
                         value: stats.stars!,
                         iconColor: const Color(0xFFf1c40f),
                       ),
                     if (stats.forks != null)
                       OneboxStatItem(
-                        icon: Icons.call_split,
+                        icon: Symbols.call_split_rounded,
                         value: stats.forks!,
                       ),
                     if (stats.watchers != null)
                       OneboxStatItem(
-                        icon: Icons.visibility_outlined,
+                        icon: Symbols.visibility_rounded,
                         value: stats.watchers!,
                       ),
                   ],
@@ -210,7 +211,7 @@ class GithubOneboxBuilder {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.description_outlined, size: 16),
+                    const Icon(Symbols.description_rounded, size: 16),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Column(
@@ -228,7 +229,7 @@ class GithubOneboxBuilder {
                             Row(
                               children: [
                                 Icon(
-                                  Icons.call_split,
+                                  Symbols.call_split_rounded,
                                   size: 12,
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
@@ -262,7 +263,7 @@ class GithubOneboxBuilder {
                         child: Padding(
                           padding: const EdgeInsets.all(4),
                           child: Icon(
-                            Icons.copy_rounded,
+                            Symbols.content_copy_rounded,
                             size: 16,
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -297,7 +298,7 @@ class GithubOneboxBuilder {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.open_in_new,
+                          Symbols.open_in_new_rounded,
                           size: 14,
                           color: theme.colorScheme.primary,
                         ),
@@ -355,7 +356,7 @@ class GithubOneboxBuilder {
         children: [
           Row(
             children: [
-              const Icon(Icons.description_outlined, size: 18),
+              const Icon(Symbols.description_rounded, size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -504,7 +505,7 @@ class GithubOneboxBuilder {
                 const OneboxStatusIndicator(
                   status: 'Issue',
                   color: Color(0xFF238636),
-                  icon: Icons.circle_outlined,
+                  icon: Symbols.circle_rounded,
                 ),
               const SizedBox(width: 8),
               if (issueNumber != null)
@@ -521,7 +522,7 @@ class GithubOneboxBuilder {
               ],
               if (comments != null && comments.isNotEmpty)
                 OneboxStatItem(
-                  icon: Icons.chat_bubble_outline,
+                  icon: Symbols.chat_bubble_rounded,
                   value: comments,
                 ),
             ],
@@ -647,7 +648,7 @@ class GithubOneboxBuilder {
                 const OneboxStatusIndicator(
                   status: 'PR',
                   color: Color(0xFF238636),
-                  icon: Icons.call_merge,
+                  icon: Symbols.call_merge_rounded,
                 ),
               const SizedBox(width: 8),
               if (prNumber != null)
@@ -706,7 +707,7 @@ class GithubOneboxBuilder {
             Row(
               children: [
                 Icon(
-                  Icons.call_split,
+                  Symbols.call_split_rounded,
                   size: 14,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -841,7 +842,7 @@ class GithubOneboxBuilder {
             Row(
               children: [
                 Icon(
-                  Icons.call_split,
+                  Symbols.call_split_rounded,
                   size: 14,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -1039,7 +1040,7 @@ class GithubOneboxBuilder {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.code, size: 16),
+                  const Icon(Symbols.code_rounded, size: 16),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(
@@ -1132,7 +1133,7 @@ class GithubOneboxBuilder {
           // 文件夹名
           Row(
             children: [
-              const Icon(Icons.folder, size: 20, color: Color(0xFF54aeff)),
+              const Icon(Symbols.folder_rounded, size: 20, color: Color(0xFF54aeff)),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -1168,7 +1169,7 @@ class GithubOneboxBuilder {
                   child: Row(
                     children: [
                       Icon(
-                        file.endsWith('/') ? Icons.folder : Icons.description,
+                        file.endsWith('/') ? Symbols.folder_rounded : Symbols.description_rounded,
                         size: 14,
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -1238,19 +1239,19 @@ class GithubOneboxBuilder {
 
     if (isSuccess) {
       statusColor = const Color(0xFF238636);
-      statusIcon = Icons.check_circle;
+      statusIcon = Symbols.check_circle_rounded;
       statusLabel = 'Success';
     } else if (isFailed) {
       statusColor = const Color(0xFFda3633);
-      statusIcon = Icons.cancel;
+      statusIcon = Symbols.cancel_rounded;
       statusLabel = 'Failed';
     } else if (isRunning) {
       statusColor = const Color(0xFFf1c40f);
-      statusIcon = Icons.refresh;
+      statusIcon = Symbols.refresh_rounded;
       statusLabel = 'Running';
     } else {
       statusColor = theme.colorScheme.onSurfaceVariant;
-      statusIcon = Icons.pending;
+      statusIcon = Symbols.pending_rounded;
       statusLabel = 'Pending';
     }
 

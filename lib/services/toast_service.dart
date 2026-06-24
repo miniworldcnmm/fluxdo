@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import 'local_notification_service.dart';
 
@@ -258,9 +259,9 @@ class _ToastWidgetState extends State<_ToastWidget>
     final isDark = theme.brightness == Brightness.dark;
 
     final (icon, iconColor) = switch (widget.type) {
-      ToastType.success => (Icons.check_circle_rounded, const Color(0xFF10B981)), // Emerald
-      ToastType.error => (Icons.error_rounded, colorScheme.error),
-      ToastType.info => (Icons.info_rounded, colorScheme.primary),
+      ToastType.success => (Symbols.check_circle_rounded, const Color(0xFF10B981)), // Emerald
+      ToastType.error => (Symbols.error_rounded, colorScheme.error),
+      ToastType.info => (Symbols.info_rounded, colorScheme.primary),
     };
 
     return Positioned(

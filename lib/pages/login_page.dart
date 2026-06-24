@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../l10n/s.dart';
@@ -128,7 +129,7 @@ class _LoginPageState extends State<LoginPage>
     for (var i = 0; i < 3; i++) {
       await BoundarySyncService.instance.syncFromWebView(
         cookieNames: null,
-        excludeCookieNames: CookieJarService.sessionCookieNames,
+        excludeCookieNames: CookieJarService.authCookieNames,
         requestGeneration: requestGeneration,
       );
       clearance = await jar.getCfClearance();
@@ -269,7 +270,7 @@ class _LoginPageState extends State<LoginPage>
                   child: _entry(
                     0,
                     AmbientIconButton(
-                      icon: Icons.arrow_back_rounded,
+                      icon: Symbols.arrow_back_rounded,
                       tooltip: '返回',
                       onPressed: () => Navigator.of(context).maybePop(),
                     ),
@@ -283,7 +284,7 @@ class _LoginPageState extends State<LoginPage>
                     child: _entry(
                       0,
                       AmbientIconButton(
-                        icon: Icons.delete_outline_rounded,
+                        icon: Symbols.delete_rounded,
                         tooltip: '清除保存的账号',
                         onPressed: _clearSavedCredentials,
                       ),
@@ -417,7 +418,7 @@ class _LoginPageState extends State<LoginPage>
         const SizedBox(height: 16),
         OutlinedButton.icon(
           onPressed: () => _loginWithWebView(),
-          icon: const Icon(Icons.open_in_browser, size: 20),
+          icon: const Icon(Symbols.open_in_browser_rounded, size: 20),
           label: const Text('其他方式登录 (OAuth / Passkey / 注册)'),
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(double.infinity, 52),

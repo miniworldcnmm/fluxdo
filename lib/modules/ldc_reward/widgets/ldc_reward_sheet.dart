@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../l10n/s.dart';
 import '../../../utils/dialog_utils.dart';
 import '../../../services/toast_service.dart';
+import '../../../widgets/common/app_bottom_sheet.dart';
 import '../../../widgets/common/smart_avatar.dart';
 import '../providers/ldc_reward_provider.dart';
 
@@ -32,6 +33,7 @@ void showLdcRewardSheet(BuildContext context, RewardTargetInfo target) {
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.transparent,
+    enableDrag: false, // 打赏表单(card):禁止下滑误关
     builder: (ctx) => _LdcRewardSheet(target: target),
   );
 }
@@ -163,164 +165,151 @@ class _LdcRewardSheetState extends ConsumerState<_LdcRewardSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final target = widget.target;
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
-    return Container(
-      margin: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: 16 + bottomInset,
-      ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 标题
-            Center(
-              child: Text(
-                context.l10n.reward_sheetTitle,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+    return AppSheetScaffold(
+      style: AppSheetStyle.card,
+      showCloseButton: false,
+      contentPadding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 标题
+          Center(
+            child: Text(
+              context.l10n.reward_sheetTitle,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 16),
+          ),
+          const SizedBox(height: 16),
 
-            // 目标用户信息
-            Row(
-              children: [
-                SmartAvatar(
-                  imageUrl: target.avatarUrl,
-                  radius: 20,
-                  fallbackText: target.username,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (target.name != null && target.name!.isNotEmpty)
-                        Text(
-                          target.name!,
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+          // 目标用户信息
+          Row(
+            children: [
+              SmartAvatar(
+                imageUrl: target.avatarUrl,
+                radius: 20,
+                fallbackText: target.username,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (target.name != null && target.name!.isNotEmpty)
                       Text(
-                        '@${target.username}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                        target.name!,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ],
+                    Text(
+                      '@${target.username}',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // 快捷金额
+          Text(
+            context.l10n.reward_selectAmount,
+            style: theme.textTheme.labelLarge,
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: _quickAmounts.map((amount) {
+              final isSelected = _selectedQuickAmount == amount;
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    right: amount == _quickAmounts.last ? 0 : 8,
+                  ),
+                  child: ChoiceChip(
+                    label: SizedBox(
+                      width: double.infinity,
+                      child: Text(
+                        '${amount.toInt()} LDC',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: isSelected ? FontWeight.w600 : null,
+                        ),
+                      ),
+                    ),
+                    selected: isSelected,
+                    onSelected: (_) => _selectQuickAmount(amount),
+                    showCheckmark: false,
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 20),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 12),
 
-            // 快捷金额
-            Text(
-              context.l10n.reward_selectAmount,
-              style: theme.textTheme.labelLarge,
+          // 自定义金额输入
+          TextField(
+            controller: _amountController,
+            onChanged: _onCustomAmountChanged,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+            ],
+            decoration: InputDecoration(
+              labelText: context.l10n.reward_customAmount,
+              hintText: '$_minAmount - $_maxAmount',
+              suffixText: 'LDC',
+              border: const OutlineInputBorder(),
+              isDense: true,
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: _quickAmounts.map((amount) {
-                final isSelected = _selectedQuickAmount == amount;
-                return Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(
-                      right: amount == _quickAmounts.last ? 0 : 8,
-                    ),
-                    child: ChoiceChip(
-                      label: SizedBox(
-                        width: double.infinity,
-                        child: Text(
-                          '${amount.toInt()} LDC',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: isSelected ? FontWeight.w600 : null,
-                          ),
-                        ),
+          ),
+          const SizedBox(height: 12),
+
+          // 备注
+          TextField(
+            controller: _remarkController,
+            maxLength: 50,
+            decoration: InputDecoration(
+              labelText: context.l10n.reward_noteLabel,
+              hintText: context.l10n.reward_noteHint,
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // 确认按钮
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _isAmountValid && !_isSubmitting ? _submit : null,
+              child: _isSubmitting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
                       ),
-                      selected: isSelected,
-                      onSelected: (_) => _selectQuickAmount(amount),
-                      showCheckmark: false,
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                    )
+                  : Text(
+                      _isAmountValid
+                          ? context.l10n.reward_submitWithAmount(
+                              _currentAmount!.toInt(),
+                            )
+                          : context.l10n.reward_selectOrInputAmount,
                     ),
-                  ),
-                );
-              }).toList(),
             ),
-            const SizedBox(height: 12),
-
-            // 自定义金额输入
-            TextField(
-              controller: _amountController,
-              onChanged: _onCustomAmountChanged,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
-              ],
-              decoration: InputDecoration(
-                labelText: context.l10n.reward_customAmount,
-                hintText: '$_minAmount - $_maxAmount',
-                suffixText: 'LDC',
-                border: const OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // 备注
-            TextField(
-              controller: _remarkController,
-              maxLength: 50,
-              decoration: InputDecoration(
-                labelText: context.l10n.reward_noteLabel,
-                hintText: context.l10n.reward_noteHint,
-                border: const OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // 确认按钮
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _isAmountValid && !_isSubmitting ? _submit : null,
-                child: _isSubmitting
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Text(
-                        _isAmountValid
-                            ? context.l10n.reward_submitWithAmount(
-                                _currentAmount!.toInt(),
-                              )
-                            : context.l10n.reward_selectOrInputAmount,
-                      ),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

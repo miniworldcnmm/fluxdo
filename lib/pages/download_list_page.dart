@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:ai_model_manager/ai_model_manager.dart'
     show SwipeActionCell, SwipeAction, SwipeActionScope;
@@ -84,7 +85,7 @@ class _DownloadListPageState extends ConsumerState<DownloadListPage> {
         actions: [
           if (downloads.any((e) => e.status == DownloadItemStatus.completed))
             IconButton(
-              icon: const Icon(Icons.delete_sweep_rounded),
+              icon: const Icon(Symbols.delete_sweep_rounded),
               tooltip: context.l10n.myBrowser_clearCompleted,
               onPressed: () => _confirmClear(context),
             ),
@@ -95,7 +96,7 @@ class _DownloadListPageState extends ConsumerState<DownloadListPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.download_rounded,
+                  Icon(Symbols.download_rounded,
                       size: 64,
                       color: theme.colorScheme.onSurfaceVariant
                           .withValues(alpha: 0.4)),
@@ -126,13 +127,13 @@ class _DownloadListPageState extends ConsumerState<DownloadListPage> {
                       trailingActions: [
                         if (item.status == DownloadItemStatus.completed)
                           SwipeAction(
-                            icon: Icons.share_rounded,
+                            icon: Symbols.share_rounded,
                             color: Colors.blue,
                             label: S.current.common_share,
                             onPressed: () => _shareFile(item),
                           ),
                         SwipeAction(
-                          icon: Icons.delete_outline,
+                          icon: Symbols.delete_rounded,
                           color: Colors.red,
                           label: S.current.myBrowser_delete,
                           onPressed: () => ref
@@ -326,22 +327,22 @@ class _DownloadCard extends StatelessWidget {
   IconData get _statusIcon {
     switch (item.status) {
       case DownloadItemStatus.downloading:
-        return Icons.downloading_rounded;
+        return Symbols.downloading_rounded;
       case DownloadItemStatus.completed:
-        return Icons.download_done_rounded;
+        return Symbols.download_done_rounded;
       case DownloadItemStatus.failed:
-        return Icons.error_outline_rounded;
+        return Symbols.error_rounded;
     }
   }
 
   IconData get _trailingIcon {
     switch (item.status) {
       case DownloadItemStatus.downloading:
-        return Icons.close_rounded;
+        return Symbols.close_rounded;
       case DownloadItemStatus.completed:
-        return Icons.open_in_new_rounded;
+        return Symbols.open_in_new_rounded;
       case DownloadItemStatus.failed:
-        return Icons.refresh_rounded;
+        return Symbols.refresh_rounded;
     }
   }
 

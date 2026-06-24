@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/profile_stats_config.dart';
 import '../models/user.dart';
@@ -38,7 +39,7 @@ class ProfileStatsCard extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(
-                  Icons.add_chart_rounded,
+                  Symbols.add_chart_rounded,
                   size: 20,
                   color: theme.colorScheme.primary.withValues(alpha: 0.6),
                 ),
@@ -289,7 +290,7 @@ class _StatsCardContent extends ConsumerWidget {
             child: Tooltip(
               message: S.current.profileStats_loadError,
               child: Icon(
-                Icons.error_outline_rounded,
+                Symbols.error_rounded,
                 size: 16,
                 color: Theme.of(context).colorScheme.error.withValues(alpha: 0.6),
               ),

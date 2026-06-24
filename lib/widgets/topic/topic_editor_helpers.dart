@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:pangutext/pangutext.dart';
 
@@ -274,7 +275,7 @@ class CategoryTrigger extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.category_outlined, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                Icon(Symbols.category_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
                 const SizedBox(width: 8),
                 Text(
                   S.current.topic_selectCategory,
@@ -284,7 +285,7 @@ class CategoryTrigger extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 4),
-                Icon(Icons.arrow_drop_down, size: 18, color: theme.colorScheme.onSurfaceVariant),
+                Icon(Symbols.arrow_drop_down_rounded, size: 18, color: theme.colorScheme.onSurfaceVariant),
               ],
             ),
           ),
@@ -337,7 +338,7 @@ class CategoryTrigger extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(Icons.arrow_drop_down, size: 18, color: color),
+              Icon(Symbols.arrow_drop_down_rounded, size: 18, color: color),
             ],
           ),
         ),
@@ -438,7 +439,7 @@ class TagsArea extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.tag, size: 14, color: theme.colorScheme.onSurfaceVariant),
+              Icon(Symbols.tag_rounded, size: 14, color: theme.colorScheme.onSurfaceVariant),
               const SizedBox(width: 4),
               Text(
                 tag,
@@ -450,7 +451,7 @@ class TagsArea extends StatelessWidget {
                   final newTags = List<String>.from(selectedTags)..remove(tag);
                   onTagsChanged(newTags);
                 },
-                child: Icon(Icons.close, size: 14, color: theme.colorScheme.onSurfaceVariant),
+                child: Icon(Symbols.close_rounded, size: 14, color: theme.colorScheme.onSurfaceVariant),
               ),
             ],
           ),
@@ -478,7 +479,7 @@ class TagsArea extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    selectedTags.isEmpty ? Icons.add : Icons.edit_outlined,
+                    selectedTags.isEmpty ? Symbols.add_rounded : Symbols.edit_rounded,
                     size: 16,
                     color: isSatisfied ? theme.colorScheme.primary : theme.colorScheme.error,
                   ),

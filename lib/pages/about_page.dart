@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:jovial_svg/jovial_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -150,7 +151,7 @@ class _AboutPageState extends State<AboutPage> {
     showAppDialog(
       context: context,
       builder: (context) => AlertDialog(
-        icon: const Icon(Icons.check_circle_outline, size: 48, color: Colors.green),
+        icon: const Icon(Symbols.check_circle_rounded, size: 48, color: Colors.green),
         title: Text(context.l10n.about_latestVersion),
         content: Text(context.l10n.about_noUpdateContent(currentVersion)),
         actions: [
@@ -167,7 +168,7 @@ class _AboutPageState extends State<AboutPage> {
     showAppDialog(
       context: context,
       builder: (context) => AlertDialog(
-        icon: const Icon(Icons.error_outline, size: 48, color: Colors.red),
+        icon: const Icon(Symbols.error_rounded, size: 48, color: Colors.red),
         title: Text(context.l10n.about_checkUpdateFailed),
         content: Text(context.l10n.about_checkUpdateError(error)),
         actions: [
@@ -236,13 +237,13 @@ class _AboutPageState extends State<AboutPage> {
           _buildSectionTitle(context, context.l10n.about_info),
           _buildListTile(
             context,
-            icon: Icons.update_rounded,
+            icon: Symbols.update_rounded,
             title: context.l10n.about_checkUpdate,
             onTap: _checkForUpdate,
           ),
           _buildListTile(
             context,
-            icon: Icons.description_outlined,
+            icon: Symbols.description_rounded,
             title: context.l10n.about_openSourceLicense,
             onTap: () => showLicensePage(
               context: context,
@@ -268,7 +269,7 @@ class _AboutPageState extends State<AboutPage> {
             ),
           _buildListTile(
             context,
-            icon: Icons.code,
+            icon: Symbols.code_rounded,
             title: context.l10n.about_sourceCode,
             subtitle: 'GitHub',
             onTap: () => launchUrl(
@@ -278,7 +279,7 @@ class _AboutPageState extends State<AboutPage> {
           ),
           _buildListTile(
             context,
-            icon: Icons.article_outlined,
+            icon: Symbols.article_rounded,
             title: context.l10n.about_appLogs,
             onTap: () => Navigator.push(
               context,
@@ -287,7 +288,7 @@ class _AboutPageState extends State<AboutPage> {
           ),
           _buildListTile(
             context,
-            icon: Icons.bug_report_outlined,
+            icon: Symbols.bug_report_rounded,
             title: context.l10n.about_feedback,
             onTap: () => launchUrl(
               Uri.parse('https://github.com/Lingyan000/fluxdo/issues'),
@@ -335,7 +336,7 @@ class _AboutPageState extends State<AboutPage> {
       leading: Icon(icon, color: Theme.of(context).colorScheme.onSurfaceVariant),
       title: Text(title),
       subtitle: subtitle != null ? Text(subtitle) : null,
-      trailing: const Icon(Icons.chevron_right, size: 20, color: Colors.grey),
+      trailing: const Icon(Symbols.chevron_right_rounded, size: 20, color: Colors.grey),
       onTap: onTap,
     );
   }

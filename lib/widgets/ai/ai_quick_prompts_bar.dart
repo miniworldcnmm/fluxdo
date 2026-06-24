@@ -1,5 +1,6 @@
 import 'package:ai_model_manager/ai_model_manager.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/s.dart';
@@ -48,7 +49,7 @@ class AiQuickPromptsBar extends ConsumerWidget {
           onPressed: () => _handlePick(context, p),
         ),
       ActionChip(
-        avatar: const Icon(Icons.more_horiz, size: 16),
+        avatar: const Icon(Symbols.more_horiz_rounded, size: 16),
         label: Text(S.current.ai_quickPromptsMore),
         onPressed: () => _openSheet(context),
       ),

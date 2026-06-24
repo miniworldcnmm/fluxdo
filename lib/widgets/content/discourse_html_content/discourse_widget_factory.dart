@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:jovial_svg/jovial_svg.dart';
 import '../../../models/topic.dart';
@@ -112,7 +113,7 @@ class DiscourseWidgetFactory extends WidgetFactory {
         // 解析失败
         if (snapshot.connectionState == ConnectionState.done && snapshot.data == null) {
           return Icon(
-            Icons.broken_image,
+            Symbols.broken_image_rounded,
             color: Theme.of(context).colorScheme.outline,
             size: 24,
           );
@@ -207,7 +208,7 @@ class DiscourseWidgetFactory extends WidgetFactory {
                    },
                    errorBuilder: (context, error, stackTrace) {
                      return Icon(
-                       Icons.broken_image,
+                       Symbols.broken_image_rounded,
                        color: Theme.of(context).colorScheme.outline,
                        size: isEmoji ? displaySize : 24,
                      );

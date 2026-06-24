@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -19,10 +20,11 @@ import '../services/network/cookie/csrf_token_service.dart';
 import '../services/network/cookie/webview_cookie_priming.dart';
 import '../services/toast_service.dart';
 import '../services/webview_settings.dart';
+import '../services/webview_session_cookie_refresh_service.dart';
 import '../services/windows_webview_environment_service.dart';
 import '../services/log/log_writer.dart';
 import '../services/login_ready_coordinator.dart';
-import '../widgets/common/dismissible_popup_menu.dart';
+import 'package:common_ui/common_ui.dart';
 import '../l10n/s.dart';
 import '../utils/dialog_utils.dart';
 
@@ -39,6 +41,8 @@ class WebViewLoginPage extends ConsumerStatefulWidget {
 }
 
 class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
+  static const Set<String> _runtimeCookieNames = {'_rt'};
+
   final _service = DiscourseService();
   final _cookieJar = CookieJarService();
   final _credentialStore = CredentialStoreService();
@@ -65,8 +69,9 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
   void initState() {
     super.initState();
     // v0.4.0: WV cookie 重灌 (取代 RawSetCookieQueue.flush + 启动自检)
-    _initialCookieFlushFuture =
-        WebViewCookiePriming.instance.prime(AppConstants.baseUrl);
+    _initialCookieFlushFuture = WebViewCookiePriming.instance.prime(
+      AppConstants.baseUrl,
+    );
     _loadSavedUsername();
   }
 
@@ -95,13 +100,13 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
         title: Text(context.l10n.webviewLogin_title),
         actions: [
           IconButton(
-            icon: const Icon(Icons.content_paste_outlined),
+            icon: const Icon(Symbols.content_paste_rounded),
             tooltip: context.l10n.webviewLogin_emailLoginPaste,
             onPressed: _pasteEmailLoginLink,
           ),
           if (_savedUsername != null)
             SwipeDismissiblePopupMenuButton<String>(
-              icon: const Icon(Icons.key_rounded),
+              icon: const Icon(Symbols.key_rounded),
               tooltip: context.l10n.webviewLogin_savedPassword,
               onSelected: (value) {
                 if (value == 'clear') {
@@ -120,7 +125,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
                   value: 'clear',
                   child: Row(
                     children: [
-                      const Icon(Icons.delete_outline_rounded, size: 20),
+                      const Icon(Symbols.delete_rounded, size: 20),
                       const SizedBox(width: 8),
                       Text(context.l10n.webviewLogin_clearSaved),
                     ],
@@ -129,7 +134,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
               ],
             ),
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Symbols.refresh_rounded),
             onPressed: () => _controller?.reload(),
             tooltip: context.l10n.common_refresh,
           ),
@@ -147,7 +152,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
             child: Row(
               children: [
                 Icon(
-                  Icons.lock,
+                  Symbols.lock_rounded,
                   size: 14,
                   color: Theme.of(context).colorScheme.primary,
                 ),
@@ -498,7 +503,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
         currentUrl: currentUrl,
         controller: controller,
         cookieNames: null,
-        excludeCookieNames: CookieJarService.sessionCookieNames,
+        excludeCookieNames: CookieJarService.authCookieNames,
         requestGeneration: _flowGeneration,
       );
       final tToken = await _readTTokenFromWebView(
@@ -528,16 +533,17 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       }
 
       _loginHandled = true;
-      // 指纹 POST 改为 fire-and-forget：后续 _finalizeLoginBeforeExit +
-      // evaluateJavascript + _finalizeLoginBootstrap 链路本身就会 await 一段时间，
-      // 足以让 WebView 内的 visitor_id POST 自然完成；
-      // 不再为指纹单独等待最多 15 秒，避免阻塞登录交接。
-      unawaited(_waitForFingerprintPost());
       final finalToken = await _finalizeLoginBeforeExit(
         controller,
         username: username,
         currentUrl: currentUrl,
         webViewToken: tToken,
+      );
+      final browserSessionSynced = await _syncRuntimeCookiesBeforeLoginReady(
+        controller,
+        currentUrl: currentUrl,
+        requestGeneration: AuthSession().generation,
+        token: finalToken,
       );
       String? pageHtml;
       try {
@@ -552,6 +558,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
         currentUrl: currentUrl,
         token: finalToken,
         pageHtml: pageHtml,
+        browserSessionSynced: browserSessionSynced,
       );
 
       if (mounted) {
@@ -576,11 +583,9 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     AuthSession().advance();
     final loginGeneration = AuthSession().generation;
 
-    await BoundarySyncService.instance.syncFromWebView(
+    await _syncAuthCookiesFromWebView(
+      controller,
       currentUrl: currentUrl,
-      controller: controller,
-      cookieNames: CookieJarService.sessionCookieNames,
-      allowLowConfidenceSessionCookies: true,
       requestGeneration: loginGeneration,
     );
 
@@ -589,10 +594,9 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
         ? jarToken
         : webViewToken;
     final tokenMatch = jarToken == webViewToken;
-    final jarSessionCookies = await _cookieJar
-        .getSessionCookieDiagnosticsForRequest(
-          uri: Uri.parse(AppConstants.baseUrl),
-        );
+    final jarAuthCookies = await _cookieJar.getAuthCookieDiagnosticsForRequest(
+      uri: Uri.parse(AppConstants.baseUrl),
+    );
     LogWriter.instance.write({
       'timestamp': DateTime.now().toIso8601String(),
       'level': tokenMatch ? 'info' : 'warning',
@@ -606,7 +610,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       'finalTokenLen': finalToken.length,
       'tokenMatch': tokenMatch,
       'jarTokenMissing': jarToken == null || jarToken.isEmpty,
-      'jarSessionCookies': jarSessionCookies,
+      'jarAuthCookies': jarAuthCookies,
     });
     if (!tokenMatch) {
       debugPrint(
@@ -618,10 +622,209 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     return finalToken;
   }
 
+  Future<void> _syncAuthCookiesFromWebView(
+    InAppWebViewController controller, {
+    required String? currentUrl,
+    required int requestGeneration,
+  }) async {
+    await BoundarySyncService.instance.syncFromWebView(
+      currentUrl: currentUrl,
+      controller: controller,
+      cookieNames: CookieJarService.authCookieNames,
+      allowLowConfidenceSessionCookies: true,
+      requestGeneration: requestGeneration,
+    );
+  }
+
+  Future<bool> _syncRuntimeCookiesBeforeLoginReady(
+    InAppWebViewController controller, {
+    required String? currentUrl,
+    required int requestGeneration,
+    required String token,
+  }) async {
+    const fingerprintWait = Duration(milliseconds: 2500);
+    const bootstrapTimeout = Duration(seconds: 8);
+    final startedAt = DateTime.now();
+
+    var fingerprintObserved = _fingerprintDone;
+    var bootstrapAttempted = false;
+    var bootstrapOk = false;
+    List<Map<String, dynamic>> runtimeDetails = const [];
+
+    try {
+      if (!fingerprintObserved) {
+        fingerprintObserved = await _waitForFingerprintPost(
+          timeout: fingerprintWait,
+        );
+      }
+
+      if (!AuthSession().isValid(requestGeneration)) {
+        _logRuntimeCookieSync(
+          currentUrl: currentUrl,
+          requestGeneration: requestGeneration,
+          fingerprintObserved: fingerprintObserved,
+          bootstrapAttempted: bootstrapAttempted,
+          bootstrapOk: bootstrapOk,
+          hasRuntimeCookie: false,
+          runtimeCookieDetails: runtimeDetails,
+          elapsedMs: DateTime.now().difference(startedAt).inMilliseconds,
+          skippedReason: 'stale_generation',
+        );
+        return false;
+      }
+
+      await BoundarySyncService.instance.syncFromWebView(
+        currentUrl: currentUrl,
+        controller: controller,
+        cookieNames: null,
+        allowLowConfidenceSessionCookies: true,
+        requestGeneration: requestGeneration,
+        trusted: true,
+      );
+      runtimeDetails = await _runtimeCookieDiagnostics();
+      var hasRuntimeCookie = _hasRuntimeCookie(runtimeDetails);
+
+      if (!hasRuntimeCookie) {
+        bootstrapAttempted = true;
+        final bootstrapResult = await WebViewSessionCookieRefreshService
+            .instance
+            .runOnController(
+              controller,
+              reason: 'webview_login_success',
+              pluginCandidates: PreloadedDataService().pluginCandidatesSync,
+              timeout: bootstrapTimeout,
+            );
+        bootstrapOk = bootstrapResult.ok;
+
+        if (AuthSession().isValid(requestGeneration)) {
+          await BoundarySyncService.instance.syncFromWebView(
+            currentUrl: currentUrl,
+            controller: controller,
+            cookieNames: null,
+            allowLowConfidenceSessionCookies: true,
+            requestGeneration: requestGeneration,
+            trusted: true,
+          );
+          runtimeDetails = await _runtimeCookieDiagnostics();
+          hasRuntimeCookie = _hasRuntimeCookie(runtimeDetails);
+        }
+      }
+
+      if (!AuthSession().isValid(requestGeneration)) {
+        _logRuntimeCookieSync(
+          currentUrl: currentUrl,
+          requestGeneration: requestGeneration,
+          fingerprintObserved: fingerprintObserved,
+          bootstrapAttempted: bootstrapAttempted,
+          bootstrapOk: bootstrapOk,
+          hasRuntimeCookie: hasRuntimeCookie,
+          runtimeCookieDetails: runtimeDetails,
+          elapsedMs: DateTime.now().difference(startedAt).inMilliseconds,
+          skippedReason: 'stale_generation_after_bootstrap',
+        );
+        return false;
+      }
+
+      final browserSessionSynced = hasRuntimeCookie;
+      if (browserSessionSynced) {
+        WebViewSessionCookieRefreshService.instance.markSynced(
+          reason: 'webview_login_success',
+          tToken: token,
+          hasRuntimeCookie: hasRuntimeCookie,
+        );
+      }
+      await WebViewSessionCookieRefreshService.instance.logCookieSummary(
+        reason: 'webview_login_success',
+        bootstrapOk: bootstrapAttempted ? bootstrapOk : null,
+      );
+      _logRuntimeCookieSync(
+        currentUrl: currentUrl,
+        requestGeneration: requestGeneration,
+        fingerprintObserved: fingerprintObserved,
+        bootstrapAttempted: bootstrapAttempted,
+        bootstrapOk: bootstrapOk,
+        hasRuntimeCookie: hasRuntimeCookie,
+        runtimeCookieDetails: runtimeDetails,
+        elapsedMs: DateTime.now().difference(startedAt).inMilliseconds,
+      );
+      return browserSessionSynced;
+    } catch (e) {
+      _logRuntimeCookieSync(
+        currentUrl: currentUrl,
+        requestGeneration: requestGeneration,
+        fingerprintObserved: fingerprintObserved,
+        bootstrapAttempted: bootstrapAttempted,
+        bootstrapOk: bootstrapOk,
+        hasRuntimeCookie: _hasRuntimeCookie(runtimeDetails),
+        runtimeCookieDetails: runtimeDetails,
+        elapsedMs: DateTime.now().difference(startedAt).inMilliseconds,
+        error: e.toString(),
+      );
+      debugPrint('[Login] 登录运行态 Cookie 同步失败: $e');
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _runtimeCookieDiagnostics() {
+    return _cookieJar.getCookieDiagnosticsForRequest(
+      Uri.parse(AppConstants.baseUrl),
+      names: _runtimeCookieNames,
+    );
+  }
+
+  bool _hasRuntimeCookie(List<Map<String, dynamic>> details) {
+    return details.any(
+      (cookie) =>
+          _runtimeCookieNames.contains(cookie['name']) &&
+          _cookieValueLength(cookie) > 0,
+    );
+  }
+
+  int _cookieValueLength(Map<String, dynamic> cookie) {
+    final value = cookie['valueLength'];
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  void _logRuntimeCookieSync({
+    required String? currentUrl,
+    required int requestGeneration,
+    required bool fingerprintObserved,
+    required bool bootstrapAttempted,
+    required bool bootstrapOk,
+    required bool hasRuntimeCookie,
+    required List<Map<String, dynamic>> runtimeCookieDetails,
+    required int elapsedMs,
+    String? skippedReason,
+    String? error,
+  }) {
+    final ok = error == null && skippedReason == null && hasRuntimeCookie;
+    LogWriter.instance.write({
+      'timestamp': DateTime.now().toIso8601String(),
+      'level': ok ? 'info' : 'warning',
+      'type': 'auth',
+      'event': 'login_runtime_cookie_sync',
+      'message': '登录收口运行态 Cookie 同步',
+      'currentUrl': currentUrl,
+      'requestGeneration': requestGeneration,
+      'fingerprintObserved': fingerprintObserved,
+      'bootstrapAttempted': bootstrapAttempted,
+      'bootstrapOk': bootstrapOk,
+      'hasRuntimeCookie': hasRuntimeCookie,
+      'runtimeCookieNames': _runtimeCookieNames.toList(growable: false),
+      'runtimeCookieDetails': runtimeCookieDetails,
+      'elapsedMs': elapsedMs,
+      'skippedReason': ?skippedReason,
+      'error': ?error,
+    });
+  }
+
   Future<void> _finalizeLoginBootstrap({
     required String? currentUrl,
     required String token,
     String? pageHtml,
+    required bool browserSessionSynced,
   }) async {
     // PreloadedDataService.refresh 底层 Dio 请求没有显式超时，极端网络下
     // 可能挂住很久；这里整段限时 8 秒，超时也要兜底广播登录成功，
@@ -630,23 +833,25 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
 
     var loginReadyNotified = false;
     try {
-      final reusedPreloaded =
-          await LoginReadyCoordinator(
-            hydrateFromHtml: PreloadedDataService().hydrateFromHtml,
-            refreshPreloadedData: () async {
-              debugPrint('[Login] 当前页面无可复用首页数据，回退到 HTTP refresh');
-              await PreloadedDataService().refresh();
-            },
-            notifyLoginReady: (finalToken) {
-              loginReadyNotified = true;
-              _service.onLoginSuccess(finalToken);
-            },
-          ).finalize(token: token, pageHtml: pageHtml).timeout(finalizeTimeout);
+      final reusedPreloaded = await LoginReadyCoordinator(
+        hydrateFromHtml: PreloadedDataService().hydrateFromHtml,
+        refreshPreloadedData: () async {
+          debugPrint('[Login] 当前页面无可复用首页数据，回退到 HTTP refresh');
+          await PreloadedDataService().refresh();
+        },
+        notifyLoginReady: (finalToken) {
+          loginReadyNotified = true;
+          _service.onLoginSuccess(
+            finalToken,
+            forceBrowserSessionSync: !browserSessionSynced,
+          );
+        },
+      ).finalize(token: token, pageHtml: pageHtml).timeout(finalizeTimeout);
 
       final jarToken = await _cookieJar.getTToken();
       final tokenMatch = jarToken == token;
-      final jarSessionCookies = await _cookieJar
-          .getSessionCookieDiagnosticsForRequest(
+      final jarAuthCookies = await _cookieJar
+          .getAuthCookieDiagnosticsForRequest(
             uri: Uri.parse(AppConstants.baseUrl),
           );
       LogWriter.instance.write({
@@ -660,7 +865,7 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
         'tokenMatch': tokenMatch,
         'currentUrl': currentUrl,
         'reusedPreloaded': reusedPreloaded,
-        'jarSessionCookies': jarSessionCookies,
+        'jarAuthCookies': jarAuthCookies,
       });
     } on TimeoutException {
       debugPrint('[Login] 登录态收尾超时（${finalizeTimeout.inSeconds}s），走兜底广播');
@@ -677,7 +882,10 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
       debugPrint('[Login] 登录态收尾失败: $e');
     } finally {
       if (!loginReadyNotified) {
-        _service.onLoginSuccess(token);
+        _service.onLoginSuccess(
+          token,
+          forceBrowserSessionSync: !browserSessionSynced,
+        );
       }
     }
   }
@@ -764,14 +972,21 @@ class _WebViewLoginPageState extends ConsumerState<WebViewLoginPage> {
     );
   }
 
-  Future<void> _waitForFingerprintPost() async {
-    if (_fingerprintDone) return;
-    final completer = Completer<void>();
+  Future<bool> _waitForFingerprintPost({
+    Duration timeout = const Duration(seconds: 15),
+  }) async {
+    if (_fingerprintDone) return true;
+    final existing = _fingerprintCompleter;
+    final completer = existing != null && !existing.isCompleted
+        ? existing
+        : Completer<void>();
     _fingerprintCompleter = completer;
     try {
-      await completer.future.timeout(const Duration(seconds: 15));
+      await completer.future.timeout(timeout);
+      return true;
     } on TimeoutException {
-      debugPrint('[Login] 等待指纹上报超时，继续登录流程');
+      debugPrint('[Login] 等待指纹上报超时(${timeout.inMilliseconds}ms)，继续登录流程');
+      return _fingerprintDone;
     }
   }
 

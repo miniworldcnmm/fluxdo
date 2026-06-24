@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/ai_l10n.dart';
@@ -333,7 +334,7 @@ class _AiProviderEditPageState extends ConsumerState<AiProviderEditPage> {
                         strokeWidth: 2,
                         color: Theme.of(context).colorScheme.primary),
                   )
-                : const Icon(Icons.bolt_outlined),
+                : const Icon(Symbols.bolt_rounded),
           ),
           Padding(
             padding: const EdgeInsets.only(right: 8, left: 4),
@@ -377,9 +378,9 @@ class _AiProviderEditPageState extends ConsumerState<AiProviderEditPage> {
 
   Widget _buildRail(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final destinations = [
-      (Icons.settings_outlined, Icons.settings, AiL10n.current.configTab),
-      (Icons.layers_outlined, Icons.layers, AiL10n.current.modelsTab),
+    final destinations = <(IconData, String)>[
+      (Symbols.settings_rounded, AiL10n.current.configTab),
+      (Symbols.layers_rounded, AiL10n.current.modelsTab),
     ];
 
     return SafeArea(
@@ -407,7 +408,8 @@ class _AiProviderEditPageState extends ConsumerState<AiProviderEditPage> {
                       height: 56,
                       child: Center(
                         child: Icon(
-                          selected ? d.$2 : d.$1,
+                          d.$1,
+                          fill: selected ? 1 : 0,
                           color: selected
                               ? cs.onSecondaryContainer
                               : cs.onSurfaceVariant,
@@ -432,13 +434,13 @@ class _AiProviderEditPageState extends ConsumerState<AiProviderEditPage> {
       onDestinationSelected: _switchTab,
       destinations: [
         NavigationDestination(
-          icon: const Icon(Icons.settings_outlined),
-          selectedIcon: const Icon(Icons.settings),
+          icon: const Icon(Symbols.settings_rounded),
+          selectedIcon: const Icon(Symbols.settings_rounded, fill: 1),
           label: AiL10n.current.configTab,
         ),
         NavigationDestination(
-          icon: const Icon(Icons.layers_outlined),
-          selectedIcon: const Icon(Icons.layers),
+          icon: const Icon(Symbols.layers_rounded),
+          selectedIcon: const Icon(Symbols.layers_rounded, fill: 1),
           label: AiL10n.current.modelsTab,
         ),
       ],
@@ -540,8 +542,8 @@ class _AiProviderEditPageState extends ConsumerState<AiProviderEditPage> {
           decoration: inputDeco('API Key',
               suffix: IconButton(
                 icon: Icon(_obscureApiKey
-                    ? Icons.visibility_off
-                    : Icons.visibility),
+                    ? Symbols.visibility_off_rounded
+                    : Symbols.visibility_rounded),
                 onPressed: () =>
                     setState(() => _obscureApiKey = !_obscureApiKey),
               )),
@@ -567,7 +569,7 @@ class _AiProviderEditPageState extends ConsumerState<AiProviderEditPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.layers_outlined,
+                    Icon(Symbols.layers_rounded,
                         size: 48,
                         color: cs.onSurfaceVariant.withValues(alpha: 0.4)),
                     const SizedBox(height: 12),
@@ -627,7 +629,7 @@ class _AiProviderEditPageState extends ConsumerState<AiProviderEditPage> {
                 children: [
                   // 获取模型
                   _FloatingPill(
-                    icon: Icons.cloud_download_outlined,
+                    icon: Symbols.cloud_download_rounded,
                     label: AiL10n.current.fetchModels,
                     outlined: true,
                     onTap: _fetchAndSelectModels,
@@ -635,7 +637,7 @@ class _AiProviderEditPageState extends ConsumerState<AiProviderEditPage> {
                   const SizedBox(width: 6),
                   // 手动添加
                   _FloatingPill(
-                    icon: Icons.add,
+                    icon: Symbols.add_rounded,
                     label: AiL10n.current.manuallyAdd,
                     filled: true,
                     onTap: _addModelManually,
@@ -706,7 +708,7 @@ class _AiProviderEditPageState extends ConsumerState<AiProviderEditPage> {
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.delete_outline,
+                  icon: Icon(Symbols.delete_rounded,
                       color: cs.error.withValues(alpha: 0.7), size: 20),
                   tooltip: AiL10n.current.remove,
                   visualDensity: VisualDensity.compact,
@@ -937,7 +939,7 @@ class _FetchedModelsSelectorState extends State<_FetchedModelsSelector> {
                   onChanged: (v) => setState(() => _search = v),
                   decoration: InputDecoration(
                     hintText: AiL10n.current.searchModelsHint,
-                    prefixIcon: const Icon(Icons.search, size: 20),
+                    prefixIcon: const Icon(Symbols.search_rounded, size: 20),
                     isDense: true,
                     filled: true,
                     fillColor:
@@ -950,8 +952,8 @@ class _FetchedModelsSelectorState extends State<_FetchedModelsSelector> {
                         ? IconButton(
                             icon: Icon(
                               allActive
-                                  ? Icons.deselect
-                                  : Icons.select_all,
+                                  ? Symbols.deselect_rounded
+                                  : Symbols.select_all_rounded,
                               size: 22,
                               color: cs.onSurface.withValues(alpha: 0.7),
                             ),
@@ -980,7 +982,7 @@ class _FetchedModelsSelectorState extends State<_FetchedModelsSelector> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.error_outline, size: 48, color: cs.error),
+              Icon(Symbols.error_rounded, size: 48, color: cs.error),
               const SizedBox(height: 12),
               Text(_error!, textAlign: TextAlign.center,
                   style: TextStyle(color: cs.error)),
@@ -1047,8 +1049,8 @@ class _FetchedModelsSelectorState extends State<_FetchedModelsSelector> {
                   children: [
                     Icon(
                       isCollapsed
-                          ? Icons.chevron_right
-                          : Icons.expand_more,
+                          ? Symbols.chevron_right_rounded
+                          : Symbols.expand_more_rounded,
                       size: 20,
                       color: cs.onSurfaceVariant,
                     ),
@@ -1077,10 +1079,10 @@ class _FetchedModelsSelectorState extends State<_FetchedModelsSelector> {
                             horizontal: 8, vertical: 2),
                         child: Icon(
                           groupAllActive
-                              ? Icons.check_box
+                              ? Symbols.check_box_rounded
                               : (groupActiveCount > 0
-                                  ? Icons.indeterminate_check_box
-                                  : Icons.check_box_outline_blank),
+                                  ? Symbols.indeterminate_check_box_rounded
+                                  : Symbols.check_box_outline_blank_rounded),
                           size: 20,
                           color: groupAllActive || groupActiveCount > 0
                               ? cs.primary

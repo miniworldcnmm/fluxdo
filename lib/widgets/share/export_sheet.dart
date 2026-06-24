@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../models/topic.dart';
@@ -13,6 +14,7 @@ import '../../services/toast_service.dart';
 import '../../storage/export_history_dao.dart';
 import '../../utils/dialog_utils.dart';
 import '../../utils/export_utils.dart';
+import '../common/app_bottom_sheet.dart';
 
 /// 用户在 sheet 上选的"目标"。
 /// 本地 MD/HTML 走 ExportUtils.exportTopic；Notion 走 NotionSyncService。
@@ -104,23 +106,25 @@ class _ExportSheetState extends ConsumerState<ExportSheet> {
         }
       },
     );
-    await ref.read(exportHistoryProvider.notifier).add(
-      ExportHistoryEntry(
-        id: const Uuid().v4(),
-        sourceType: ExportHistorySource.topic,
-        sourceTopicId: widget.detail.id,
-        sourceTitle: widget.detail.title,
-        format: format == ExportFormat.markdown
-            ? ExportHistoryFormat.markdown
-            : ExportHistoryFormat.html,
-        targetType: ExportHistoryTarget.localFile,
-        targetRef: result.finalPath ?? '',
-        status: ExportHistoryStatus.success,
-        createdAt: DateTime.now(),
-        size: result.byteSize,
-        postCount: result.postCount,
-      ),
-    );
+    await ref
+        .read(exportHistoryProvider.notifier)
+        .add(
+          ExportHistoryEntry(
+            id: const Uuid().v4(),
+            sourceType: ExportHistorySource.topic,
+            sourceTopicId: widget.detail.id,
+            sourceTitle: widget.detail.title,
+            format: format == ExportFormat.markdown
+                ? ExportHistoryFormat.markdown
+                : ExportHistoryFormat.html,
+            targetType: ExportHistoryTarget.localFile,
+            targetRef: result.finalPath ?? '',
+            status: ExportHistoryStatus.success,
+            createdAt: DateTime.now(),
+            size: result.byteSize,
+            postCount: result.postCount,
+          ),
+        );
     if (mounted) Navigator.pop(context);
   }
 
@@ -189,20 +193,22 @@ class _ExportSheetState extends ConsumerState<ExportSheet> {
   }
 
   Future<void> _writeNotionHistory(NotionSyncResult result) {
-    return ref.read(exportHistoryProvider.notifier).add(
-      ExportHistoryEntry(
-        id: const Uuid().v4(),
-        sourceType: ExportHistorySource.topic,
-        sourceTopicId: widget.detail.id,
-        sourceTitle: widget.detail.title,
-        format: ExportHistoryFormat.notion,
-        targetType: ExportHistoryTarget.notion,
-        targetRef: result.pageUrl,
-        status: ExportHistoryStatus.success,
-        createdAt: DateTime.now(),
-        postCount: result.postCount,
-      ),
-    );
+    return ref
+        .read(exportHistoryProvider.notifier)
+        .add(
+          ExportHistoryEntry(
+            id: const Uuid().v4(),
+            sourceType: ExportHistorySource.topic,
+            sourceTopicId: widget.detail.id,
+            sourceTitle: widget.detail.title,
+            format: ExportHistoryFormat.notion,
+            targetType: ExportHistoryTarget.notion,
+            targetRef: result.pageUrl,
+            status: ExportHistoryStatus.success,
+            createdAt: DateTime.now(),
+            postCount: result.postCount,
+          ),
+        );
   }
 
   String _labelForPhase(NotionSyncProgress p) {
@@ -270,178 +276,138 @@ class _ExportSheetState extends ConsumerState<ExportSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bottomPadding = MediaQuery.of(context).padding.bottom;
     // 订阅 notionConfigProvider,保证它在打开 sheet 的整段生命周期里都在
     // 重建到 username 解析完后的"已配置"状态。否则首次进入时 ref.read
     // 拿到的可能是 username 还在 loading 时构造的空 cfg,误判"未配置"。
     ref.watch(notionConfigProvider);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+    return AppSheetScaffold(
+      title: context.l10n.export_title,
+      showCloseButton: false,
+      contentPadding: EdgeInsets.zero,
+      footer: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: FilledButton.icon(
+          onPressed: _isExporting ? null : _export,
+          icon: _isExporting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Icon(Symbols.download_rounded),
+          label: Text(_buttonLabel(context)),
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+        ),
       ),
-      child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            // 顶部拖动条
-            Center(
-              child: Container(
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.onSurfaceVariant.withValues(
-                    alpha: 0.3,
-                  ),
-                  borderRadius: BorderRadius.circular(2),
-                ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 4),
+          // 导出范围选择
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              context.l10n.export_range,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-
-            // 标题
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                context.l10n.export_title,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w500,
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SegmentedButton<ExportScope>(
+              segments: [
+                ButtonSegment(
+                  value: ExportScope.firstPostOnly,
+                  label: Text(context.l10n.export_firstPostOnly),
+                  icon: const Icon(Symbols.article_rounded),
                 ),
+                ButtonSegment(
+                  value: ExportScope.allPosts,
+                  label: Text(context.l10n.common_all),
+                  icon: const Icon(Symbols.forum_rounded),
+                ),
+              ],
+              selected: {_scope},
+              onSelectionChanged: (selected) {
+                setState(() => _scope = selected.first);
+              },
+            ),
+          ),
+          const SizedBox(height: 20),
+          // 导出格式选择
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Text(
+              context.l10n.export_format,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-
-            const SizedBox(height: 20),
-
-            // 导出范围选择
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                context.l10n.export_range,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: SegmentedButton<_ExportTarget>(
+              segments: const [
+                ButtonSegment(
+                  value: _ExportTarget.md,
+                  label: Text('MD'),
+                  icon: Icon(Symbols.code_rounded),
                 ),
-              ),
+                ButtonSegment(
+                  value: _ExportTarget.html,
+                  label: Text('HTML'),
+                  icon: Icon(Symbols.html_rounded),
+                ),
+                ButtonSegment(
+                  value: _ExportTarget.notion,
+                  label: Text('Notion'),
+                  icon: Icon(Symbols.cloud_sync_rounded),
+                ),
+              ],
+              selected: {_target},
+              onSelectionChanged: (selected) {
+                setState(() => _target = selected.first);
+              },
             ),
+          ),
+          // Markdown 限制提示
+          if (_willBeLimited) ...[
             const SizedBox(height: 8),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SegmentedButton<ExportScope>(
-                segments: [
-                  ButtonSegment(
-                    value: ExportScope.firstPostOnly,
-                    label: Text(context.l10n.export_firstPostOnly),
-                    icon: const Icon(Icons.article_outlined),
+              child: Row(
+                children: [
+                  Icon(
+                    Symbols.info_rounded,
+                    size: 14,
+                    color: theme.colorScheme.primary,
                   ),
-                  ButtonSegment(
-                    value: ExportScope.allPosts,
-                    label: Text(context.l10n.common_all),
-                    icon: const Icon(Icons.forum_outlined),
-                  ),
-                ],
-                selected: {_scope},
-                onSelectionChanged: (selected) {
-                  setState(() => _scope = selected.first);
-                },
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // 导出格式选择
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                context.l10n.export_format,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SegmentedButton<_ExportTarget>(
-                segments: const [
-                  ButtonSegment(
-                    value: _ExportTarget.md,
-                    label: Text('MD'),
-                    icon: Icon(Icons.code),
-                  ),
-                  ButtonSegment(
-                    value: _ExportTarget.html,
-                    label: Text('HTML'),
-                    icon: Icon(Icons.html),
-                  ),
-                  ButtonSegment(
-                    value: _ExportTarget.notion,
-                    label: Text('Notion'),
-                    icon: Icon(Icons.cloud_sync_rounded),
-                  ),
-                ],
-                selected: {_target},
-                onSelectionChanged: (selected) {
-                  setState(() => _target = selected.first);
-                },
-              ),
-            ),
-
-            // Markdown 限制提示
-            if (_willBeLimited) ...[
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 14,
-                      color: theme.colorScheme.primary,
-                    ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        context.l10n.export_markdownLimit(
-                          ExportUtils.maxMarkdownPosts,
-                        ),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                        ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      context.l10n.export_markdownLimit(
+                        ExportUtils.maxMarkdownPosts,
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.primary,
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 24),
-
-            // 导出按钮
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: FilledButton.icon(
-                onPressed: _isExporting ? null : _export,
-                icon: _isExporting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.download),
-                label: Text(_buttonLabel(context)),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
+                  ),
+                ],
               ),
             ),
-
-            SizedBox(height: 16 + bottomPadding),
           ],
-        ),
+        ],
       ),
     );
   }

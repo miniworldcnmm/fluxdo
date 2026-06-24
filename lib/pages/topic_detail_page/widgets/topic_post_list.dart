@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent, SelectedContent;
 import 'package:scroll_to_index/scroll_to_index.dart';
 import '../../../l10n/s.dart';
@@ -9,11 +10,11 @@ import '../../../services/toast_service.dart';
 import '../../../utils/code_selection_context.dart';
 import '../../../utils/responsive.dart';
 import '../../../utils/time_utils.dart';
+import '../../../widgets/common/loading_spinner.dart';
 import '../../../widgets/content/discourse_html_content/chunked/html_chunk.dart';
 import '../../../widgets/post/post_item/post_item.dart';
 import '../../../widgets/post/post_item/quote_selection_helper.dart';
 import '../../../widgets/post/post_item/segmented_long_post.dart';
-import '../../../widgets/post/post_item_skeleton.dart';
 import 'topic_detail_header.dart';
 import 'shared_issue_button.dart';
 import 'typing_indicator.dart';
@@ -259,8 +260,20 @@ class _TopicPostListState extends State<TopicPostList> {
       final ctx = entry.value.context;
       if (!ctx.mounted) continue;
 
-      final renderBox = ctx.findRenderObject() as RenderBox?;
-      if (renderBox == null || !renderBox.hasSize) continue;
+      // ctx.mounted 仅意味着 element 不为 null,但 inactive 状态下
+      // (element 已从树中拆除,等待 unmount) findRenderObject 仍会抛
+      // "Cannot get renderObject of inactive element"。
+      // 唯一可靠的做法是 try-catch + 跳过,避免一条死 tag 中断整个循环
+      // 让进度卡在最后一次成功的 post。
+      final RenderBox? renderBox;
+      try {
+        renderBox = ctx.findRenderObject() as RenderBox?;
+      } catch (_) {
+        continue;
+      }
+      if (renderBox == null || !renderBox.hasSize || !renderBox.attached) {
+        continue;
+      }
 
       final topY = renderBox.localToGlobal(Offset.zero).dy;
       final bottomY = topY + renderBox.size.height;
@@ -480,11 +493,6 @@ class _TopicPostListState extends State<TopicPostList> {
     _buildRenderSegments(posts);
     final centerScrollIndex = _postIndexToScrollIndex[centerPostIndex] ?? 0;
 
-    final loadMoreSkeletonCount = calculateSkeletonCount(
-      MediaQuery.of(context).size.height * 0.4,
-      minCount: 2,
-    );
-
     return SelectionArea(
       onSelectionChanged: (content) {
         _lastLongPostSelectedContent = content;
@@ -545,9 +553,8 @@ class _TopicPostListState extends State<TopicPostList> {
                   child: _LoadFailedRetry(onRetry: onRetryLoadPrevious),
                 )
               else if (hasMoreBefore && isLoadingPrevious)
-                LoadingSkeletonSliver(
-                  itemCount: loadMoreSkeletonCount,
-                  wrapContent: _wrapContent,
+                SliverToBoxAdapter(
+                  child: _wrapContent(context, const _LoadMoreIndicator()),
                 ),
 
               // 话题 Header（centerPostIndex > 0 时放在 before-center 区域）
@@ -648,9 +655,8 @@ class _TopicPostListState extends State<TopicPostList> {
                   child: _LoadFailedRetry(onRetry: onRetryLoadMore),
                 )
               else if (hasMoreAfter && isLoadingMore)
-                LoadingSkeletonSliver(
-                  itemCount: loadMoreSkeletonCount,
-                  wrapContent: _wrapContent,
+                SliverToBoxAdapter(
+                  child: _wrapContent(context, const _LoadMoreIndicator()),
                 ),
               SliverPadding(
                 padding: EdgeInsets.only(
@@ -748,6 +754,7 @@ class _TopicPostListState extends State<TopicPostList> {
           useReplyDialog: useReplyDialog,
           topicTitle: detail.title,
           isPrivateMessageTopic: detail.isPrivateMessage,
+          isPmWithNonHumanUser: detail.pmWithNonHumanUser,
           onShowPostDetail: widget.onShowPostDetail != null
               ? () => widget.onShowPostDetail!(post)
               : null,
@@ -801,6 +808,7 @@ class _TopicPostListState extends State<TopicPostList> {
           useReplyDialog: useReplyDialog,
           topicTitle: detail.title,
           isPrivateMessageTopic: detail.isPrivateMessage,
+          isPmWithNonHumanUser: detail.pmWithNonHumanUser,
           onShowPostDetail: widget.onShowPostDetail != null
               ? () => widget.onShowPostDetail!(post)
               : null,
@@ -1023,7 +1031,7 @@ class _GapIndicatorState extends State<_GapIndicator> {
               Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: Icon(
-                  Icons.unfold_more,
+                  Symbols.unfold_more_rounded,
                   size: 16,
                   color: theme.colorScheme.primary,
                 ),
@@ -1060,7 +1068,7 @@ class _LoadFailedRetry extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.refresh, size: 16, color: theme.colorScheme.primary),
+              Icon(Symbols.refresh_rounded, size: 16, color: theme.colorScheme.primary),
               const SizedBox(width: 6),
               Text(
                 S.current.topicDetail_loadFailedTapRetry,
@@ -1073,6 +1081,19 @@ class _LoadFailedRetry extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// 上下增量加载时的指示器
+class _LoadMoreIndicator extends StatelessWidget {
+  const _LoadMoreIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 16),
+      child: Center(child: LoadingSpinner(size: 24)),
     );
   }
 }

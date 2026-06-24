@@ -4,13 +4,11 @@ class ResolvedUploadUrl {
   final String url;
   final String? shortPath;
 
-  const ResolvedUploadUrl({
-    required this.url,
-    this.shortPath,
-  });
+  const ResolvedUploadUrl({required this.url, this.shortPath});
 
   String mediaUrl() {
-    if (url.contains('secure-media-uploads') || url.contains('secure-uploads')) {
+    if (url.contains('secure-media-uploads') ||
+        url.contains('secure-uploads')) {
       return UrlHelper.resolveUrl(url);
     }
 
@@ -19,7 +17,8 @@ class ResolvedUploadUrl {
 
   String linkUrl({required bool secureUploads}) {
     if (secureUploads &&
-        (url.contains('secure-media-uploads') || url.contains('secure-uploads'))) {
+        (url.contains('secure-media-uploads') ||
+            url.contains('secure-uploads'))) {
       return url;
     }
 
@@ -53,9 +52,18 @@ class UploadResult {
     this.extension,
   });
 
-  static final _imageExts = RegExp(r'\.(png|webp|jpe?g|gif|svg|ico|heic|heif|avif)$', caseSensitive: false);
-  static final _videoExts = RegExp(r'\.(mov|mp4|webm|m4v|3gp|ogv|avi|mpeg)$', caseSensitive: false);
-  static final _audioExts = RegExp(r'\.(mp3|og[ga]|opus|wav|m4[abpr]|aac|flac)$', caseSensitive: false);
+  static final _imageExts = RegExp(
+    r'\.(png|webp|jpe?g|gif|svg|ico|heic|heif|avif)$',
+    caseSensitive: false,
+  );
+  static final _videoExts = RegExp(
+    r'\.(mov|mp4|webm|m4v|3gp|ogv|avi|mpeg)$',
+    caseSensitive: false,
+  );
+  static final _audioExts = RegExp(
+    r'\.(mp3|og[ga]|opus|wav|m4[abpr]|aac|flac)$',
+    caseSensitive: false,
+  );
 
   bool get isImage => _imageExts.hasMatch(originalFilename);
   bool get isVideo => _videoExts.hasMatch(originalFilename);
@@ -117,9 +125,7 @@ class UploadResult {
 mixin _UploadsMixin on _DiscourseServiceBase {
   /// 获取图片请求头
   Future<Map<String, String>> getHeaders() async {
-    final headers = <String, String>{
-      'User-Agent': AppConstants.userAgent,
-    };
+    final headers = <String, String>{'User-Agent': AppConstants.userAgent};
 
     final cookies = await _cookieJar.getCookieHeader();
     if (cookies != null && cookies.isNotEmpty) {
@@ -132,19 +138,24 @@ mixin _UploadsMixin on _DiscourseServiceBase {
   /// 下载图片
   Future<Uint8List?> downloadImage(String url) async {
     try {
+      final isAppHost = CookieJarService.matchesAppHost(Uri.parse(url).host);
+      final extra = <String, dynamic>{'skipCsrf': true, 'skipAuthCheck': true};
+      if (isAppHost) {
+        extra[WebViewHttpAdapter.resourceKindExtraKey] =
+            WebViewHttpAdapter.resourceKindImage;
+        extra[WebViewHttpAdapter.cookieModeExtraKey] =
+            WebViewHttpAdapter.cookieModeReadOnly;
+      }
+
       final response = await _dio.get(
         url,
-        options: Options(
-          responseType: ResponseType.bytes,
-          extra: {
-            'skipCsrf': true,
-            'skipAuthCheck': true,
-          },
-        ),
+        options: Options(responseType: ResponseType.bytes, extra: extra),
       );
 
       if (response.data is! List<int>) {
-        debugPrint('[DiscourseService] Invalid response data type for image: $url');
+        debugPrint(
+          '[DiscourseService] Invalid response data type for image: $url',
+        );
         return null;
       }
 
@@ -157,12 +168,16 @@ mixin _UploadsMixin on _DiscourseServiceBase {
 
       final contentType = response.headers.value('content-type')?.toLowerCase();
       if (contentType != null && !contentType.startsWith('image/')) {
-        debugPrint('[DiscourseService] Invalid content-type for image: $contentType, url: $url');
+        debugPrint(
+          '[DiscourseService] Invalid content-type for image: $contentType, url: $url',
+        );
         return null;
       }
 
       if (!_isValidImageData(bytes)) {
-        debugPrint('[DiscourseService] Invalid image data (magic bytes check failed): $url');
+        debugPrint(
+          '[DiscourseService] Invalid image data (magic bytes check failed): $url',
+        );
         return null;
       }
 
@@ -178,7 +193,10 @@ mixin _UploadsMixin on _DiscourseServiceBase {
     if (bytes.length < 4) return false;
 
     // PNG
-    if (bytes[0] == 0x89 && bytes[1] == 0x50 && bytes[2] == 0x4E && bytes[3] == 0x47) {
+    if (bytes[0] == 0x89 &&
+        bytes[1] == 0x50 &&
+        bytes[2] == 0x4E &&
+        bytes[3] == 0x47) {
       return true;
     }
 
@@ -188,14 +206,23 @@ mixin _UploadsMixin on _DiscourseServiceBase {
     }
 
     // GIF
-    if (bytes[0] == 0x47 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x38) {
+    if (bytes[0] == 0x47 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x38) {
       return true;
     }
 
     // WebP
     if (bytes.length >= 12 &&
-        bytes[0] == 0x52 && bytes[1] == 0x49 && bytes[2] == 0x46 && bytes[3] == 0x46 &&
-        bytes[8] == 0x57 && bytes[9] == 0x45 && bytes[10] == 0x42 && bytes[11] == 0x50) {
+        bytes[0] == 0x52 &&
+        bytes[1] == 0x49 &&
+        bytes[2] == 0x46 &&
+        bytes[3] == 0x46 &&
+        bytes[8] == 0x57 &&
+        bytes[9] == 0x45 &&
+        bytes[10] == 0x42 &&
+        bytes[11] == 0x50) {
       return true;
     }
 
@@ -205,7 +232,10 @@ mixin _UploadsMixin on _DiscourseServiceBase {
     }
 
     // ICO
-    if (bytes[0] == 0x00 && bytes[1] == 0x00 && bytes[2] == 0x01 && bytes[3] == 0x00) {
+    if (bytes[0] == 0x00 &&
+        bytes[1] == 0x00 &&
+        bytes[2] == 0x01 &&
+        bytes[3] == 0x00) {
       return true;
     }
 
@@ -230,7 +260,13 @@ mixin _UploadsMixin on _DiscourseServiceBase {
           '/uploads.json',
           queryParameters: {'client_id': MessageBusService().clientId},
           data: formData,
-          options: Options(extra: {'showErrorToast': attempt >= maxRetries}),  // 仅最后一次尝试才弹 toast
+          options: Options(
+            extra: {
+              'showErrorToast': attempt >= maxRetries,
+              WebViewHttpAdapter.resourceKindExtraKey:
+                  WebViewHttpAdapter.resourceKindUpload,
+            },
+          ), // 仅最后一次尝试才弹 toast
         );
 
         final data = response.data;
@@ -313,7 +349,9 @@ mixin _UploadsMixin on _DiscourseServiceBase {
 
   /// 批量解析 short_url（内置速率限制重试，对齐 uploadFile）
   Future<List<Map<String, dynamic>>> lookupUrls(List<String> shortUrls) async {
-    final missingUrls = shortUrls.where((url) => !_urlCache.containsKey(url)).toList();
+    final missingUrls = shortUrls
+        .where((url) => !_urlCache.containsKey(url))
+        .toList();
 
     if (missingUrls.isEmpty) return [];
 
@@ -433,7 +471,8 @@ mixin _UploadsMixin on _DiscourseServiceBase {
     final resolved = await resolveShortUpload(shortUrl);
     if (resolved == null) return null;
 
-    final secureUploads = PreloadedDataService().siteSettingsSync?['secure_uploads'] == true;
+    final secureUploads =
+        PreloadedDataService().siteSettingsSync?['secure_uploads'] == true;
     return resolved.linkUrl(secureUploads: secureUploads);
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/s.dart';
@@ -31,7 +32,7 @@ class OfflineIndicator extends ConsumerWidget {
               child: Row(
                 children: [
                   Icon(
-                    Icons.wifi_off_rounded,
+                    Symbols.wifi_off_rounded,
                     size: 14,
                     color: colorScheme.onSurfaceVariant,
                   ),
@@ -54,7 +55,7 @@ class OfflineIndicator extends ConsumerWidget {
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
                       icon: Icon(
-                        Icons.refresh_rounded,
+                        Symbols.refresh_rounded,
                         color: colorScheme.onSurfaceVariant,
                       ),
                     ),

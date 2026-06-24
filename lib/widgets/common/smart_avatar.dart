@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:jovial_svg/jovial_svg.dart';
 import '../../services/discourse_cache_manager.dart';
@@ -58,9 +59,18 @@ class _SmartAvatarState extends State<SmartAvatar> {
 
   Future<String?> _loadSvgContentIfPresent(String imageUrl) async {
     try {
-      final file = await _cacheManager.getSingleFile(imageUrl);
-      final bytes = await file.readAsBytes();
-      if (bytes.isEmpty || !SvgUtils.isSvgBytes(bytes)) return null;
+      // 用 getFileFromCache 只查缓存元信息,不主动触发下载
+      // (下载由后面的 CachedNetworkImage 负责,避免重复请求)。
+      final fileInfo = await _cacheManager.getFileFromCache(imageUrl);
+      if (fileInfo == null) return null;
+      // 信任响应头:flutter_cache_manager 根据 Content-Type
+      // (image/svg+xml → .svg)给缓存文件起名,这里只看后缀,
+      // 避开读整文件 + 字节嗅探。
+      // 服务端撒谎(回 image/png 但实际是 SVG)的边界场景,
+      // 由 CachedNetworkImage 的 errorWidget → _SvgFallbackBuilder 内容嗅探兜底。
+      if (!fileInfo.file.path.toLowerCase().endsWith('.svg')) return null;
+      final bytes = await fileInfo.file.readAsBytes();
+      if (bytes.isEmpty) return null;
       return SvgUtils.sanitize(SvgUtils.decodeSvgBytes(bytes));
     } catch (_) {
       return null;
@@ -88,21 +98,25 @@ class _SmartAvatarState extends State<SmartAvatar> {
       child = _buildFallback(fgColor, innerRadius);
     } else if (isNativeAnimatedUrl(widget.imageUrl!)) {
       // 动图(GIF/APNG/动画 WebP)走 native_animated_image Rust pipeline,
-      // 绕开 Flutter Skia multi_frame_codec 的 #85831 bug
-      child = Image(
-        image: discourseImageProvider(widget.imageUrl!),
-        width: innerSize,
-        height: innerSize,
-        fit: BoxFit.cover,
-        gaplessPlayback: true,
-        frameBuilder: (context, displayChild, frame, wasSynchronouslyLoaded) {
-          if (wasSynchronouslyLoaded || frame != null) return displayChild;
-          return _buildLoading(fgColor, innerRadius);
-        },
-        errorBuilder: (context, error, stack) {
-          // 动图链路出错(网络 / Rust 解码失败),退化到字母 fallback
-          return _buildFallback(fgColor, innerRadius);
-        },
+      // 绕开 Flutter Skia multi_frame_codec 的 #85831 bug。
+      // RepaintBoundary 将每帧 setImage 触发的重绘限制在头像区域内,
+      // 避免列表中多个动图头像同时连累整个 list item 重绘。
+      child = RepaintBoundary(
+        child: Image(
+          image: discourseImageProvider(widget.imageUrl!),
+          width: innerSize,
+          height: innerSize,
+          fit: BoxFit.cover,
+          gaplessPlayback: true,
+          frameBuilder: (context, displayChild, frame, wasSynchronouslyLoaded) {
+            if (wasSynchronouslyLoaded || frame != null) return displayChild;
+            return _buildLoading(fgColor, innerRadius);
+          },
+          errorBuilder: (context, error, stack) {
+            // 动图链路出错(网络 / Rust 解码失败),退化到字母 fallback
+            return _buildFallback(fgColor, innerRadius);
+          },
+        ),
       );
     } else {
       child = FutureBuilder<String?>(
@@ -180,14 +194,13 @@ class _SmartAvatarState extends State<SmartAvatar> {
   }
 
   Widget _buildLoading(Color fgColor, double radius) {
-    return Center(
-      child: SizedBox(
-        width: radius * 0.6,
-        height: radius * 0.6,
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-          color: fgColor.withValues(alpha: 0.5),
-        ),
+    // 静态灰底占位 — 头像 loading 时间极短,
+    // 用 CircularProgressIndicator 会带来 60fps 自转 + InheritedTheme 查询,
+    // 在列表多头像同时占位时是热点开销。
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: fgColor.withValues(alpha: 0.08),
       ),
     );
   }
@@ -206,7 +219,7 @@ class _SmartAvatarState extends State<SmartAvatar> {
       );
     }
     return Center(
-      child: Icon(Icons.person, size: radius, color: fgColor),
+      child: Icon(Symbols.person_rounded, size: radius, color: fgColor),
     );
   }
 }

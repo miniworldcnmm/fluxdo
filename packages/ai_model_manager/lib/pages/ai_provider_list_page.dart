@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/ai_l10n.dart';
@@ -30,7 +31,7 @@ class _AiProviderListPageState extends ConsumerState<AiProviderListPage> {
       appBar: AppBar(
         leading: _manageMode
             ? IconButton(
-                icon: const Icon(Icons.close),
+                icon: const Icon(Symbols.close_rounded),
                 tooltip: AiL10n.current.cancel,
                 onPressed: _exitManageMode,
               )
@@ -95,7 +96,7 @@ class _AiProviderListPageState extends ConsumerState<AiProviderListPage> {
     if (_manageMode) {
       return [
         IconButton(
-          icon: const Icon(Icons.delete_outline),
+          icon: const Icon(Symbols.delete_rounded),
           tooltip: AiL10n.current.deleteSelectedProviders,
           onPressed: _selectedIds.isEmpty ? null : () => _confirmBatchDelete(context),
         ),
@@ -106,12 +107,12 @@ class _AiProviderListPageState extends ConsumerState<AiProviderListPage> {
       if (providers.isNotEmpty)
         IconButton(
           key: const ValueKey('provider_manage_button'),
-          icon: const Icon(Icons.checklist_rounded),
+          icon: const Icon(Symbols.checklist_rounded),
           tooltip: AiL10n.current.manage,
           onPressed: _enterManageMode,
         ),
       IconButton(
-        icon: const Icon(Icons.add),
+        icon: const Icon(Symbols.add_rounded),
         tooltip: AiL10n.current.addProvider,
         onPressed: () => _navigateToEdit(context),
       ),
@@ -124,7 +125,7 @@ class _AiProviderListPageState extends ConsumerState<AiProviderListPage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.dns_outlined,
+          Icon(Symbols.dns_rounded,
               size: 64,
               color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4)),
           const SizedBox(height: 16),
@@ -144,7 +145,7 @@ class _AiProviderListPageState extends ConsumerState<AiProviderListPage> {
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: () => _navigateToEdit(context),
-            icon: const Icon(Icons.add),
+            icon: const Icon(Symbols.add_rounded),
             label: Text(AiL10n.current.addProvider),
           ),
         ],
@@ -299,13 +300,13 @@ class _ProviderReorderSection extends StatelessWidget {
               enableLongPressMenu: false,
               trailingActions: [
                 SwipeAction(
-                  icon: Icons.edit_outlined,
+                  icon: Symbols.edit_rounded,
                   color: Colors.blue,
                   label: AiL10n.current.edit,
                   onPressed: () => onEdit(provider),
                 ),
                 SwipeAction(
-                  icon: Icons.delete_outline,
+                  icon: Symbols.delete_rounded,
                   color: Colors.red,
                   label: AiL10n.current.delete,
                   onPressed: () => onDelete(provider),
@@ -495,7 +496,8 @@ class _ProviderCard extends StatelessWidget {
                       : AiL10n.current.pinProvider,
                   onPressed: onTogglePin,
                   icon: Icon(
-                    provider.pinned ? Icons.push_pin : Icons.push_pin_outlined,
+                    Symbols.push_pin_rounded,
+                    fill: provider.pinned ? 1 : 0,
                     size: 20,
                     color: provider.pinned
                         ? theme.colorScheme.primary
@@ -503,7 +505,7 @@ class _ProviderCard extends StatelessWidget {
                   ),
                 ),
                 Icon(
-                  Icons.chevron_right_rounded,
+                  Symbols.chevron_right_rounded,
                   color: theme.colorScheme.outline.withValues(alpha: 0.4),
                   size: 20,
                 ),

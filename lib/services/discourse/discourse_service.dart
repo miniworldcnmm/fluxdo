@@ -20,6 +20,7 @@ import '../../models/mention_user.dart';
 import '../../models/draft.dart';
 import '../../models/invite_link.dart';
 import '../../models/template.dart';
+import '../../models/post_revision.dart';
 
 import '../../constants.dart';
 import '../../providers/message_bus_providers.dart';
@@ -33,10 +34,12 @@ import '../network/cookie/boundary_sync_service.dart';
 import '../network/cookie/session_snapshot.dart';
 import '../cf_challenge_service.dart';
 import '../message_bus_service.dart';
+import '../network/adapters/webview_http_adapter.dart';
 import '../login_ready_coordinator.dart';
 import '../network/discourse_dio.dart';
 import '../network/interceptors/self_healing_interceptor.dart';
 import '../preloaded_data_service.dart';
+import '../webview_session_cookie_refresh_service.dart';
 import '../app_logger.dart';
 import '../log/log_writer.dart';
 import '../network/exceptions/api_exception.dart';
@@ -61,6 +64,7 @@ part '_drafts.dart';
 part '_templates.dart';
 part '_nested.dart';
 part '_policy.dart';
+part '_revisions.dart';
 
 /// 基类，包含所有共享字段
 abstract class _DiscourseServiceBase {
@@ -121,7 +125,8 @@ class DiscourseService extends _DiscourseServiceBase
         _DraftsMixin,
         _TemplatesMixin,
         _NestedMixin,
-        _PolicyMixin {
+        _PolicyMixin,
+        _RevisionsMixin {
   static const String baseUrl = AppConstants.baseUrl;
   static const String _usernameKey = 'linux_do_username';
   static const _summaryCacheDuration = Duration(minutes: 5);

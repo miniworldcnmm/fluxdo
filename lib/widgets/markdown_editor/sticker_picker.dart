@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -88,7 +89,6 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
     showAppBottomSheet(
       context: context,
       isScrollControlled: true,
-      useSafeArea: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const StickerMarketSheet(),
     );
@@ -152,7 +152,8 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
   void _ensureTabVisible(int index) {
     if (!_tabScrollController.hasClients) return;
     const tabWidth = 40.0;
-    final target = index * tabWidth -
+    final target =
+        index * tabWidth -
         _tabScrollController.position.viewportDimension / 2 +
         tabWidth / 2;
     _tabScrollController.animateTo(
@@ -263,16 +264,20 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.sticky_note_2_outlined,
-              size: 48,
-              color: theme.colorScheme.outline.withValues(alpha: 0.5)),
+          Icon(
+            Symbols.sticky_note_2_rounded,
+            size: 48,
+            color: theme.colorScheme.outline.withValues(alpha: 0.5),
+          ),
           const SizedBox(height: 16),
-          Text(S.current.sticker_noStickers,
-              style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+          Text(
+            S.current.sticker_noStickers,
+            style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+          ),
           const SizedBox(height: 12),
           FilledButton.tonalIcon(
             onPressed: _openMarket,
-            icon: const Icon(Icons.add, size: 18),
+            icon: const Icon(Symbols.add_rounded, size: 18),
             label: Text(S.current.sticker_addFromMarket),
           ),
         ],
@@ -286,10 +291,12 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline, size: 48, color: theme.colorScheme.outline),
+          Icon(Symbols.error_rounded, size: 48, color: theme.colorScheme.outline),
           const SizedBox(height: 12),
-          Text(S.current.sticker_loadFailed,
-              style: TextStyle(color: theme.colorScheme.error)),
+          Text(
+            S.current.sticker_loadFailed,
+            style: TextStyle(color: theme.colorScheme.error),
+          ),
           const SizedBox(height: 8),
           TextButton(
             onPressed: () => ref.invalidate(stickerGroupsProvider),
@@ -394,10 +401,9 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
                             icon = ValueListenableBuilder<int>(
                               valueListenable: _activeGroupIndex,
                               builder: (_, raw, _) {
-                                final activeIndex =
-                                    raw.clamp(0, totalTabs - 1);
+                                final activeIndex = raw.clamp(0, totalTabs - 1);
                                 return Icon(
-                                  Icons.access_time,
+                                  Symbols.access_time_rounded,
                                   size: 20,
                                   color: activeIndex == index
                                       ? theme.colorScheme.primary
@@ -431,10 +437,16 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
             ),
           ),
           Container(
-              height: 20, width: 1, color: theme.colorScheme.outlineVariant),
+            height: 20,
+            width: 1,
+            color: theme.colorScheme.outlineVariant,
+          ),
           IconButton(
-            icon: Icon(Icons.add_circle_outline,
-                size: 20, color: theme.colorScheme.primary),
+            icon: Icon(
+              Symbols.add_circle_rounded,
+              size: 20,
+              color: theme.colorScheme.primary,
+            ),
             onPressed: _openMarket,
             tooltip: S.current.sticker_addTooltip,
           ),
@@ -488,32 +500,41 @@ class _StickerPickerState extends ConsumerState<StickerPicker>
     int keyIndex = 0;
 
     if (hasRecent) {
-      slivers.add(SliverToBoxAdapter(
-        child: _buildSectionHeader(S.current.common_recentlyUsed, _groupKeys[keyIndex]),
-      ));
+      slivers.add(
+        SliverToBoxAdapter(
+          child: _buildSectionHeader(
+            S.current.common_recentlyUsed,
+            _groupKeys[keyIndex],
+          ),
+        ),
+      );
       slivers.add(_buildStickerSliverGrid(recentStickers));
       keyIndex++;
     }
 
     for (final group in groups) {
-      slivers.add(SliverToBoxAdapter(
-        child: _buildSectionHeader(group.name, _groupKeys[keyIndex]),
-      ));
-      slivers.add(_StickerGroupSliverContent(
-        groupId: group.id,
-        onStickerTap: _onStickerTap,
-        onPreviewStart: _startPreview,
-        onPreviewMove: _movePreview,
-        onPreviewEnd: _endPreview,
-      ));
+      slivers.add(
+        SliverToBoxAdapter(
+          child: _buildSectionHeader(group.name, _groupKeys[keyIndex]),
+        ),
+      );
+      slivers.add(
+        _StickerGroupSliverContent(
+          groupId: group.id,
+          onStickerTap: _onStickerTap,
+          onPreviewStart: _startPreview,
+          onPreviewMove: _movePreview,
+          onPreviewEnd: _endPreview,
+        ),
+      );
       keyIndex++;
     }
 
     // 底部留白
     if (widget.bottomPadding > 0) {
-      slivers.add(SliverToBoxAdapter(
-        child: SizedBox(height: widget.bottomPadding),
-      ));
+      slivers.add(
+        SliverToBoxAdapter(child: SizedBox(height: widget.bottomPadding)),
+      );
     }
 
     return slivers;
@@ -594,8 +615,10 @@ class _StickerGroupSliverContent extends ConsumerWidget {
             child: TextButton(
               onPressed: () =>
                   ref.invalidate(stickerGroupDetailProvider(groupId)),
-              child: Text(S.current.common_loadFailedTapRetry,
-                  style: TextStyle(color: theme.colorScheme.error)),
+              child: Text(
+                S.current.common_loadFailedTapRetry,
+                style: TextStyle(color: theme.colorScheme.error),
+              ),
             ),
           ),
         ),
@@ -606,7 +629,10 @@ class _StickerGroupSliverContent extends ConsumerWidget {
   Widget _buildGrid(StickerGroupDetail detail) {
     if (detail.emojis.isEmpty) {
       return SliverToBoxAdapter(
-        child: SizedBox(height: 80, child: Center(child: Text(S.current.sticker_groupEmpty))),
+        child: SizedBox(
+          height: 80,
+          child: Center(child: Text(S.current.sticker_groupEmpty)),
+        ),
       );
     }
     return SliverPadding(
@@ -671,28 +697,28 @@ class _StickerItemWidget extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.all(4.0),
             child: CachedImage(
-            url: sticker.url,
-            fit: BoxFit.contain,
-            memCacheWidth: 160,
-            memCacheHeight: 160,
-            thumbnailMode: true,
-            cacheManager: StickerCacheManager(),
-            // 解码期占位:Telegram/微信 风格 — 灰色圆角骨架,不用 spinner
-            // (每格一个 spinner 会让 grid 视觉吵)。配合 gaplessPlayback 平滑切到图。
-            placeholder: (ctx) => DecoratedBox(
-              decoration: BoxDecoration(
-                color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(6),
+              url: sticker.url,
+              fit: BoxFit.contain,
+              memCacheWidth: 160,
+              memCacheHeight: 160,
+              thumbnailMode: true,
+              cacheManager: StickerCacheManager(),
+              // 解码期占位:Telegram/微信 风格 — 灰色圆角骨架,不用 spinner
+              // (每格一个 spinner 会让 grid 视觉吵)。配合 gaplessPlayback 平滑切到图。
+              placeholder: (ctx) => DecoratedBox(
+                decoration: BoxDecoration(
+                  color: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(6),
+                ),
               ),
-            ),
-            errorBuilder: (_, _, _) => Icon(
-              Icons.broken_image_outlined,
-              size: 24,
-              color: Theme.of(context).colorScheme.outline,
+              errorBuilder: (_, _, _) => Icon(
+                Symbols.broken_image_rounded,
+                size: 24,
+                color: Theme.of(context).colorScheme.outline,
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -736,7 +762,8 @@ class _StickerPreviewPopup extends StatelessWidget {
   static const double _previewSize = 180;
   static const double _nameHeight = 28;
   static const double _cardPadding = 8;
-  static const double _totalHeight = _previewSize + _nameHeight + _cardPadding * 2;
+  static const double _totalHeight =
+      _previewSize + _nameHeight + _cardPadding * 2;
   static const double _totalWidth = _previewSize + _cardPadding * 2;
   static const double _screenMargin = 12;
 
@@ -758,8 +785,10 @@ class _StickerPreviewPopup extends StatelessWidget {
         : itemRect.bottom + 8;
 
     // 水平居中对齐缩略图，clamp 防溢出
-    final dx = (itemRect.center.dx - _totalWidth / 2)
-        .clamp(_screenMargin, screenSize.width - _totalWidth - _screenMargin);
+    final dx = (itemRect.center.dx - _totalWidth / 2).clamp(
+      _screenMargin,
+      screenSize.width - _totalWidth - _screenMargin,
+    );
 
     return AnimatedPositioned(
       duration: const Duration(milliseconds: 150),
@@ -775,7 +804,9 @@ class _StickerPreviewPopup extends StatelessWidget {
             opacity: value.clamp(0.0, 1.0),
             child: Transform.scale(
               scale: 0.6 + 0.4 * value,
-              alignment: showAbove ? Alignment.bottomCenter : Alignment.topCenter,
+              alignment: showAbove
+                  ? Alignment.bottomCenter
+                  : Alignment.topCenter,
               child: child,
             ),
           ),
@@ -797,7 +828,7 @@ class _StickerPreviewPopup extends StatelessWidget {
                       // 不传 memCacheWidth → AVIF 完整解码（含动画）
                       cacheManager: StickerCacheManager(),
                       errorBuilder: (_, _, _) => Icon(
-                        Icons.broken_image_outlined,
+                        Symbols.broken_image_rounded,
                         size: 48,
                         color: theme.colorScheme.outline,
                       ),

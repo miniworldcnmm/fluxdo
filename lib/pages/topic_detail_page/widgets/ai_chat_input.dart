@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:ai_model_manager/ai_model_manager.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../l10n/s.dart';
 
@@ -214,7 +215,7 @@ class _AiChatInputState extends State<AiChatInput> {
                 icon: AnimatedRotation(
                   turns: _toolsExpanded ? 0.125 : 0,
                   duration: const Duration(milliseconds: 200),
-                  child: const Icon(Icons.add_rounded, size: 20),
+                  child: const Icon(Symbols.add_rounded, size: 20),
                 ),
                 tooltip: _toolsExpanded
                     ? context.l10n.common_close
@@ -231,7 +232,7 @@ class _AiChatInputState extends State<AiChatInput> {
               widget.isGenerating
                   ? IconButton.filled(
                       onPressed: widget.onStop,
-                      icon: const Icon(Icons.stop_rounded, size: 20),
+                      icon: const Icon(Symbols.stop_rounded, size: 20),
                       style: IconButton.styleFrom(
                         backgroundColor: theme.colorScheme.errorContainer,
                         foregroundColor: theme.colorScheme.onErrorContainer,
@@ -242,7 +243,7 @@ class _AiChatInputState extends State<AiChatInput> {
                     )
                   : IconButton.filled(
                       onPressed: _canSend ? _handleSend : null,
-                      icon: const Icon(Icons.arrow_upward_rounded, size: 20),
+                      icon: const Icon(Symbols.arrow_upward_rounded, size: 20),
                       style: IconButton.styleFrom(
                         backgroundColor: _canSend
                             ? theme.colorScheme.primary
@@ -270,7 +271,7 @@ class _AiChatInputState extends State<AiChatInput> {
                     child: Row(
                       children: [
                         _ToolCard(
-                          icon: Icons.camera_alt_outlined,
+                          icon: Symbols.camera_alt_rounded,
                           label: context.l10n.ai_toolsCamera,
                           // 非多模态模型 → 视觉置灰（onTap 也是 null 不响应）
                           dimmed: !widget.allowAttachments,
@@ -283,7 +284,7 @@ class _AiChatInputState extends State<AiChatInput> {
                         ),
                         const SizedBox(width: 10),
                         _ToolCard(
-                          icon: Icons.photo_library_outlined,
+                          icon: Symbols.photo_library_rounded,
                           label: context.l10n.ai_toolsPhotos,
                           dimmed: !widget.allowAttachments,
                           onTap: widget.allowAttachments && !widget.isGenerating
@@ -296,8 +297,8 @@ class _AiChatInputState extends State<AiChatInput> {
                         const SizedBox(width: 10),
                         _ToolCard(
                           icon: widget.isImageMode
-                              ? Icons.brush
-                              : Icons.brush_outlined,
+                              ? Symbols.brush_rounded
+                              : Symbols.brush_rounded,
                           label: widget.isImageMode
                               ? context.l10n.ai_modeBackToChat
                               : context.l10n.ai_modeSwitchToImage,
@@ -412,7 +413,7 @@ class _PendingAttachmentTile extends StatelessWidget {
               customBorder: const CircleBorder(),
               child: const Padding(
                 padding: EdgeInsets.all(2),
-                child: Icon(Icons.close, size: 12, color: Colors.white),
+                child: Icon(Symbols.close_rounded, size: 12, color: Colors.white),
               ),
             ),
           ),
@@ -446,7 +447,7 @@ class _PendingAttachmentTile extends StatelessWidget {
       width: size,
       height: size,
       color: Colors.black12,
-      child: const Icon(Icons.image_outlined),
+      child: const Icon(Symbols.image_rounded),
     );
   }
 }

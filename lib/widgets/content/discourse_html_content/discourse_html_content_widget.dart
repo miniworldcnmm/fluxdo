@@ -9,6 +9,7 @@ import '../../../models/topic.dart';
 import '../../../providers/preferences_provider.dart';
 import '../../../services/discourse/discourse_service.dart';
 import '../../../services/emoji_handler.dart';
+import '../../../services/html_parse_service.dart';
 import '../../../providers/download_provider.dart';
 import '../../../utils/discourse_url_parser.dart';
 import '../../../utils/link_launcher.dart';
@@ -197,8 +198,8 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
         spoilerImageUrls: widget.spoilerImageUrls,
       );
     } else {
-      // 从 HTML 提取画廊信息（包含缩略图到索引的映射和 spoiler 标记）
-      _galleryInfo = GalleryInfo.fromHtml(widget.html);
+      // 从 HTML 提取画廊信息(走 HtmlParseService 复用缓存,避免重复 DOM 解析)
+      _galleryInfo = HtmlParseService.instance.parseSync(widget.html).galleryInfo;
     }
     _widgetFactory = DiscourseWidgetFactory(
       context: context,
@@ -421,6 +422,31 @@ class _DiscourseHtmlContentState extends ConsumerState<DiscourseHtmlContent> {
             break;
           }
           parent = parent.parent;
+        }
+
+        // 编辑历史 diff 着色：识别后端 PostRevisionSerializer 返回的
+        // `<ins>/<del>` 标签与 `diff-ins/diff-del` class。普通帖子不会含这些
+        // 标记，因此普通渲染无副作用。
+        final classes = element.classes;
+        final isDiffIns =
+            element.localName == 'ins' || classes.contains('diff-ins');
+        final isDiffDel =
+            element.localName == 'del' || classes.contains('diff-del');
+        if (isDiffIns || isDiffDel) {
+          // 用语义色而非硬编码，跟随主题。alpha 取较低以便嵌套结构仍可读。
+          final insBg = isDark ? '#0f6b3a55' : '#c8f7c855';
+          final delBg = isDark ? '#7f1d1d55' : '#fecaca55';
+          final base = <String, String>{
+            'background-color': isDiffIns ? insBg : delBg,
+            // 保持原文颜色（避免 ins/del 的浏览器默认色覆盖父级主题色）
+            'color': 'inherit',
+          };
+          if (isDiffDel) {
+            base['text-decoration'] = 'line-through';
+          } else {
+            base['text-decoration'] = 'none';
+          }
+          return base;
         }
 
         // img 垂直居中（与 Discourse 一致：img { vertical-align: middle }）

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/s.dart';
@@ -391,8 +392,8 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
                           ),
                           leading: Icon(
                             selected
-                                ? Icons.radio_button_checked
-                                : Icons.radio_button_unchecked,
+                                ? Symbols.radio_button_checked_rounded
+                                : Symbols.radio_button_unchecked_rounded,
                             color: selected
                                 ? theme.colorScheme.primary
                                 : theme.colorScheme.outline,
@@ -422,7 +423,7 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
                               });
                               Navigator.pop(sheetContext);
                             },
-                            icon: const Icon(Icons.close_rounded),
+                            icon: const Icon(Symbols.close_rounded),
                           ),
                         );
                       },
@@ -502,13 +503,13 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
               key: const ValueKey('bookmark-workspace-mobile-back'),
               tooltip: MaterialLocalizations.of(context).backButtonTooltip,
               onPressed: _activateBookmarksTab,
-              icon: const Icon(Icons.arrow_back),
+              icon: const Icon(Symbols.arrow_back_rounded),
             ),
             IconButton(
               key: const ValueKey('bookmark-workspace-mobile-close'),
               tooltip: context.l10n.common_close,
               onPressed: _closeActiveWorkspaceTab,
-              icon: const Icon(Icons.close_rounded),
+              icon: const Icon(Symbols.close_rounded),
             ),
             Expanded(
               child: Text(
@@ -540,7 +541,7 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.search),
+          icon: const Icon(Symbols.search_rounded),
           onPressed: () => _onSearchPressed(true),
           tooltip: context.l10n.common_search,
         ),
@@ -568,7 +569,7 @@ class _BookmarksPageState extends ConsumerState<BookmarksPage> {
               height: 18,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : const Icon(Icons.sync),
+          : const Icon(Symbols.sync_rounded),
     );
   }
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
@@ -143,7 +144,7 @@ Widget _buildCategoryIcon(Category category, Color color, double size) {
   }
 
   if (category.readRestricted) {
-    return Icon(Icons.lock, size: size * 0.8, color: color);
+    return Icon(Symbols.lock_rounded, size: size * 0.8, color: color);
   }
 
   return _buildColorDot(color, size * 0.5);

@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../../l10n/s.dart';
-import '../../pages/network_settings_page/widgets/advanced_settings_card.dart';
 import '../../pages/network_settings_page/widgets/cf_verify_card.dart';
 import '../../pages/network_settings_page/widgets/debug_tools_card.dart';
 import '../../pages/network_settings_page/widgets/doh_settings_card.dart';
+import '../../pages/network_settings_page/widgets/engine_card.dart';
 import '../../pages/network_settings_page/widgets/eruda_card.dart';
 import '../../pages/network_settings_page/widgets/http_proxy_card.dart';
 import '../../pages/network_settings_page/widgets/rate_limit_card.dart';
-import '../../pages/network_settings_page/widgets/rhttp_engine_card.dart';
 import '../../pages/network_settings_page/widgets/vpn_auto_toggle_card.dart';
-import '../../pages/network_settings_page/widgets/webview_adapter_card.dart';
 import '../settings_model.dart';
 
 /// 网络设置数据声明
@@ -20,20 +19,14 @@ List<SettingsGroup> buildNetworkGroups(BuildContext context) {
     // 网络引擎
     SettingsGroup(
       title: l10n.networkSettings_engine,
-      icon: Icons.speed_outlined,
+      icon: Symbols.speed_rounded,
       wrapInCard: false,
       items: [
         CustomModel(
-          id: 'rhttpEngine',
-          title: l10n.rhttpEngine_title,
-          subtitle: l10n.networkSettings_engine,
-          builder: (context, ref) => const RhttpEngineCard(),
-        ),
-        CustomModel(
-          id: 'webviewAdapter',
-          title: l10n.webviewAdapter_title,
-          subtitle: l10n.networkSettings_engine,
-          builder: (context, ref) => const WebViewAdapterCard(),
+          id: 'engine',
+          title: l10n.networkSettings_engine,
+          subtitle: 'rhttp · WebView',
+          builder: (context, ref) => const EngineCard(),
         ),
       ],
     ),
@@ -41,7 +34,7 @@ List<SettingsGroup> buildNetworkGroups(BuildContext context) {
     // 网络代理
     SettingsGroup(
       title: l10n.networkSettings_proxy,
-      icon: Icons.dns_outlined,
+      icon: Symbols.dns_rounded,
       wrapInCard: false,
       items: [
         CustomModel(
@@ -62,7 +55,7 @@ List<SettingsGroup> buildNetworkGroups(BuildContext context) {
     // 辅助功能
     SettingsGroup(
       title: l10n.networkSettings_auxiliary,
-      icon: Icons.tune_outlined,
+      icon: Symbols.tune_rounded,
       wrapInCard: false,
       items: [
         CustomModel(
@@ -83,15 +76,9 @@ List<SettingsGroup> buildNetworkGroups(BuildContext context) {
     // 高级
     SettingsGroup(
       title: l10n.networkSettings_advanced,
-      icon: Icons.settings_outlined,
+      icon: Symbols.settings_rounded,
       wrapInCard: false,
       items: [
-        CustomModel(
-          id: 'advancedSettings',
-          title: l10n.networkAdapter_title,
-          subtitle: l10n.networkSettings_advanced,
-          builder: (context, ref) => const AdvancedSettingsCard(),
-        ),
         CustomModel(
           id: 'rateLimit',
           title: l10n.networkSettings_rateLimitTitle,
@@ -104,7 +91,7 @@ List<SettingsGroup> buildNetworkGroups(BuildContext context) {
     // 调试
     SettingsGroup(
       title: l10n.networkSettings_debug,
-      icon: Icons.bug_report_outlined,
+      icon: Symbols.bug_report_rounded,
       wrapInCard: false,
       items: [
         CustomModel(

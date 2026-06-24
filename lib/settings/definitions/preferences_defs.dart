@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:ai_model_manager/ai_model_manager.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/s.dart';
@@ -20,13 +21,13 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
   return [
     SettingsGroup(
       title: l10n.preferences_basic,
-      icon: Icons.tune,
+      icon: Symbols.tune_rounded,
       items: [
         SwitchModel(
           id: 'anonymousShare',
           title: l10n.preferences_anonymousShare,
           subtitle: l10n.preferences_anonymousShareDesc,
-          icon: Icons.visibility_off_rounded,
+          icon: Symbols.visibility_off_rounded,
           getValue: (ref) => ref.watch(preferencesProvider).anonymousShare,
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setAnonymousShare(v),
@@ -35,7 +36,7 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
           id: 'autoFillLogin',
           title: l10n.preferences_autoFillLogin,
           subtitle: l10n.preferences_autoFillLoginDesc,
-          icon: Icons.password_rounded,
+          icon: Symbols.password_rounded,
           getValue: (ref) => ref.watch(preferencesProvider).autoFillLogin,
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setAutoFillLogin(v),
@@ -44,7 +45,7 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
           id: 'clipboardTopicLinkDetection',
           title: l10n.preferences_clipboardTopicLinkDetection,
           subtitle: l10n.preferences_clipboardTopicLinkDetectionDesc,
-          icon: Icons.content_paste_rounded,
+          icon: Symbols.content_paste_rounded,
           getValue: (ref) =>
               ref.watch(preferencesProvider).clipboardTopicLinkDetection,
           onChanged: (ref, v) => ref
@@ -55,7 +56,7 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
           id: 'topicFilterKeywords',
           title: l10n.preferences_topicFilterKeywords,
           subtitle: l10n.preferences_topicFilterKeywordsDesc,
-          icon: Icons.filter_alt_off_rounded,
+          icon: Symbols.filter_alt_off_rounded,
           getDynamicSubtitle: (ref) {
             final count = ref
                 .watch(preferencesProvider)
@@ -66,21 +67,12 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
           },
           onTap: (context, ref) => showTopicFilterKeywordsDialog(context, ref),
         ),
-        SwitchModel(
-          id: 'cfClearanceRefresh',
-          title: l10n.preferences_cfClearanceRefresh,
-          subtitle: l10n.preferences_cfClearanceRefreshDesc,
-          icon: Icons.security_update_warning_rounded,
-          getValue: (ref) => ref.watch(preferencesProvider).cfClearanceRefresh,
-          onChanged: (ref, v) =>
-              ref.read(preferencesProvider.notifier).setCfClearanceRefresh(v),
-        ),
         PlatformConditionalModel(
           inner: SwitchModel(
             id: 'portraitLock',
             title: l10n.preferences_portraitLock,
             subtitle: l10n.preferences_portraitLockDesc,
-            icon: Icons.screen_lock_portrait_rounded,
+            icon: Symbols.screen_lock_portrait_rounded,
             getValue: (ref) => ref.watch(preferencesProvider).portraitLock,
             onChanged: (ref, v) =>
                 ref.read(preferencesProvider.notifier).setPortraitLock(v),
@@ -91,13 +83,13 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
     ),
     SettingsGroup(
       title: l10n.preferences_editor,
-      icon: Icons.edit_note_rounded,
+      icon: Symbols.edit_note_rounded,
       items: [
         SwitchModel(
           id: 'autoPanguSpacing',
           title: l10n.preferences_autoPanguSpacing,
           subtitle: l10n.preferences_autoPanguSpacingDesc,
-          icon: Icons.auto_fix_high_rounded,
+          icon: Symbols.auto_fix_high_rounded,
           getValue: (ref) => ref.watch(preferencesProvider).autoPanguSpacing,
           onChanged: (ref, v) =>
               ref.read(preferencesProvider.notifier).setAutoPanguSpacing(v),
@@ -106,7 +98,7 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
           id: 'aiPostReview',
           title: l10n.preferences_aiPostReview,
           subtitle: l10n.preferences_aiPostReviewDesc,
-          icon: Icons.fact_check_outlined,
+          icon: Symbols.fact_check_rounded,
           getValue: (ref) => ref.watch(preferencesProvider).aiPostReviewEnabled,
           onChanged: (ref, v) async {
             final notifier = ref.read(preferencesProvider.notifier);
@@ -124,7 +116,7 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
         ActionModel(
           id: 'aiPostReviewModel',
           title: l10n.preferences_aiPostReviewModel,
-          icon: Icons.psychology_alt_outlined,
+          icon: Symbols.psychology_alt_rounded,
           getDynamicSubtitle: (ref) {
             final selected = ref.watch(aiPostReviewSelectedModelProvider);
             if (selected == null) {
@@ -138,7 +130,7 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
         ActionModel(
           id: 'stickerSource',
           title: l10n.preferences_stickerSource,
-          icon: Icons.sticky_note_2_outlined,
+          icon: Symbols.sticky_note_2_rounded,
           getDynamicSubtitle: (ref) =>
               ref.watch(stickerMarketServiceProvider).baseUrl,
           onTap: (context, ref) => _showStickerBaseUrlDialog(context, ref),
@@ -148,13 +140,13 @@ List<SettingsGroup> buildPreferencesGroups(BuildContext context) {
     if (Platform.isAndroid)
       SettingsGroup(
         title: l10n.preferences_advanced,
-        icon: Icons.bug_report_outlined,
+        icon: Symbols.bug_report_rounded,
         items: [
           SwitchModel(
             id: 'crashlytics',
             title: l10n.preferences_crashlytics,
             subtitle: l10n.preferences_crashlyticsDesc,
-            icon: Icons.bug_report_rounded,
+            icon: Symbols.bug_report_rounded,
             getValue: (ref) => ref.watch(preferencesProvider).crashlytics,
             onChanged: (ref, v) =>
                 ref.read(preferencesProvider.notifier).setCrashlytics(v),
@@ -266,7 +258,7 @@ class _TopicFilterKeywordsDialogState
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
-                icon: const Icon(Icons.clear_all_rounded, size: 18),
+                icon: const Icon(Symbols.clear_all_rounded, size: 18),
                 label: Text(l10n.common_clear),
                 onPressed: () => _controller.clear(),
               ),

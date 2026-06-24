@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -183,7 +184,7 @@ class SearchPreviewDialog extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: Icon(
-                  Icons.lock_outline,
+                  Symbols.lock_rounded,
                   size: 20,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -195,7 +196,7 @@ class SearchPreviewDialog extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: Icon(
-                  Icons.archive_outlined,
+                  Symbols.archive_rounded,
                   size: 20,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -388,7 +389,7 @@ class SearchPreviewDialog extends ConsumerWidget {
               Expanded(
                 child: _buildStatItem(
                   context,
-                  Icons.chat_bubble_outline_rounded,
+                  Symbols.chat_bubble_rounded,
                   context.l10n.search_replyCount((topic.postsCount - 1).clamp(0, 999999)),
                 ),
               ),
@@ -396,7 +397,7 @@ class SearchPreviewDialog extends ConsumerWidget {
               Expanded(
                 child: _buildStatItem(
                   context,
-                  Icons.favorite_border_rounded,
+                  Symbols.favorite_border_rounded,
                   context.l10n.search_likeCount(NumberUtils.formatCount(post.likeCount)),
                 ),
               ),
@@ -409,7 +410,7 @@ class SearchPreviewDialog extends ConsumerWidget {
               Expanded(
                 child: _buildStatItem(
                   context,
-                  Icons.visibility_outlined,
+                  Symbols.visibility_rounded,
                   context.l10n.search_viewCount(NumberUtils.formatCount(topic.views)),
                 ),
               ),
@@ -476,7 +477,7 @@ class SearchPreviewDialog extends ConsumerWidget {
                 );
                 SharePlus.instance.share(ShareParams(text: url));
               },
-              icon: const Icon(Icons.share_outlined, size: 20),
+              icon: const Icon(Symbols.share_rounded, size: 20),
               tooltip: context.l10n.common_share,
             ),
 
@@ -488,7 +489,7 @@ class SearchPreviewDialog extends ConsumerWidget {
               Navigator.of(context).pop();
               onOpen?.call();
             },
-            icon: const Icon(Icons.open_in_new, size: 18),
+            icon: const Icon(Symbols.open_in_new_rounded, size: 18),
             label: Text(context.l10n.common_viewDetails),
           ),
         ],

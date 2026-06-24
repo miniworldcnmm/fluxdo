@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/s.dart';
@@ -16,13 +17,13 @@ List<SettingsGroup> buildBottomNavGroups(BuildContext context) {
   return [
     SettingsGroup(
       title: l10n.bottomNav_gesturesGroup,
-      icon: Icons.touch_app_rounded,
+      icon: Symbols.touch_app_rounded,
       items: [
         ActionModel(
           id: 'bottomSingleTapAction',
           title: l10n.bottomNav_singleTapAction,
           subtitle: l10n.bottomNav_singleTapActionDesc,
-          icon: Icons.radio_button_checked_rounded,
+          icon: Symbols.radio_button_checked_rounded,
           getDynamicSubtitle: (ref) =>
               ref.watch(preferencesProvider).bottomSingleTapAction.label,
           onTap: (ctx, ref) => _pickAction(
@@ -36,7 +37,7 @@ List<SettingsGroup> buildBottomNavGroups(BuildContext context) {
           id: 'bottomDoubleTapAction',
           title: l10n.bottomNav_doubleTapAction,
           subtitle: l10n.bottomNav_doubleTapActionDesc,
-          icon: Icons.double_arrow_rounded,
+          icon: Symbols.double_arrow_rounded,
           getDynamicSubtitle: (ref) =>
               ref.watch(preferencesProvider).bottomDoubleTapAction.label,
           onTap: (ctx, ref) => _pickAction(
@@ -104,13 +105,13 @@ class _ActionOptionTile extends StatelessWidget {
                   : theme.colorScheme.onSurfaceVariant,
             )
           : Icon(
-              Icons.block_rounded,
+              Symbols.block_rounded,
               color: theme.colorScheme.onSurfaceVariant,
             ),
       title: Text(action.label),
       trailing: selected
           ? Icon(
-              Icons.check_rounded,
+              Symbols.check_rounded,
               color: theme.colorScheme.primary,
             )
           : null,

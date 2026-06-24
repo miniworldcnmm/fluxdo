@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../pages/topics_page.dart';
 import '../../providers/category_provider.dart';
@@ -186,7 +187,7 @@ class _SidebarCategoryAddButton extends StatelessWidget {
                     children: [
                       const SizedBox(width: 16),
                       Icon(
-                        Icons.add_rounded,
+                        Symbols.add_rounded,
                         color: Theme.of(context).colorScheme.primary,
                         size: 22,
                       ),
@@ -207,7 +208,7 @@ class _SidebarCategoryAddButton extends StatelessWidget {
                   )
                 : Center(
                     child: Icon(
-                      Icons.add_rounded,
+                      Symbols.add_rounded,
                       color: Theme.of(context).colorScheme.primary,
                       size: 22,
                     ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/discourse_providers.dart';
 import '../utils/load_more_coordinator.dart';
@@ -72,7 +73,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         centerTitle: true,
         actions: [
           IconButton(
-            icon: const Icon(Icons.done_all),
+            icon: const Icon(Symbols.done_all_rounded),
             onPressed: () async {
               await ref.read(notificationListProvider.notifier).markAllAsRead();
               // 快捷面板下次打开时会自动 silentRefresh 同步已读状态
@@ -91,7 +92,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Icon(
-                      Icons.notifications_none,
+                      Symbols.notifications_rounded,
                       size: 64,
                       color: Colors.grey,
                     ),

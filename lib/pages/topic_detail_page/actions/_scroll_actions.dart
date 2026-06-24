@@ -224,8 +224,17 @@ extension _ScrollActions on _TopicDetailPageState {
       final ctx = entry.value.context;
       if (!ctx.mounted) continue;
 
-      final renderBox = ctx.findRenderObject() as RenderBox?;
-      if (renderBox == null || !renderBox.hasSize) continue;
+      // ctx.mounted=true 不代表 element 仍 active,
+      // inactive 状态下 findRenderObject 会抛,跳过即可
+      final RenderBox? renderBox;
+      try {
+        renderBox = ctx.findRenderObject() as RenderBox?;
+      } catch (_) {
+        continue;
+      }
+      if (renderBox == null || !renderBox.hasSize || !renderBox.attached) {
+        continue;
+      }
 
       final top = renderBox.localToGlobal(Offset.zero).dy;
       final bottom = top + renderBox.size.height;

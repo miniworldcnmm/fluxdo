@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/s.dart';
@@ -22,7 +23,7 @@ class ShortcutSettingsPage extends ConsumerWidget {
       maxContentWidth: 860,
       actions: [
         IconButton(
-          icon: const Icon(Icons.restore_rounded),
+          icon: const Icon(Symbols.restore_rounded),
           tooltip: l10n.shortcuts_resetAll,
           onPressed: () async {
             final confirmed = await showDialog<bool>(

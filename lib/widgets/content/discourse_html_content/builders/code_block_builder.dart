@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import '../../../../pages/image_viewer_page.dart';
@@ -301,7 +302,7 @@ class _CodeBlockWidgetState extends State<_CodeBlockWidget> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                Icons.copy_rounded,
+                                Symbols.content_copy_rounded,
                                 size: 14,
                                 color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                               ),
@@ -420,27 +421,30 @@ class _MermaidWidgetState extends State<_MermaidWidget> with SingleTickerProvide
     final controller = _shimmerController;
     if (controller == null) return const SizedBox(height: 100);
 
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, child) {
-        return Container(
-          height: 100,
-          margin: withMargin ? const EdgeInsets.all(12) : null,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            gradient: LinearGradient(
-              begin: Alignment(-1.0 + 2.0 * controller.value, 0),
-              end: Alignment(-0.5 + 2.0 * controller.value, 0),
-              colors: [
-                theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-                theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-              ],
-              stops: const [0.0, 0.5, 1.0],
+    // RepaintBoundary 隔离 60fps shimmer 重绘,避免连累整个帖子内容重绘。
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, child) {
+          return Container(
+            height: 100,
+            margin: withMargin ? const EdgeInsets.all(12) : null,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              gradient: LinearGradient(
+                begin: Alignment(-1.0 + 2.0 * controller.value, 0),
+                end: Alignment(-0.5 + 2.0 * controller.value, 0),
+                colors: [
+                  theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                  theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+                  theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -478,7 +482,7 @@ class _MermaidWidgetState extends State<_MermaidWidget> with SingleTickerProvide
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(_showCode ? Icons.auto_graph : Icons.code, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                        Icon(_showCode ? Symbols.auto_graph_rounded : Symbols.code_rounded, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
                         const SizedBox(width: 4),
                         Text(_showCode ? S.current.codeBlock_chart : S.current.codeBlock_code, style: TextStyle(fontSize: 12, color: theme.colorScheme.onSurface.withValues(alpha: 0.7))),
                       ],
@@ -494,7 +498,7 @@ class _MermaidWidgetState extends State<_MermaidWidget> with SingleTickerProvide
                   borderRadius: BorderRadius.circular(4),
                   child: Padding(
                     padding: const EdgeInsets.all(6),
-                    child: Icon(Icons.copy, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                    child: Icon(Symbols.content_copy_rounded, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
                   ),
                 ),
               ],
@@ -565,13 +569,13 @@ class _MermaidWidgetState extends State<_MermaidWidget> with SingleTickerProvide
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.error_outline, color: theme.colorScheme.error),
+                                  Icon(Symbols.error_rounded, color: theme.colorScheme.error),
                                   const SizedBox(height: 8),
                                   Text(S.current.codeBlock_chartLoadFailed, style: TextStyle(color: theme.colorScheme.error, fontSize: 12)),
                                   const SizedBox(height: 8),
                                   TextButton.icon(
                                     onPressed: _retry,
-                                    icon: const Icon(Icons.refresh, size: 16),
+                                    icon: const Icon(Symbols.refresh_rounded, size: 16),
                                     label: Text(S.current.common_retry),
                                     style: TextButton.styleFrom(
                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),

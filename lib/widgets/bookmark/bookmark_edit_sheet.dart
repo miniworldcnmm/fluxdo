@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import 'package:dio/dio.dart';
 
@@ -11,6 +12,7 @@ import '../../services/toast_service.dart';
 import '../../services/app_error_handler.dart';
 import '../../utils/dialog_utils.dart';
 import '../../utils/time_utils.dart';
+import '../common/app_bottom_sheet.dart';
 import 'bookmark_name_edit_panel.dart';
 
 /// 书签编辑结果
@@ -64,6 +66,7 @@ class BookmarkEditSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
+      enableDrag: false, // 表单卡片:禁止下滑误关丢失输入
       builder: (context) => BookmarkEditSheet(
         bookmarkId: bookmarkId,
         initialName: initialName,
@@ -366,16 +369,9 @@ class _BookmarkEditSheetState extends State<BookmarkEditSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final mediaQuery = MediaQuery.of(context);
     final theme = Theme.of(context);
-    final bottomInset = mediaQuery.viewInsets.bottom;
-    final maxSheetHeight =
-        mediaQuery.size.height -
-        mediaQuery.padding.top -
-        mediaQuery.padding.bottom -
-        bottomInset -
-        32;
-    final compactLayout = mediaQuery.size.width < _compactLayoutWidth;
+    final compactLayout =
+        MediaQuery.of(context).size.width < _compactLayoutWidth;
 
     final deleteButton = TextButton.icon(
       onPressed: _isDeleting ? null : _delete,
@@ -385,7 +381,7 @@ class _BookmarkEditSheetState extends State<BookmarkEditSheet> {
               height: 16,
               child: CircularProgressIndicator(strokeWidth: 2),
             )
-          : Icon(Icons.delete_outline, color: theme.colorScheme.error),
+          : Icon(Symbols.delete_rounded, color: theme.colorScheme.error),
       label: Text(
         S.current.common_delete,
         style: TextStyle(color: theme.colorScheme.error),
@@ -409,212 +405,189 @@ class _BookmarkEditSheetState extends State<BookmarkEditSheet> {
           : Text(S.current.common_save),
     );
 
-    return Container(
-      margin: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: 16 + bottomInset,
-      ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: SafeArea(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: maxSheetHeight.clamp(280, double.infinity),
+    return AppSheetScaffold(
+      style: AppSheetStyle.card,
+      titleWidget: Row(
+        children: [
+          Icon(Symbols.bookmark_rounded, color: theme.colorScheme.primary),
+          const SizedBox(width: 8),
+          Text(
+            S.current.bookmark_editBookmark,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          child: SingleChildScrollView(
-            // 允许书签名称候选列表自己处理拖拽，避免外层滚动先收起键盘导致补全浮层失焦。
-            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 标题栏
-                Row(
+        ],
+      ),
+      contentPadding: EdgeInsets.zero,
+      footer: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+        child: compactLayout
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(width: double.infinity, child: saveButton),
+                  const SizedBox(height: 8),
+                  Row(children: [deleteButton, const Spacer(), cancelButton]),
+                ],
+              )
+            : Row(
+                children: [
+                  deleteButton,
+                  const Spacer(),
+                  cancelButton,
+                  const SizedBox(width: 8),
+                  saveButton,
+                ],
+              ),
+      ),
+      child: SingleChildScrollView(
+        // 允许书签名称候选列表自己处理拖拽，避免外层滚动先收起键盘导致补全浮层失焦。
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.manual,
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 书签名称
+            BookmarkNameEditPanel(
+              controller: _nameController,
+              initialSuggestions: widget.nameSuggestions,
+              suggestionsLoader:
+                  widget.nameSuggestionsLoader ?? _defaultNameSuggestionsLoader,
+            ),
+            const SizedBox(height: 16),
+
+            // 提醒时间
+            Text(
+              S.current.bookmark_setReminder,
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // 当前提醒时间显示
+            if (_currentReminderAt != null && _selectedReminder == null)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: _currentReminderAt!.isAfter(DateTime.now())
+                      ? theme.colorScheme.primaryContainer
+                      : theme.colorScheme.errorContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.bookmark, color: theme.colorScheme.primary),
-                    const SizedBox(width: 8),
-                    Text(
-                      S.current.bookmark_editBookmark,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, size: 20),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-
-                // 书签名称
-                BookmarkNameEditPanel(
-                  controller: _nameController,
-                  initialSuggestions: widget.nameSuggestions,
-                  suggestionsLoader:
-                      widget.nameSuggestionsLoader ??
-                      _defaultNameSuggestionsLoader,
-                ),
-                const SizedBox(height: 16),
-
-                // 提醒时间
-                Text(
-                  S.current.bookmark_setReminder,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                // 当前提醒时间显示
-                if (_currentReminderAt != null && _selectedReminder == null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    margin: const EdgeInsets.only(bottom: 8),
-                    decoration: BoxDecoration(
+                    Icon(
+                      Symbols.alarm_rounded,
+                      size: 16,
                       color: _currentReminderAt!.isAfter(DateTime.now())
-                          ? theme.colorScheme.primaryContainer
-                          : theme.colorScheme.errorContainer,
-                      borderRadius: BorderRadius.circular(8),
+                          ? theme.colorScheme.onPrimaryContainer
+                          : theme.colorScheme.onErrorContainer,
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Icons.alarm,
-                          size: 16,
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _currentReminderAt!.isAfter(DateTime.now())
+                            ? S.current.bookmark_reminderTime(
+                                TimeUtils.formatDetailTime(_currentReminderAt!),
+                              )
+                            : S.current.bookmark_reminderExpired,
+                        style: TextStyle(
+                          fontSize: 13,
                           color: _currentReminderAt!.isAfter(DateTime.now())
                               ? theme.colorScheme.onPrimaryContainer
                               : theme.colorScheme.onErrorContainer,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _currentReminderAt!.isAfter(DateTime.now())
-                                ? S.current.bookmark_reminderTime(
-                                    TimeUtils.formatDetailTime(
-                                      _currentReminderAt!,
-                                    ),
-                                  )
-                                : S.current.bookmark_reminderExpired,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: _currentReminderAt!.isAfter(DateTime.now())
-                                  ? theme.colorScheme.onPrimaryContainer
-                                  : theme.colorScheme.onErrorContainer,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _currentReminderAt = null;
-                            });
-                          },
-                          child: Icon(
-                            Icons.close,
-                            size: 16,
-                            color: _currentReminderAt!.isAfter(DateTime.now())
-                                ? theme.colorScheme.onPrimaryContainer
-                                : theme.colorScheme.onErrorContainer,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-
-                // 快捷提醒选项
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: BookmarkReminderOption.values.map((option) {
-                    final isSelected = _selectedReminder == option;
-                    return ChoiceChip(
-                      label: Text(option.label),
-                      selected: isSelected,
-                      onSelected: (_) => _selectReminder(option),
-                    );
-                  }).toList(),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _currentReminderAt = null;
+                        });
+                      },
+                      child: Icon(
+                        Symbols.close_rounded,
+                        size: 16,
+                        color: _currentReminderAt!.isAfter(DateTime.now())
+                            ? theme.colorScheme.onPrimaryContainer
+                            : theme.colorScheme.onErrorContainer,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
 
-                // 自定义时间显示
-                if (_selectedReminder == BookmarkReminderOption.custom &&
-                    _customReminderAt != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+            // 快捷提醒选项
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: BookmarkReminderOption.values.map((option) {
+                final isSelected = _selectedReminder == option;
+                return ChoiceChip(
+                  label: Text(option.label),
+                  selected: isSelected,
+                  onSelected: (_) => _selectReminder(option),
+                );
+              }).toList(),
+            ),
+
+            // 自定义时间显示
+            if (_selectedReminder == BookmarkReminderOption.custom &&
+                _customReminderAt != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Symbols.alarm_rounded,
+                        size: 16,
+                        color: theme.colorScheme.onPrimaryContainer,
                       ),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(
-                            Icons.alarm,
-                            size: 16,
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          TimeUtils.formatFullDate(_customReminderAt!),
+                          style: TextStyle(
+                            fontSize: 13,
                             color: theme.colorScheme.onPrimaryContainer,
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              TimeUtils.formatFullDate(_customReminderAt!),
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: theme.colorScheme.onPrimaryContainer,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          GestureDetector(
-                            onTap: _pickAndApplyCustomDateTime,
-                            child: Icon(
-                              Icons.edit,
-                              size: 16,
-                              color: theme.colorScheme.onPrimaryContainer,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-
-                const SizedBox(height: 20),
-
-                // 按钮区域
-                if (compactLayout) ...[
-                  SizedBox(width: double.infinity, child: saveButton),
-                  const SizedBox(height: 8),
-                  Row(children: [deleteButton, const Spacer(), cancelButton]),
-                ] else
-                  Row(
-                    children: [
-                      deleteButton,
-                      const Spacer(),
-                      cancelButton,
                       const SizedBox(width: 8),
-                      saveButton,
+                      GestureDetector(
+                        onTap: _pickAndApplyCustomDateTime,
+                        child: Icon(
+                          Symbols.edit_rounded,
+                          size: 16,
+                          color: theme.colorScheme.onPrimaryContainer,
+                        ),
+                      ),
                     ],
                   ),
-              ],
-            ),
-          ),
+                ),
+              ),
+
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );

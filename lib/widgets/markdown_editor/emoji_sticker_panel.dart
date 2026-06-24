@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../../models/emoji.dart';
 import 'emoji_picker.dart';
@@ -208,9 +208,7 @@ class _EmojiStickerPanelState extends State<EmojiStickerPanel> {
                   children: [
                     _buildTabLabel(
                       theme: theme,
-                      icon: _currentPage == 0
-                          ? PhosphorIcons.smileyBlank(PhosphorIconsStyle.fill)
-                          : PhosphorIcons.smileyBlank(PhosphorIconsStyle.bold),
+                      icon: AppIcons.smileyOutline,
                       label: S.current.emoji_tab,
                       selected: _currentPage == 0,
                       width: buttonWidth,
@@ -223,9 +221,7 @@ class _EmojiStickerPanelState extends State<EmojiStickerPanel> {
                     const SizedBox(width: gap),
                     _buildTabLabel(
                       theme: theme,
-                      icon: _currentPage == 1
-                          ? PhosphorIcons.smileyMelting(PhosphorIconsStyle.fill)
-                          : PhosphorIcons.smileyMelting(PhosphorIconsStyle.bold),
+                      icon: AppIcons.stickerOutline,
                       label: S.current.sticker_tab,
                       selected: _currentPage == 1,
                       width: buttonWidth,
@@ -247,7 +243,7 @@ class _EmojiStickerPanelState extends State<EmojiStickerPanel> {
 
   Widget _buildTabLabel({
     required ThemeData theme,
-    required IconData icon,
+    required Object icon,
     required String label,
     required bool selected,
     required double width,
@@ -262,9 +258,10 @@ class _EmojiStickerPanelState extends State<EmojiStickerPanel> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              AppIcon(
                 icon,
                 size: 18,
+                fill: selected ? 1 : 0,
                 color: selected
                     ? theme.colorScheme.primary
                     : theme.colorScheme.onSurfaceVariant,

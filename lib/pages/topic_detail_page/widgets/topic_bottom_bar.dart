@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../l10n/s.dart';
-import '../../../widgets/common/dismissible_popup_menu.dart';
+import 'package:common_ui/common_ui.dart';
 
 /// 话题详情页底部操作栏
 class TopicBottomBar extends StatelessWidget {
@@ -62,7 +63,7 @@ class TopicBottomBar extends StatelessWidget {
           // 回到顶部
           IconButton(
             onPressed: onScrollToTop,
-            icon: const Icon(Icons.vertical_align_top),
+            icon: const Icon(Symbols.vertical_align_top_rounded),
             tooltip: context.l10n.topicDetail_scrollToTop,
           ),
           // 筛选
@@ -75,7 +76,7 @@ class TopicBottomBar extends StatelessWidget {
           // 在浏览器打开
           IconButton(
             onPressed: onOpenInBrowser,
-            icon: const Icon(Icons.language),
+            icon: const Icon(Symbols.language_rounded),
             tooltip: context.l10n.topicDetail_openInBrowser,
           ),
         ],
@@ -103,74 +104,90 @@ class TopicBottomBar extends StatelessWidget {
   }
 
   (IconData, String) _activeFilterInfo(BuildContext context) {
-    if (isSummaryMode) return (Icons.local_fire_department, context.l10n.topicDetail_hotOnly);
-    if (isAuthorOnlyMode) return (Icons.person, context.l10n.topicDetail_authorOnly);
-    if (isTopLevelMode) return (Icons.account_tree, context.l10n.topicDetail_topLevelOnly);
-    if (isNestedMode) return (Icons.forum, context.l10n.nested_title);
-    return (Icons.filter_list, '');
+    if (isSummaryMode) return (Symbols.local_fire_department_rounded, context.l10n.topicDetail_hotOnly);
+    if (isAuthorOnlyMode) return (Symbols.person_rounded, context.l10n.topicDetail_authorOnly);
+    if (isTopLevelMode) return (Symbols.account_tree_rounded, context.l10n.topicDetail_topLevelOnly);
+    if (isNestedMode) return (Symbols.forum_rounded, context.l10n.nested_title);
+    return (Symbols.filter_list_rounded, '');
   }
 
   /// 未激活：筛选菜单按钮
   Widget _buildFilterMenuButton(BuildContext context, ThemeData theme) {
-    return IconButton(
-      onPressed: isLoading ? null : () => _showFilterMenu(context),
-      icon: const Icon(Icons.filter_list),
+    return SwipeDismissiblePopupMenuButton<String>(
+      enabled: !isLoading,
+      icon: const Icon(Symbols.filter_list_rounded),
+      iconColor: theme.colorScheme.onSurfaceVariant,
       tooltip: context.l10n.topicDetail_filter,
-    );
-  }
-
-  void _showFilterMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) {
-        return SafeArea(
-          child: Column(
+      onSelected: (value) {
+        switch (value) {
+          case 'hot':
+            onShowTopReplies?.call();
+          case 'author':
+            onShowAuthorOnly?.call();
+          case 'top_level':
+            onShowTopLevelReplies?.call();
+          case 'nested':
+            onShowNestedView?.call();
+        }
+      },
+      itemBuilder: (context) => [
+        if (hasSummary)
+          PopupMenuItem(
+            value: 'hot',
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Symbols.local_fire_department_rounded,
+                    size: 20, color: theme.colorScheme.onSurface),
+                const SizedBox(width: 12),
+                Text(context.l10n.topicDetail_hotOnly),
+              ],
+            ),
+          ),
+        PopupMenuItem(
+          value: 'author',
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              if (hasSummary)
-                ListTile(
-                  leading: const Icon(Icons.local_fire_department_outlined),
-                  title: Text(context.l10n.topicDetail_hotOnly),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    onShowTopReplies?.call();
-                  },
-                ),
-              ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: Text(context.l10n.topicDetail_authorOnly),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  onShowAuthorOnly?.call();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.account_tree_outlined),
-                title: Text(context.l10n.topicDetail_topLevelOnly),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  onShowTopLevelReplies?.call();
-                },
-              ),
-              const Divider(height: 1),
-              ListTile(
-                leading: const Icon(Icons.forum_outlined),
-                title: Text(context.l10n.nested_title),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  onShowNestedView?.call();
-                },
-              ),
+              Icon(Symbols.person_rounded,
+                  size: 20, color: theme.colorScheme.onSurface),
+              const SizedBox(width: 12),
+              Text(context.l10n.topicDetail_authorOnly),
             ],
           ),
-        );
-      },
+        ),
+        PopupMenuItem(
+          value: 'top_level',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Symbols.account_tree_rounded,
+                  size: 20, color: theme.colorScheme.onSurface),
+              const SizedBox(width: 12),
+              Text(context.l10n.topicDetail_topLevelOnly),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem(
+          value: 'nested',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Symbols.forum_rounded,
+                  size: 20, color: theme.colorScheme.onSurface),
+              const SizedBox(width: 12),
+              Text(context.l10n.nested_title),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
   Widget _buildShareMenu(BuildContext context, ThemeData theme) {
     return SwipeDismissiblePopupMenuButton<String>(
-      icon: const Icon(Icons.share_outlined),
+      icon: const Icon(Symbols.share_rounded),
       iconColor: theme.colorScheme.onSurfaceVariant,
       tooltip: context.l10n.common_share,
       onSelected: (value) {
@@ -193,7 +210,7 @@ class TopicBottomBar extends StatelessWidget {
             value: 'link',
             child: Row(
               children: [
-                Icon(Icons.link, size: 20, color: theme.colorScheme.onSurface),
+                Icon(Symbols.link_rounded, size: 20, color: theme.colorScheme.onSurface),
                 const SizedBox(width: 12),
                 Text(context.l10n.topicDetail_shareLink),
               ],
@@ -204,7 +221,7 @@ class TopicBottomBar extends StatelessWidget {
             value: 'image',
             child: Row(
               children: [
-                Icon(Icons.image_outlined, size: 20, color: theme.colorScheme.onSurface),
+                Icon(Symbols.image_rounded, size: 20, color: theme.colorScheme.onSurface),
                 const SizedBox(width: 12),
                 Text(context.l10n.topicDetail_generateShareImage),
               ],
@@ -214,7 +231,7 @@ class TopicBottomBar extends StatelessWidget {
           value: 'export',
           child: Row(
             children: [
-              Icon(Icons.download_outlined, size: 20, color: theme.colorScheme.onSurface),
+              Icon(Symbols.download_rounded, size: 20, color: theme.colorScheme.onSurface),
               const SizedBox(width: 12),
               Text(context.l10n.topicDetail_exportArticle),
             ],

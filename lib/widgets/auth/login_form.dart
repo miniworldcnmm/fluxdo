@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../common/loading_spinner.dart';
 
@@ -122,7 +123,7 @@ class _LoginFormState extends State<LoginForm> {
             decoration: _inputDecoration(
               scheme,
               label: '用户名 / 邮箱',
-              icon: Icons.person_outline,
+              icon: Symbols.person_rounded,
             ),
             onSubmitted: (_) => _passwordFocus.requestFocus(),
           ),
@@ -137,13 +138,13 @@ class _LoginFormState extends State<LoginForm> {
             decoration: _inputDecoration(
               scheme,
               label: '密码',
-              icon: Icons.lock_outline,
+              icon: Symbols.lock_rounded,
               suffixIcon: IconButton(
                 tooltip: _obscure ? '显示密码' : '隐藏密码',
                 icon: Icon(
                   _obscure
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
+                      ? Symbols.visibility_rounded
+                      : Symbols.visibility_off_rounded,
                 ),
                 onPressed: () => setState(() => _obscure = !_obscure),
               ),

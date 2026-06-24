@@ -5,6 +5,7 @@ import 'package:jovial_svg/jovial_svg.dart';
 
 import 'package:ai_model_manager/ai_model_manager.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ignore: depend_on_referenced_packages
@@ -14,12 +15,13 @@ import 'package:path_provider/path_provider.dart';
 import '../../../l10n/s.dart';
 import '../../../models/topic.dart';
 import '../../../utils/dialog_utils.dart';
+import '../../../widgets/common/app_bottom_sheet.dart';
 import '../../../services/discourse/discourse_service.dart';
 import '../../../services/toast_service.dart';
 import '../../../widgets/ai/ai_model_select_sheet.dart';
 import '../../../widgets/ai/ai_quick_prompts_bar.dart';
 import '../../../widgets/share/ai_share_image_preview.dart';
-import '../../../widgets/common/dismissible_popup_menu.dart';
+import 'package:common_ui/common_ui.dart';
 import 'ai_chat_input.dart';
 import 'ai_chat_message_item.dart';
 import 'ai_context_selector.dart';
@@ -262,8 +264,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
           ? ref.read(defaultImageAiModelKeyProvider)
           : ref.read(defaultTextAiModelKeyProvider),
     );
-    if (explicitDefault != null &&
-        _matchesMode(explicitDefault.model, mode)) {
+    if (explicitDefault != null && _matchesMode(explicitDefault.model, mode)) {
       return explicitDefault;
     }
 
@@ -282,8 +283,9 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
         model;
     final isImage = model.model.output.contains(Modality.image);
     // 同步当前模式（如果用户切到了别的 modality 的模型，模式跟着走）
-    ref.read(topicChatModeProvider(widget.topicId).notifier).state =
-        isImage ? PromptType.image : PromptType.text;
+    ref.read(topicChatModeProvider(widget.topicId).notifier).state = isImage
+        ? PromptType.image
+        : PromptType.text;
     unawaited(
       setLastUsedAiAssistantModel(
         ref,
@@ -303,8 +305,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
           ? ref.read(defaultImageAiModelKeyProvider)
           : ref.read(defaultTextAiModelKeyProvider),
     );
-    if (explicitDefault != null &&
-        _matchesMode(explicitDefault.model, mode)) {
+    if (explicitDefault != null && _matchesMode(explicitDefault.model, mode)) {
       return explicitDefault;
     }
 
@@ -348,8 +349,11 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
     final result = await showAppDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        icon: Icon(Icons.image_outlined,
-            color: theme.colorScheme.primary, size: 32),
+        icon: Icon(
+          Symbols.image_rounded,
+          color: theme.colorScheme.primary,
+          size: 32,
+        ),
         title: Text(S.current.ai_imageModelMissingTitle),
         content: Text(S.current.ai_imageModelMissingMessage),
         actions: [
@@ -365,11 +369,9 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
       ),
     );
     if (result == true && mounted) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => const AiProvidersPage(),
-        ),
-      );
+      Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const AiProvidersPage()));
     }
   }
 
@@ -488,7 +490,9 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
   /// base64Data（多模态用户上传图）
   Future<String?> _attachmentToTempFile(AiChatAttachment attachment) async {
     final localPath = attachment.localPath;
-    if (localPath != null && localPath.isNotEmpty && File(localPath).existsSync()) {
+    if (localPath != null &&
+        localPath.isNotEmpty &&
+        File(localPath).existsSync()) {
       return localPath;
     }
     final b64 = attachment.base64Data;
@@ -620,7 +624,6 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
     );
   }
 
-
   /// BottomSheet 模式（当前默认）
   Widget _buildSheet(
     BuildContext context,
@@ -710,9 +713,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
     return [
       Consumer(
         builder: (context, ref, _) {
-          final scope = ref.watch(
-            topicAiContextScopeProvider(widget.topicId),
-          );
+          final scope = ref.watch(topicAiContextScopeProvider(widget.topicId));
           return AiContextSelector(
             currentScope: scope,
             onChanged: _onScopeChanged,
@@ -721,13 +722,13 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
       ),
       if (chatState.messages.isNotEmpty)
         IconButton(
-          icon: const Icon(Icons.check_box_outlined),
+          icon: const Icon(Symbols.check_box_rounded),
           tooltip: context.l10n.ai_multiSelectExport,
           iconSize: 20,
           onPressed: _enterSelectionMode,
         ),
       SwipeDismissiblePopupMenuButton<String>(
-        icon: const Icon(Icons.more_vert),
+        icon: const Icon(Symbols.more_vert_rounded),
         tooltip: context.l10n.ai_moreTooltip,
         iconSize: 20,
         onSelected: (value) {
@@ -744,7 +745,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
           PopupMenuItem(
             value: 'new_session',
             child: ListTile(
-              leading: const Icon(Icons.add_comment_outlined),
+              leading: const Icon(Symbols.add_comment_rounded),
               title: Text(context.l10n.ai_newSession),
               dense: true,
               contentPadding: EdgeInsets.zero,
@@ -754,7 +755,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
             PopupMenuItem(
               value: 'history',
               child: ListTile(
-                leading: const Icon(Icons.history),
+                leading: const Icon(Symbols.history_rounded),
                 title: Text(context.l10n.ai_sessionHistory),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
@@ -764,7 +765,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
             PopupMenuItem(
               value: 'clear',
               child: ListTile(
-                leading: const Icon(Icons.delete_outline),
+                leading: const Icon(Symbols.delete_rounded),
                 title: Text(context.l10n.ai_clearChat),
                 dense: true,
                 contentPadding: EdgeInsets.zero,
@@ -819,9 +820,8 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                   currentModel?.model.input.contains(Modality.image) ?? false,
               isImageMode: isImageMode,
               canEnterImageMode: _hasModelForMode(PromptType.image),
-              onToggleImageMode: () => _switchMode(
-                isImageMode ? PromptType.text : PromptType.image,
-              ),
+              onToggleImageMode: () =>
+                  _switchMode(isImageMode ? PromptType.text : PromptType.image),
               onSend: (content, attachments) {
                 final scope = ref.read(
                   topicAiContextScopeProvider(widget.topicId),
@@ -841,17 +841,17 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
               modelButton: currentModel == null
                   ? null
                   : _ModelLogoButton(
-                      allModels:
-                          ref.watch(allAvailableAiModelsProvider),
+                      allModels: ref.watch(allAvailableAiModelsProvider),
                       current: currentModel,
                       onChanged: _rememberModel,
                     ),
               thinkingButton:
                   currentModel != null &&
-                          currentModel.model.abilities
-                              .contains(ModelAbility.reasoning)
-                      ? _ThinkingButton(ref: ref)
-                      : null,
+                      currentModel.model.abilities.contains(
+                        ModelAbility.reasoning,
+                      )
+                  ? _ThinkingButton(ref: ref)
+                  : null,
             );
           },
         ),
@@ -881,7 +881,9 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
     final model = _currentModel();
     if (model == null) return;
     _rememberModel(model);
-    ref.read(topicAiChatProvider(widget.topicId).notifier).sendMessage(
+    ref
+        .read(topicAiChatProvider(widget.topicId).notifier)
+        .sendMessage(
           prompt,
           scope,
           selectedModel: model,
@@ -912,8 +914,8 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
             ? const Color(0xFFEA580C)
             : theme.colorScheme.primary;
         final iconData = isImage
-            ? Icons.palette_outlined
-            : Icons.chat_bubble_outline_rounded;
+            ? Symbols.palette_rounded
+            : Symbols.chat_bubble_rounded;
         final title = isImage
             ? context.l10n.ai_imageGenTitle
             : context.l10n.ai_askTitle;
@@ -947,34 +949,34 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                    // 小一号 accent 色标题（取代之前的圆形 icon + titleMedium）
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.5,
-                        color: accent,
+                      // 小一号 accent 色标题（取代之前的圆形 icon + titleMedium）
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.5,
+                          color: accent,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: theme.colorScheme.onSurface,
-                        height: 1.5,
-                        fontWeight: FontWeight.w500,
+                      const SizedBox(height: 8),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          height: 1.5,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    AiQuickPromptsBar(
-                      type: type,
-                      topicTitle: _topicTitle,
-                      stacked: true,
-                      onPick: (preset, dimensionValues, rendered, aspect) {
-                        _sendPresetPrompt(rendered, aspect: aspect);
-                      },
-                    ),
+                      const SizedBox(height: 24),
+                      AiQuickPromptsBar(
+                        type: type,
+                        topicTitle: _topicTitle,
+                        stacked: true,
+                        onPick: (preset, dimensionValues, rendered, aspect) {
+                          _sendPresetPrompt(rendered, aspect: aspect);
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -1020,15 +1022,18 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                       );
                 }
               : null,
-          onShareAsImage: message.status == MessageStatus.completed &&
+          onShareAsImage:
+              message.status == MessageStatus.completed &&
                   message.content.isNotEmpty
               ? () => _shareMessageAsImage(message)
               : null,
-          onCopyText: message.status == MessageStatus.completed &&
+          onCopyText:
+              message.status == MessageStatus.completed &&
                   message.content.isNotEmpty
               ? () => _copyMessageText(message)
               : null,
-          onReplyImage: widget.onReplyToTopic != null &&
+          onReplyImage:
+              widget.onReplyToTopic != null &&
                   message.status == MessageStatus.completed
               ? (att) => _replyImageToTopic(att)
               : null,
@@ -1051,17 +1056,14 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              icon: const Icon(Icons.close),
+              icon: const Icon(Symbols.close_rounded),
               iconSize: 20,
               onPressed: _exitSelectionMode,
             ),
             const SizedBox(width: 4),
             Text(
               context.l10n.ai_selectedCount(_selectedMessageIds.length),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -1069,7 +1071,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
           onPressed: _selectedMessageIds.isEmpty
               ? null
               : _exportSelectedMessages,
-          icon: const Icon(Icons.image_outlined, size: 18),
+          icon: const Icon(Symbols.image_rounded, size: 18),
           label: Text(context.l10n.ai_exportImage),
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1087,6 +1089,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
     showAppBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (ctx) {
         return _SessionHistorySheet(
           sessions: chatState.sessions,
@@ -1175,8 +1178,6 @@ class _ModelLogoButton extends StatelessWidget {
   }
 }
 
-
-
 /// 会话历史记录列表
 class _SessionHistorySheet extends StatefulWidget {
   final List<AiChatSession> sessions;
@@ -1208,101 +1209,75 @@ class _SessionHistorySheetState extends State<_SessionHistorySheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.5,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 标题
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Row(
-                children: [
-                  Text(
-                    S.current.ai_sessionHistory,
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    S.current.ai_sessionCount(_sessions.length),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
+    return AppSheetScaffold(
+      showCloseButton: false,
+      showTitleDivider: true,
+      contentPadding: EdgeInsets.zero,
+      maxHeightFactor: 0.5,
+      titleWidget: Row(
+        children: [
+          Text(S.current.ai_sessionHistory, style: theme.textTheme.titleMedium),
+          const SizedBox(width: 8),
+          Text(
+            S.current.ai_sessionCount(_sessions.length),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            const Divider(height: 1),
-            // 列表
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: _sessions.length,
-                itemBuilder: (context, index) {
-                  final session = _sessions[index];
-                  final isCurrent = session.id == widget.currentSessionId;
+          ),
+        ],
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: _sessions.length,
+        itemBuilder: (context, index) {
+          final session = _sessions[index];
+          final isCurrent = session.id == widget.currentSessionId;
 
-                  return ListTile(
-                    leading: Icon(
-                      isCurrent
-                          ? Icons.chat_bubble
-                          : Icons.chat_bubble_outline,
-                      size: 20,
-                      color: isCurrent
-                          ? theme.colorScheme.primary
-                          : theme.colorScheme.onSurfaceVariant,
-                    ),
-                    title: Text(
-                      _formatSessionTitle(session, index),
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight:
-                            isCurrent ? FontWeight.w500 : FontWeight.normal,
-                        color: isCurrent
-                            ? theme.colorScheme.primary
-                            : null,
-                      ),
-                    ),
-                    subtitle: Text(
-                      _formatTime(session.updatedAt),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    trailing: isCurrent
-                        ? null
-                        : IconButton(
-                            icon: Icon(
-                              Icons.delete_outline,
-                              size: 18,
-                              color: theme.colorScheme.error,
-                            ),
-                            onPressed: () async {
-                              await widget.onDelete(session.id);
-                              if (!mounted) return;
-                              _sessions.removeWhere(
-                                  (s) => s.id == session.id);
-                              if (_sessions.isEmpty) {
-                                if (context.mounted) {
-                                  Navigator.pop(context);
-                                }
-                              } else {
-                                setState(() {});
-                              }
-                            },
-                          ),
-                    onTap: isCurrent
-                        ? null
-                        : () => widget.onSwitch(session.id),
-                  );
-                },
+          return ListTile(
+            leading: Icon(Symbols.chat_bubble_rounded, fill: isCurrent ? 1 : 0,
+              size: 20,
+              color: isCurrent
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+            title: Text(
+              _formatSessionTitle(session, index),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: isCurrent ? FontWeight.w500 : FontWeight.normal,
+                color: isCurrent ? theme.colorScheme.primary : null,
               ),
             ),
-          ],
-        ),
+            subtitle: Text(
+              _formatTime(session.updatedAt),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            trailing: isCurrent
+                ? null
+                : IconButton(
+                    icon: Icon(
+                      Symbols.delete_rounded,
+                      size: 18,
+                      color: theme.colorScheme.error,
+                    ),
+                    onPressed: () async {
+                      await widget.onDelete(session.id);
+                      if (!mounted) return;
+                      _sessions.removeWhere((s) => s.id == session.id);
+                      if (_sessions.isEmpty) {
+                        if (context.mounted) {
+                          Navigator.pop(context);
+                        }
+                      } else {
+                        setState(() {});
+                      }
+                    },
+                  ),
+            onTap: isCurrent ? null : () => widget.onSwitch(session.id),
+          );
+        },
       ),
     );
   }
@@ -1334,7 +1309,8 @@ class _ThinkingButton extends StatelessWidget {
       ThinkingLevel.off => 'assets/icons/thinking/idea-01-no-rays.svg',
       ThinkingLevel.auto => 'assets/icons/thinking/idea-01-stroke-rounded.svg',
       ThinkingLevel.low => 'assets/icons/thinking/idea-01-no-side-rays.svg',
-      ThinkingLevel.medium => 'assets/icons/thinking/idea-01-stroke-rounded.svg',
+      ThinkingLevel.medium =>
+        'assets/icons/thinking/idea-01-stroke-rounded.svg',
       ThinkingLevel.high => 'assets/icons/thinking/idea-01-more-rays.svg',
       ThinkingLevel.custom => 'assets/icons/thinking/idea-01-moremore-rays.svg',
     };
@@ -1350,13 +1326,13 @@ class _ThinkingButton extends StatelessWidget {
         : theme.colorScheme.onSurfaceVariant;
 
     return IconButton(
-        onPressed: () => _showLevelSheet(context),
-        icon: _IdeaIcon(asset: _svgAsset(config.level), color: color, size: 20),
-        tooltip: AiL10n.current.thinkingLevelLabel,
-        style: IconButton.styleFrom(
-          minimumSize: const Size(36, 36),
-          padding: EdgeInsets.zero,
-        ),
+      onPressed: () => _showLevelSheet(context),
+      icon: _IdeaIcon(asset: _svgAsset(config.level), color: color, size: 20),
+      tooltip: AiL10n.current.thinkingLevelLabel,
+      style: IconButton.styleFrom(
+        minimumSize: const Size(36, 36),
+        padding: EdgeInsets.zero,
+      ),
     );
   }
 
@@ -1366,58 +1342,75 @@ class _ThinkingButton extends StatelessWidget {
   }
 
   void _showLevelSheet(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    showModalBottomSheet(
+    AppBottomSheet.show(
       context: context,
+      contentPadding: EdgeInsets.zero,
       builder: (ctx) {
         final current = ref.read(aiThinkingConfigProvider);
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Container(
-                width: 40, height: 4,
-                decoration: BoxDecoration(
-                  color: cs.onSurface.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-              ),
-              const SizedBox(height: 12),
-              _levelTile(ctx, ThinkingLevel.off,
-                  AiL10n.current.thinkingOff, current.level),
-              _levelTile(ctx, ThinkingLevel.auto,
-                  AiL10n.current.thinkingAuto, current.level),
-              _levelTile(ctx, ThinkingLevel.low,
-                  AiL10n.current.thinkingLow, current.level),
-              _levelTile(ctx, ThinkingLevel.medium,
-                  AiL10n.current.thinkingMedium, current.level),
-              _levelTile(ctx, ThinkingLevel.high,
-                  AiL10n.current.thinkingHigh, current.level),
-              _customTile(ctx, current),
-              const SizedBox(height: 8),
-            ],
-          ),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _levelTile(
+              ctx,
+              ThinkingLevel.off,
+              AiL10n.current.thinkingOff,
+              current.level,
+            ),
+            _levelTile(
+              ctx,
+              ThinkingLevel.auto,
+              AiL10n.current.thinkingAuto,
+              current.level,
+            ),
+            _levelTile(
+              ctx,
+              ThinkingLevel.low,
+              AiL10n.current.thinkingLow,
+              current.level,
+            ),
+            _levelTile(
+              ctx,
+              ThinkingLevel.medium,
+              AiL10n.current.thinkingMedium,
+              current.level,
+            ),
+            _levelTile(
+              ctx,
+              ThinkingLevel.high,
+              AiL10n.current.thinkingHigh,
+              current.level,
+            ),
+            _customTile(ctx, current),
+            const SizedBox(height: 8),
+          ],
         );
       },
     );
   }
 
-  Widget _levelTile(BuildContext context, ThinkingLevel level,
-      String label, ThinkingLevel current) {
+  Widget _levelTile(
+    BuildContext context,
+    ThinkingLevel level,
+    String label,
+    ThinkingLevel current,
+  ) {
     final cs = Theme.of(context).colorScheme;
     final isSelected = level == current;
     final color = isSelected ? cs.primary : cs.onSurfaceVariant;
     return ListTile(
       leading: _IdeaIcon(asset: _svgAsset(level), color: color, size: 22),
-      title: Text(label, style: TextStyle(
+      title: Text(
+        label,
+        style: TextStyle(
           color: isSelected ? cs.primary : null,
-          fontWeight: isSelected ? FontWeight.w500 : null)),
+          fontWeight: isSelected ? FontWeight.w500 : null,
+        ),
+      ),
       trailing: isSelected
-          ? Icon(Icons.check, color: cs.primary, size: 20) : null,
+          ? Icon(Symbols.check_rounded, color: cs.primary, size: 20)
+          : null,
       onTap: () {
-        _setConfig(ref.read(aiThinkingConfigProvider)
-            .copyWith(level: level));
+        _setConfig(ref.read(aiThinkingConfigProvider).copyWith(level: level));
         Navigator.pop(context);
       },
     );
@@ -1427,14 +1420,27 @@ class _ThinkingButton extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final isSelected = current.level == ThinkingLevel.custom;
     return ListTile(
-      leading: Icon(Icons.tune, size: 22,
-          color: isSelected ? cs.primary : cs.onSurfaceVariant),
-      title: Text(AiL10n.current.thinkingCustom, style: TextStyle(
+      leading: Icon(
+        Symbols.tune_rounded,
+        size: 22,
+        color: isSelected ? cs.primary : cs.onSurfaceVariant,
+      ),
+      title: Text(
+        AiL10n.current.thinkingCustom,
+        style: TextStyle(
           color: isSelected ? cs.primary : null,
-          fontWeight: isSelected ? FontWeight.w500 : null)),
+          fontWeight: isSelected ? FontWeight.w500 : null,
+        ),
+      ),
       trailing: isSelected
-          ? Text('${current.customBudget}', style: TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w500, color: cs.primary))
+          ? Text(
+              '${current.customBudget}',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: cs.primary,
+              ),
+            )
           : null,
       onTap: () {
         Navigator.pop(context);
@@ -1444,8 +1450,7 @@ class _ThinkingButton extends StatelessWidget {
   }
 
   void _showCustomDialog(BuildContext context, ThinkingConfig current) {
-    final controller = TextEditingController(
-        text: '${current.customBudget}');
+    final controller = TextEditingController(text: '${current.customBudget}');
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1469,10 +1474,12 @@ class _ThinkingButton extends StatelessWidget {
             onPressed: () {
               final val = int.tryParse(controller.text.trim());
               if (val != null && val >= 1024) {
-                _setConfig(ThinkingConfig(
-                  level: ThinkingLevel.custom,
-                  customBudget: val.clamp(1024, 64000),
-                ));
+                _setConfig(
+                  ThinkingConfig(
+                    level: ThinkingLevel.custom,
+                    customBudget: val.clamp(1024, 64000),
+                  ),
+                );
               }
               Navigator.pop(ctx);
             },
@@ -1504,11 +1511,7 @@ class _IdeaIcon extends StatelessWidget {
       child: ColorFiltered(
         colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
         child: ScalableImageWidget.fromSISource(
-          si: ScalableImageSource.fromSvg(
-            rootBundle,
-            asset,
-            warnF: (_) {},
-          ),
+          si: ScalableImageSource.fromSvg(rootBundle, asset, warnF: (_) {}),
         ),
       ),
     );

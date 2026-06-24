@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:ai_model_manager/ai_model_manager.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:popover/popover.dart';
@@ -420,14 +421,14 @@ class _AiPostReviewPopover extends StatelessWidget {
             if (isStaleForCurrentInput) ...[
               const SizedBox(height: 10),
               _NoticeBox(
-                icon: Icons.history_rounded,
+                icon: Symbols.history_rounded,
                 text: context.l10n.aiPostReview_previousResultNotice,
               ),
             ],
             if (result.usedCachedGuidelines) ...[
               const SizedBox(height: 12),
               _NoticeBox(
-                icon: Icons.info_outline_rounded,
+                icon: Symbols.info_rounded,
                 text: context.l10n.aiPostReview_cachedGuidelines,
               ),
             ],
@@ -438,7 +439,7 @@ class _AiPostReviewPopover extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: FilledButton.tonalIcon(
                 onPressed: onReviewAgain,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
+                icon: const Icon(Symbols.refresh_rounded, size: 18),
                 label: Text(context.l10n.aiPostReview_reviewAgain),
               ),
             ),
@@ -452,15 +453,15 @@ class _AiPostReviewPopover extends StatelessWidget {
     return switch (level) {
       AiPostReviewLevel.low => const _ReviewTone(
         color: Color(0xFF2E7D32),
-        icon: Icons.check_circle_outline_rounded,
+        icon: Symbols.check_circle_rounded,
       ),
       AiPostReviewLevel.medium => const _ReviewTone(
         color: Color(0xFFF57C00),
-        icon: Icons.error_outline_rounded,
+        icon: Symbols.error_rounded,
       ),
       AiPostReviewLevel.high => const _ReviewTone(
         color: Color(0xFFC62828),
-        icon: Icons.warning_amber_rounded,
+        icon: Symbols.warning_amber_rounded,
       ),
     };
   }
@@ -486,7 +487,7 @@ class _ModelInfoRow extends StatelessWidget {
     return Row(
       children: [
         Icon(
-          Icons.smart_toy_outlined,
+          Symbols.smart_toy_rounded,
           size: 16,
           color: theme.colorScheme.onSurfaceVariant,
         ),

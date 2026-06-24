@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import '../../../../services/discourse_cache_manager.dart';
 import '../../../../utils/url_helper.dart';
@@ -289,7 +290,7 @@ class _GridImageTileState extends State<_GridImageTile> {
                 return Container(
                   color: widget.theme.colorScheme.surfaceContainerHighest,
                   child: Icon(
-                    Icons.broken_image,
+                    Symbols.broken_image_rounded,
                     color: widget.theme.colorScheme.outline,
                   ),
                 );
@@ -353,7 +354,7 @@ class _GridImageTileState extends State<_GridImageTile> {
         child: Container(
           color: widget.theme.colorScheme.surfaceContainerHighest,
           child: Icon(
-            Icons.broken_image,
+            Symbols.broken_image_rounded,
             color: widget.theme.colorScheme.outline,
           ),
         ),

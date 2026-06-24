@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/profile_stats_config.dart';
 import '../models/user.dart';
@@ -169,7 +170,7 @@ class _PreviewSectionState extends ConsumerState<_PreviewSection> {
             right: 8, bottom: 6,
             child: Tooltip(
               message: S.current.profileStats_loadError,
-              child: Icon(Icons.error_outline_rounded, size: 16,
+              child: Icon(Symbols.error_rounded, size: 16,
                 color: Theme.of(context).colorScheme.error.withValues(alpha: 0.6)),
             ),
           ),
@@ -318,12 +319,12 @@ class _LayoutSettings extends ConsumerWidget {
                 segments: [
                   ButtonSegment(
                     value: StatsLayoutMode.grid,
-                    icon: const Icon(Icons.grid_view_rounded, size: 18),
+                    icon: const Icon(Symbols.grid_view_rounded, size: 18),
                     label: Text(S.current.profileStats_layoutGrid),
                   ),
                   ButtonSegment(
                     value: StatsLayoutMode.scroll,
-                    icon: const Icon(Icons.view_column_rounded, size: 18),
+                    icon: const Icon(Symbols.view_column_rounded, size: 18),
                     label: Text(S.current.profileStats_layoutScroll),
                   ),
                 ],

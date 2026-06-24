@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -16,7 +17,7 @@ List<SettingsGroup> buildShortcutGroups(BuildContext context) {
   return [
     SettingsGroup(
       title: l10n.shortcuts_navigation,
-      icon: Icons.navigation_rounded,
+      icon: Symbols.navigation_rounded,
       items: [
         _maybeShortcutCustomModel(ShortcutAction.navigateBack, l10n),
         _maybeShortcutCustomModel(ShortcutAction.navigateBackAlt, l10n),
@@ -32,7 +33,7 @@ List<SettingsGroup> buildShortcutGroups(BuildContext context) {
     ),
     SettingsGroup(
       title: l10n.shortcuts_content,
-      icon: Icons.article_rounded,
+      icon: Symbols.article_rounded,
       items: [
         _maybeShortcutCustomModel(ShortcutAction.closeOverlay, l10n),
         _maybeShortcutCustomModel(ShortcutAction.refresh, l10n),
@@ -46,7 +47,7 @@ List<SettingsGroup> buildShortcutGroups(BuildContext context) {
     ),
     SettingsGroup(
       title: l10n.shortcuts_topic,
-      icon: Icons.topic_outlined,
+      icon: Symbols.topic_rounded,
       items: [
         _maybeShortcutCustomModel(ShortcutAction.jumpToPost, l10n),
         _maybeShortcutCustomModel(ShortcutAction.goToUnreadPost, l10n),
@@ -57,7 +58,7 @@ List<SettingsGroup> buildShortcutGroups(BuildContext context) {
     ),
     SettingsGroup(
       title: l10n.shortcuts_post,
-      icon: Icons.forum_outlined,
+      icon: Symbols.forum_rounded,
       items: [
         _maybeShortcutCustomModel(ShortcutAction.replyPost, l10n),
         _maybeShortcutCustomModel(ShortcutAction.quotePost, l10n),
@@ -148,7 +149,7 @@ class _ShortcutTile extends ConsumerWidget {
               ),
               const SizedBox(width: 12),
               Icon(
-                Icons.chevron_right_rounded,
+                Symbols.chevron_right_rounded,
                 color: theme.colorScheme.outline.withValues(alpha: 0.42),
                 size: 18,
               ),
@@ -261,7 +262,7 @@ class _RecordKeyDialogState extends State<_RecordKeyDialog> {
               Row(
                 children: [
                   Icon(
-                    Icons.warning_amber_rounded,
+                    Symbols.warning_amber_rounded,
                     color: theme.colorScheme.error,
                     size: 18,
                   ),

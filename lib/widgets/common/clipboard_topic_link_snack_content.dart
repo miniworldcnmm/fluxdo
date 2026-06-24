@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 class ClipboardTopicLinkSnackContent extends StatelessWidget {
   final String message;
@@ -61,7 +62,7 @@ class ClipboardTopicLinkSnackContent extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     child: Icon(
-                      Icons.link_rounded,
+                      Symbols.link_rounded,
                       size: 19,
                       color: colorScheme.onPrimaryContainer,
                     ),
@@ -92,7 +93,7 @@ class ClipboardTopicLinkSnackContent extends StatelessWidget {
                     tooltip: MaterialLocalizations.of(
                       context,
                     ).closeButtonTooltip,
-                    icon: const Icon(Icons.close_rounded),
+                    icon: const Icon(Symbols.close_rounded),
                     iconSize: 20,
                     style: IconButton.styleFrom(
                       foregroundColor: colorScheme.onSurfaceVariant,

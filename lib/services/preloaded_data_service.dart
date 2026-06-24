@@ -39,6 +39,7 @@ class PreloadedDataService {
   String? _cdnUrl; // CDN 域名（从 data-discourse-setup 提取）
   String? _s3CdnUrl; // S3 CDN 域名（如 https://cdn3.linux.do）
   String? _s3BaseUrl; // S3 基础 URL（如 //linuxdo-uploads.s3.linux.do）
+  List<String>? _pluginCandidates; // 首页 HTML 中扫到的 plugin js url 列表
   bool _hasDiscourseSetup = false; // 是否提取到 data-discourse-setup 标签
   bool _loaded = false;
   bool _loading = false;
@@ -57,7 +58,11 @@ class PreloadedDataService {
   Map<String, dynamic>? get currentUserSync => _currentUser;
   Map<String, dynamic>? get siteSettingsSync => _siteSettings;
 
-List<Map<String, dynamic>>? get topicTrackingStatesSync =>
+  /// 从首页 HTML 扫出的 plugin js url 列表（供 WebView session bootstrap 复用,
+  /// 避免重复 fetch 首页）。未加载或没扫到时返回 null。
+  List<String>? get pluginCandidatesSync => _pluginCandidates;
+
+  List<Map<String, dynamic>>? get topicTrackingStatesSync =>
       _topicTrackingStates;
 
   /// 设置导航 context（用于弹出 CF 验证页面）
@@ -214,6 +219,13 @@ List<Map<String, dynamic>>? get topicTrackingStatesSync =>
   /// 获取回复内容最小长度
   Future<int> getMinPostLength() async {
     await _ensureLoaded();
+    final premiumValue = _currentUser?['premium_min_post_length'];
+    if (premiumValue is int && premiumValue > 0) return premiumValue;
+    if (premiumValue is String) {
+      final parsed = int.tryParse(premiumValue);
+      if (parsed != null && parsed > 0) return parsed;
+    }
+
     final value = _siteSettings?['min_post_length'];
     if (value is int) return value;
     if (value is String) return int.tryParse(value) ?? 8;
@@ -249,6 +261,11 @@ List<Map<String, dynamic>>? get topicTrackingStatesSync =>
     await _ensureLoaded();
     return _enabledReactions ?? ['heart', '+1', 'laughing', 'open_mouth'];
   }
+
+  /// 同步获取可用回应表情列表（仅返回已 preload 结果，未 preload 时返回兜底）
+  /// 用于"按下立即弹出"等零延迟场景
+  List<String> get enabledReactionsSync =>
+      _enabledReactions ?? const ['heart', '+1', 'laughing', 'open_mouth'];
 
   /// 获取 MessageBus 跨域认证 key（仅独立域名时有值）
   String? get sharedSessionKey => _sharedSessionKey;
@@ -376,9 +393,6 @@ List<Map<String, dynamic>>? get topicTrackingStatesSync =>
     }
 
     _loaded = true;
-    if (_currentUser != null) {
-      CfClearanceRefreshService().start();
-    }
     debugPrint('[PreloadedData] 已从 HTML 快照恢复数据');
     return true;
   }
@@ -412,6 +426,7 @@ List<Map<String, dynamic>>? get topicTrackingStatesSync =>
     _s3BaseUrl = null;
     _sharedSessionKey = null;
     _longPollingBaseUrl = null;
+    _pluginCandidates = null;
   }
 
   /// 确保数据已加载
@@ -447,11 +462,8 @@ List<Map<String, dynamic>>? get topicTrackingStatesSync =>
       await _parsePreloadedDataFromHtml(html);
       debugPrint('[PreloadedData] 数据加载成功');
       _loaded = true;
-      // 预热完成，sitekey 已提取；仅在已登录时启动 cf_clearance 自动续期，
-      // 避免未登录状态下的 CF 刷新请求干扰 auth 判断
-      if (_currentUser != null) {
-        CfClearanceRefreshService().start();
-      }
+      // 预热完成后仅更新站点基础数据和 sitekey。cf_clearance 自动续期
+      // 由 BrowserTrustCoordinator 统一判断启动，避免预加载服务绕过生命周期门禁。
     } catch (e) {
       debugPrint('[PreloadedData] 加载失败: $e');
       rethrow;
@@ -467,6 +479,7 @@ List<Map<String, dynamic>>? get topicTrackingStatesSync =>
     _extractTurnstileSitekeyFromHtml(html);
     _extractBaseUriFromHtml(html);
     _extractCdnUrlFromHtml(html);
+    _extractPluginCandidatesInBackground(html);
     // 提取 data-preloaded 属性内容
     final match = RegExp(r'data-preloaded="([^"]*)"').firstMatch(html);
     if (match == null) {
@@ -554,6 +567,34 @@ List<Map<String, dynamic>>? get topicTrackingStatesSync =>
         '[PreloadedData] s3CdnUrl: $_s3CdnUrl, s3BaseUrl: $_s3BaseUrl',
       );
     }
+  }
+
+  /// 从首页 HTML 扫出 plugin js url 列表。
+  ///
+  /// 这是 WebView session bootstrap 的优化数据，不是启动页展示的必要数据。
+  /// 全 HTML 正则扫描可能较重，因此放到后台 isolate 异步填充，避免阻塞
+  /// PreheatLogo 动画和预加载关键路径。未及时产出时 bootstrap 会降级为
+  /// 自己 fetch 首页扫描，功能不受影响。
+  void _extractPluginCandidatesInBackground(String html) {
+    final baseUrl = AppConstants.baseUrl;
+    unawaited(() async {
+      try {
+        // 让当前解析流程先归还事件循环，避免在同一帧继续抢 UI isolate。
+        await Future<void>.delayed(Duration.zero);
+        final ordered = await compute<List<String>, List<String>>(
+          _extractPluginCandidatesInIsolate,
+          [html, baseUrl],
+        );
+        _pluginCandidates = ordered.isEmpty ? null : List.unmodifiable(ordered);
+        if (ordered.isNotEmpty) {
+          debugPrint(
+            '[PreloadedData] pluginCandidates: ${ordered.length} items',
+          );
+        }
+      } catch (e) {
+        debugPrint('[PreloadedData] pluginCandidates 提取失败: $e');
+      }
+    }());
   }
 
   bool _hasReusableBootstrapData() {
@@ -792,6 +833,36 @@ Map<String, dynamic>? _decodePreloadedJsonInIsolate(String rawJson) {
   }
 
   return result;
+}
+
+List<String> _extractPluginCandidatesInIsolate(List<String> input) {
+  final html = input[0];
+  final baseUrl = input[1];
+  final pattern = RegExp(
+    r'''(https?://[^"'\s<>]+/assets/[^"'\s<>]*plugins/[^"'\s<>]+?\.js(?:\?[^"'\s<>]*)?|/assets/[^"'\s<>]*plugins/[^"'\s<>]+?\.js(?:\?[^"'\s<>]*)?)''',
+  );
+  final seen = <String>{};
+  final ordered = <String>[];
+  for (final match in pattern.allMatches(html)) {
+    final raw = match.group(1);
+    if (raw == null || raw.isEmpty) continue;
+    final normalized = _normalizePluginCandidateUrl(raw, baseUrl);
+    if (normalized == null) continue;
+    if (seen.add(normalized)) {
+      ordered.add(normalized);
+    }
+  }
+  return ordered;
+}
+
+String? _normalizePluginCandidateUrl(String raw, String baseUrl) {
+  final cleaned = raw.replaceAll('&amp;', '&');
+  try {
+    final base = Uri.parse(baseUrl);
+    return base.resolve(cleaned).toString();
+  } catch (_) {
+    return null;
+  }
 }
 
 TopicListResponse _parseTopicListInIsolate(Map<String, dynamic> json) =>

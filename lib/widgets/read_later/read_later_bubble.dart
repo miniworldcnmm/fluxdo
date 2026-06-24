@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../providers/read_later_provider.dart';
@@ -102,7 +103,7 @@ class _ReadLaterBubbleState extends ConsumerState<ReadLaterBubble>
               children: [
                 Center(
                   child: Icon(
-                    Icons.layers,
+                    Symbols.layers_rounded,
                     size: 22,
                     color: contentColor,
                   ),

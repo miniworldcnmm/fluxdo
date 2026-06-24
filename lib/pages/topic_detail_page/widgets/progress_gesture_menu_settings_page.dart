@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../l10n/s.dart';
@@ -103,7 +104,7 @@ class _ProgressGestureMenuSettingsPageState
             title: Text(l10n.progressGesture_longPressEnable),
             subtitle: Text(l10n.progressGesture_longPressEnableDesc),
             secondary: Icon(
-              Icons.fingerprint_rounded,
+              Symbols.fingerprint_rounded,
               color: theme.colorScheme.primary,
             ),
             onChanged: (v) => ref
@@ -518,7 +519,7 @@ class _PreviewAreaState extends State<_PreviewArea> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
-              Icons.delete_outline_rounded,
+              Symbols.delete_rounded,
               size: 22,
               color: active
                   ? theme.colorScheme.onError
@@ -552,7 +553,7 @@ class _EmptyPreview extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.touch_app_rounded,
+                Symbols.touch_app_rounded,
                 size: 20,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -608,7 +609,7 @@ class _AvailableTile extends StatelessWidget {
       ),
       title: Text(meta.label),
       trailing: Icon(
-        Icons.add_circle_outline_rounded,
+        Symbols.add_circle_rounded,
         color: enabled ? theme.colorScheme.primary : theme.colorScheme.outline,
       ),
       onTap: enabled ? onTap : null,

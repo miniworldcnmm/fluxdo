@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/s.dart';
 import '../../models/search_filter.dart';
@@ -177,7 +178,7 @@ class _UserContentSearchViewState extends ConsumerState<UserContentSearchView> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.search, size: 64, color: theme.colorScheme.outline),
+                  Icon(Symbols.search_rounded, size: 64, color: theme.colorScheme.outline),
                   const SizedBox(height: 16),
                   Text(
                     widget.emptySearchHint,
@@ -213,7 +214,7 @@ class _UserContentSearchViewState extends ConsumerState<UserContentSearchView> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error),
+                  Icon(Symbols.error_rounded, size: 48, color: theme.colorScheme.error),
                   const SizedBox(height: 16),
                   Text(context.l10n.search_error, style: theme.textTheme.titleMedium),
                   const SizedBox(height: 8),
@@ -242,7 +243,7 @@ class _UserContentSearchViewState extends ConsumerState<UserContentSearchView> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.search_off, size: 64, color: theme.colorScheme.outline),
+                  Icon(Symbols.search_off_rounded, size: 64, color: theme.colorScheme.outline),
                   const SizedBox(height: 16),
                   Text(
                     context.l10n.search_noResults,

@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../../l10n/s.dart';
 import '../../../../models/topic.dart';
 import '../../../../services/discourse/discourse_service.dart';
 import '../../../../services/discourse_cache_manager.dart';
 import '../../../../services/emoji_handler.dart';
+import '../../../common/app_bottom_sheet.dart';
 import '../../../common/smart_avatar.dart';
 import '../../../user/user_card.dart';
 
@@ -83,9 +85,13 @@ class _PostReactionUsersSheetState extends State<PostReactionUsersSheet> {
       }
       return result;
     } else {
-      final group = _groups!.where((g) => g.id == _selectedReactionId).firstOrNull;
+      final group = _groups!
+          .where((g) => g.id == _selectedReactionId)
+          .firstOrNull;
       if (group == null) return [];
-      return group.users.map((u) => _DisplayUser(user: u, reactionId: group.id)).toList();
+      return group.users
+          .map((u) => _DisplayUser(user: u, reactionId: group.id))
+          .toList();
     }
   }
 
@@ -105,84 +111,62 @@ class _PostReactionUsersSheetState extends State<PostReactionUsersSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final hasData = _groups != null && _groups!.isNotEmpty;
 
-    return Container(
-      margin: const EdgeInsets.all(16),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.6,
-      ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: SafeArea(
+    Widget content;
+    if (_isLoading) {
+      content = const Padding(
+        padding: EdgeInsets.all(32),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    } else if (_error != null) {
+      content = Padding(
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 标题栏
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
-              child: Row(
-                children: [
-                  Icon(Icons.emoji_emotions_outlined,
-                      color: theme.colorScheme.primary),
-                  const SizedBox(width: 8),
-                  Text(
-                    context.l10n.post_reactions,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                ],
-              ),
-            ),
-
-            // 内容区域
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.all(32),
-                child: CircularProgressIndicator(),
-              )
-            else if (_error != null)
-              Padding(
-                padding: const EdgeInsets.all(32),
-                child: Column(
-                  children: [
-                    Icon(Icons.error_outline,
-                        color: theme.colorScheme.error, size: 32),
-                    const SizedBox(height: 8),
-                    Text(_error!,
-                        style: TextStyle(color: theme.colorScheme.error)),
-                  ],
-                ),
-              )
-            else if (_groups == null || _groups!.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(32),
-                child: Text(context.l10n.post_noReactions,
-                    style: TextStyle(
-                        color: theme.colorScheme.onSurfaceVariant)),
-              )
-            else ...[
-              // 用户列表
-              Flexible(
-                child: _buildUserList(theme),
-              ),
-
-              const Divider(height: 1),
-
-              // Emoji 标签栏（放底部，避免高度变化导致位置跳动）
-              _buildTabBar(theme),
-            ],
+            Icon(Symbols.error_rounded, color: theme.colorScheme.error, size: 32),
+            const SizedBox(height: 8),
+            Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
           ],
         ),
+      );
+    } else if (!hasData) {
+      content = Padding(
+        padding: const EdgeInsets.all(32),
+        child: Text(
+          context.l10n.post_noReactions,
+          style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+        ),
+      );
+    } else {
+      content = _buildUserList(theme);
+    }
+
+    return AppSheetScaffold(
+      showCloseButton: false,
+      maxHeightFactor: 0.6,
+      contentPadding: EdgeInsets.zero,
+      titleWidget: Row(
+        children: [
+          Icon(Symbols.emoji_emotions_rounded, color: theme.colorScheme.primary),
+          const SizedBox(width: 8),
+          Text(
+            context.l10n.post_reactions,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
+      // Emoji 标签栏放底部,避免高度变化导致位置跳动
+      footer: hasData
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [const Divider(height: 1), _buildTabBar(theme)],
+            )
+          : null,
+      child: content,
     );
   }
 
@@ -201,14 +185,15 @@ class _PostReactionUsersSheetState extends State<PostReactionUsersSheet> {
             onTap: () => setState(() => _selectedReactionId = null),
           ),
           // 每个回应类型的标签
-          ..._groups!.map((group) => _buildTab(
-                theme: theme,
-                emojiId: group.id,
-                count: group.count,
-                isSelected: _selectedReactionId == group.id,
-                onTap: () =>
-                    setState(() => _selectedReactionId = group.id),
-              )),
+          ..._groups!.map(
+            (group) => _buildTab(
+              theme: theme,
+              emojiId: group.id,
+              count: group.count,
+              isSelected: _selectedReactionId == group.id,
+              onTap: () => setState(() => _selectedReactionId = group.id),
+            ),
+          ),
         ],
       ),
     );
@@ -231,8 +216,9 @@ class _PostReactionUsersSheetState extends State<PostReactionUsersSheet> {
           decoration: BoxDecoration(
             color: isSelected
                 ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
-                : theme.colorScheme.surfaceContainerHighest
-                    .withValues(alpha: 0.3),
+                : theme.colorScheme.surfaceContainerHighest.withValues(
+                    alpha: 0.3,
+                  ),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: isSelected
@@ -258,7 +244,8 @@ class _PostReactionUsersSheetState extends State<PostReactionUsersSheet> {
                   image: emojiImageProvider(_getEmojiUrl(emojiId)),
                   width: 18,
                   height: 18,
-                  errorBuilder: (_, _, _) => const SizedBox(width: 18, height: 18),
+                  errorBuilder: (_, _, _) =>
+                      const SizedBox(width: 18, height: 18),
                 ),
               const SizedBox(width: 4),
               Text(
@@ -283,8 +270,10 @@ class _PostReactionUsersSheetState extends State<PostReactionUsersSheet> {
     if (users.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(32),
-        child: Text(context.l10n.common_noData,
-            style: TextStyle(color: theme.colorScheme.onSurfaceVariant)),
+        child: Text(
+          context.l10n.common_noData,
+          style: TextStyle(color: theme.colorScheme.onSurfaceVariant),
+        ),
       );
     }
 
@@ -301,7 +290,9 @@ class _PostReactionUsersSheetState extends State<PostReactionUsersSheet> {
 
   Widget _buildUserItem(ThemeData theme, _DisplayUser item) {
     final user = item.user;
-    final displayName = user.name?.isNotEmpty == true ? user.name! : user.username;
+    final displayName = user.name?.isNotEmpty == true
+        ? user.name!
+        : user.username;
 
     return Builder(
       builder: (rowContext) => InkWell(
@@ -318,51 +309,53 @@ class _PostReactionUsersSheetState extends State<PostReactionUsersSheet> {
           );
         },
         child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Row(
-          children: [
-            // 头像
-            SmartAvatar(
-              imageUrl: user.getAvatarUrl(size: 96),
-              radius: 18,
-              fallbackText: user.username,
-            ),
-            const SizedBox(width: 12),
-            // 用户名
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    displayName,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (user.name?.isNotEmpty == true && user.name != user.username)
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              // 头像
+              SmartAvatar(
+                imageUrl: user.getAvatarUrl(size: 96),
+                radius: 18,
+                fallbackText: user.username,
+              ),
+              const SizedBox(width: 12),
+              // 用户名
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      user.username,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                      displayName,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w500,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                ],
+                    if (user.name?.isNotEmpty == true &&
+                        user.name != user.username)
+                      Text(
+                        user.username,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
               ),
-            ),
-            // 回应 emoji（仅在"全部"标签下显示）
-            if (_selectedReactionId == null)
-              Image(
-                image: emojiImageProvider(_getEmojiUrl(item.reactionId)),
-                width: 20,
-                height: 20,
-                errorBuilder: (_, _, _) => const SizedBox(width: 20, height: 20),
-              ),
-          ],
-        ),
+              // 回应 emoji（仅在"全部"标签下显示）
+              if (_selectedReactionId == null)
+                Image(
+                  image: emojiImageProvider(_getEmojiUrl(item.reactionId)),
+                  width: 20,
+                  height: 20,
+                  errorBuilder: (_, _, _) =>
+                      const SizedBox(width: 20, height: 20),
+                ),
+            ],
+          ),
         ),
       ),
     );

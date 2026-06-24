@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:jovial_svg/jovial_svg.dart';
 import '../../models/notification.dart';
 import '../../utils/url_helper.dart';
@@ -36,72 +37,72 @@ class NotificationItem extends StatelessWidget {
   IconData _getNotificationIcon() {
     switch (notification.notificationType) {
       case NotificationType.mentioned:
-        return Icons.alternate_email;
+        return Symbols.alternate_email_rounded;
       case NotificationType.replied:
-        return Icons.reply;
+        return Symbols.reply_rounded;
       case NotificationType.quoted:
-        return Icons.format_quote;
+        return Symbols.format_quote_rounded;
       case NotificationType.liked:
       case NotificationType.likedConsolidated:
-        return Icons.favorite;
+        return Symbols.favorite_rounded;
       case NotificationType.reaction:
-        return Icons.thumb_up;
+        return Symbols.thumb_up_rounded;
       case NotificationType.privateMessage:
       case NotificationType.invitedToPrivateMessage:
-        return Icons.mail;
+        return Symbols.mail_rounded;
       case NotificationType.posted:
-        return Icons.post_add;
+        return Symbols.post_add_rounded;
       case NotificationType.grantedBadge:
-        return Icons.military_tech;
+        return Symbols.military_tech_rounded;
       case NotificationType.linked:
-        return Icons.link;
+        return Symbols.link_rounded;
       case NotificationType.bookmarkReminder:
-        return Icons.bookmark;
+        return Symbols.bookmark_rounded;
       case NotificationType.groupMentioned:
-        return Icons.group;
+        return Symbols.group_rounded;
       case NotificationType.watchingFirstPost:
-        return Icons.visibility;
+        return Symbols.visibility_rounded;
       case NotificationType.following:
       case NotificationType.followingCreatedTopic:
       case NotificationType.followingReplied:
-        return Icons.person_add;
+        return Symbols.person_add_rounded;
       case NotificationType.watchingCategoryOrTag:
-        return Icons.label;
+        return Symbols.label_rounded;
       case NotificationType.newFeatures:
-        return Icons.new_releases;
+        return Symbols.new_releases_rounded;
       case NotificationType.adminProblems:
-        return Icons.warning;
+        return Symbols.warning_rounded;
       case NotificationType.linkedConsolidated:
-        return Icons.link;
+        return Symbols.link_rounded;
       case NotificationType.chatWatchedThread:
-        return Icons.chat_bubble;
+        return Symbols.chat_bubble_rounded;
       case NotificationType.invitedToTopic:
-        return Icons.mail_outline;
+        return Symbols.mail_rounded;
       case NotificationType.inviteeAccepted:
-        return Icons.check_circle;
+        return Symbols.check_circle_rounded;
       case NotificationType.movedPost:
-        return Icons.drive_file_move;
+        return Symbols.drive_file_move_rounded;
       case NotificationType.topicReminder:
-        return Icons.alarm;
+        return Symbols.alarm_rounded;
       case NotificationType.eventReminder:
       case NotificationType.eventInvitation:
-        return Icons.event;
+        return Symbols.event_rounded;
       case NotificationType.chatMention:
       case NotificationType.chatMessage:
       case NotificationType.chatInvitation:
       case NotificationType.chatGroupMention:
       case NotificationType.chatQuotedPost:
-        return Icons.chat;
+        return Symbols.chat_rounded;
       case NotificationType.boost:
-        return Icons.rocket_launch;
+        return Symbols.rocket_launch_rounded;
       case NotificationType.assignedTopic:
-        return Icons.assignment;
+        return Symbols.assignment_rounded;
       case NotificationType.questionAnswerUserCommented:
-        return Icons.question_answer;
+        return Symbols.question_answer_rounded;
       case NotificationType.circlesActivity:
-        return Icons.groups;
+        return Symbols.groups_rounded;
       default:
-        return Icons.notifications;
+        return Symbols.notifications_rounded;
     }
   }
 

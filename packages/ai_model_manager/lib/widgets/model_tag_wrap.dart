@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 import '../l10n/ai_l10n.dart';
 import '../models/ai_provider.dart';
@@ -25,7 +26,7 @@ class ModelTagWrap extends StatelessWidget {
     if (model.abilities.contains(ModelAbility.tool)) {
       chips.add(_buildAbilityPill(
         context,
-        icon: Icons.handyman_outlined,
+        icon: Symbols.handyman_rounded,
         label: AiL10n.current.modelDetailToolAbility,
         color: cs.primary,
         isDark: isDark,
@@ -34,7 +35,7 @@ class ModelTagWrap extends StatelessWidget {
     if (model.abilities.contains(ModelAbility.reasoning)) {
       chips.add(_buildAbilityPill(
         context,
-        icon: Icons.psychology_outlined,
+        icon: Symbols.psychology_rounded,
         label: AiL10n.current.modelDetailReasoningAbility,
         color: cs.secondary,
         isDark: isDark,
@@ -94,8 +95,8 @@ class ModelTagWrap extends StatelessWidget {
                     padding: const EdgeInsets.only(right: 2),
                     child: Icon(
                       mod == Modality.text
-                          ? Icons.text_fields
-                          : Icons.image_outlined,
+                          ? Symbols.text_fields_rounded
+                          : Symbols.image_rounded,
                       size: 12,
                       color: isDark
                           ? color
@@ -103,7 +104,7 @@ class ModelTagWrap extends StatelessWidget {
                     ),
                   ),
                 Icon(
-                  Icons.chevron_right,
+                  Symbols.chevron_right_rounded,
                   size: 12,
                   color: isDark ? color : color.withValues(alpha: 0.9),
                 ),
@@ -112,8 +113,8 @@ class ModelTagWrap extends StatelessWidget {
                     padding: const EdgeInsets.only(left: 2),
                     child: Icon(
                       mod == Modality.text
-                          ? Icons.text_fields
-                          : Icons.image_outlined,
+                          ? Symbols.text_fields_rounded
+                          : Symbols.image_rounded,
                       size: 12,
                       color: isDark
                           ? color

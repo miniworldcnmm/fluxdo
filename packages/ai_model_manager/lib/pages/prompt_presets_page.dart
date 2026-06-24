@@ -1,6 +1,8 @@
 import 'dart:convert';
 
+import 'package:common_ui/common_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -27,8 +29,7 @@ class PromptPresetsPage extends ConsumerStatefulWidget {
   final PromptType initialType;
 
   @override
-  ConsumerState<PromptPresetsPage> createState() =>
-      _PromptPresetsPageState();
+  ConsumerState<PromptPresetsPage> createState() => _PromptPresetsPageState();
 }
 
 class _PromptPresetsPageState extends ConsumerState<PromptPresetsPage> {
@@ -53,10 +54,11 @@ class _PromptPresetsPageState extends ConsumerState<PromptPresetsPage> {
         actions: [
           IconButton(
             tooltip: AiL10n.current.quickPromptsAddNew,
-            icon: const Icon(Icons.add),
+            icon: const Icon(Symbols.add_rounded),
             onPressed: _addNew,
           ),
-          PopupMenuButton<String>(
+          SwipeDismissiblePopupMenuButton<String>(
+            clipBehavior: Clip.antiAlias,
             onSelected: (v) {
               switch (v) {
                 case 'reset':
@@ -73,7 +75,7 @@ class _PromptPresetsPageState extends ConsumerState<PromptPresetsPage> {
                 child: ListTile(
                   contentPadding: EdgeInsets.zero,
                   dense: true,
-                  leading: const Icon(Icons.paste_outlined, size: 20),
+                  leading: const Icon(Symbols.content_paste_rounded, size: 20),
                   title: Text(AiL10n.current.presetImport),
                 ),
               ),
@@ -83,8 +85,7 @@ class _PromptPresetsPageState extends ConsumerState<PromptPresetsPage> {
                   child: ListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
-                    leading:
-                        const Icon(Icons.file_upload_outlined, size: 20),
+                    leading: const Icon(Symbols.file_upload_rounded, size: 20),
                     title: Text(AiL10n.current.presetExportAll),
                   ),
                 ),
@@ -93,7 +94,7 @@ class _PromptPresetsPageState extends ConsumerState<PromptPresetsPage> {
                 child: ListTile(
                   contentPadding: EdgeInsets.zero,
                   dense: true,
-                  leading: const Icon(Icons.restart_alt_outlined, size: 20),
+                  leading: const Icon(Symbols.restart_alt_rounded, size: 20),
                   title: Text(AiL10n.current.quickPromptsResetBuiltIns),
                 ),
               ),
@@ -110,12 +111,12 @@ class _PromptPresetsPageState extends ConsumerState<PromptPresetsPage> {
                 ButtonSegment(
                   value: PromptType.image,
                   label: Text(AiL10n.current.quickPromptsImageTab),
-                  icon: const Icon(Icons.image_outlined),
+                  icon: const Icon(Symbols.image_rounded),
                 ),
                 ButtonSegment(
                   value: PromptType.text,
                   label: Text(AiL10n.current.quickPromptsTextTab),
-                  icon: const Icon(Icons.chat_outlined),
+                  icon: const Icon(Symbols.chat_rounded),
                 ),
               ],
               selected: {_type},
@@ -129,7 +130,8 @@ class _PromptPresetsPageState extends ConsumerState<PromptPresetsPage> {
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                 children: [
                   if (builtIns.isNotEmpty) ...[
-                    _SectionLabel(text: AiL10n.current.quickPromptsBuiltInSection),
+                    _SectionLabel(
+                        text: AiL10n.current.quickPromptsBuiltInSection),
                     _ReorderableGroup(
                       presets: builtIns,
                       type: _type,
@@ -363,8 +365,7 @@ class _ReorderableGroup extends ConsumerStatefulWidget {
   final void Function(PromptPreset) onEdit;
 
   @override
-  ConsumerState<_ReorderableGroup> createState() =>
-      _ReorderableGroupState();
+  ConsumerState<_ReorderableGroup> createState() => _ReorderableGroupState();
 }
 
 class _ReorderableGroupState extends ConsumerState<_ReorderableGroup> {
@@ -394,7 +395,7 @@ class _ReorderableGroupState extends ConsumerState<_ReorderableGroup> {
             trailingActions: [
               if (!preset.builtIn)
                 SwipeAction(
-                  icon: Icons.edit_outlined,
+                  icon: Symbols.edit_rounded,
                   color: Colors.blue,
                   label: AiL10n.current.edit,
                   onPressed: () => widget.onEdit(preset),
@@ -402,8 +403,8 @@ class _ReorderableGroupState extends ConsumerState<_ReorderableGroup> {
               if (preset.builtIn)
                 SwipeAction(
                   icon: preset.hidden
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
+                      ? Symbols.visibility_rounded
+                      : Symbols.visibility_off_rounded,
                   color: Colors.orange,
                   label: preset.hidden
                       ? AiL10n.current.quickPromptsUnhide
@@ -420,14 +421,14 @@ class _ReorderableGroupState extends ConsumerState<_ReorderableGroup> {
                 ),
               if (!preset.builtIn)
                 SwipeAction(
-                  icon: Icons.copy_outlined,
+                  icon: Symbols.content_copy_rounded,
                   color: Colors.teal,
                   label: AiL10n.current.presetExport,
                   onPressed: () => _PromptPresetsPageState.exportPreset(preset),
                 ),
               if (!preset.builtIn)
                 SwipeAction(
-                  icon: Icons.delete_outline,
+                  icon: Symbols.delete_rounded,
                   color: Colors.red,
                   label: AiL10n.current.delete,
                   onPressed: () async {
@@ -456,9 +457,8 @@ class _ReorderableGroupState extends ConsumerState<_ReorderableGroup> {
                         child: Padding(
                           padding: const EdgeInsets.all(8),
                           child: Icon(
-                            Icons.drag_indicator,
-                            color:
-                                theme.colorScheme.onSurfaceVariant,
+                            Symbols.drag_indicator_rounded,
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ),
                       ),
@@ -487,8 +487,7 @@ class _ReorderableGroupState extends ConsumerState<_ReorderableGroup> {
                                 Flexible(
                                   child: Text(
                                     preset.name,
-                                    style: theme.textTheme.bodyMedium
-                                        ?.copyWith(
+                                    style: theme.textTheme.bodyMedium?.copyWith(
                                       fontWeight: FontWeight.w500,
                                       color: preset.hidden
                                           ? theme.colorScheme.onSurfaceVariant
@@ -500,10 +499,9 @@ class _ReorderableGroupState extends ConsumerState<_ReorderableGroup> {
                                 if (preset.hidden) ...[
                                   const SizedBox(width: 6),
                                   Icon(
-                                    Icons.visibility_off_outlined,
+                                    Symbols.visibility_off_rounded,
                                     size: 14,
-                                    color:
-                                        theme.colorScheme.onSurfaceVariant,
+                                    color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ],
                               ],
@@ -530,9 +528,8 @@ class _ReorderableGroupState extends ConsumerState<_ReorderableGroup> {
                             ? AiL10n.current.quickPromptsUnpin
                             : AiL10n.current.quickPromptsPin,
                         icon: Icon(
-                          preset.pinned
-                              ? Icons.push_pin
-                              : Icons.push_pin_outlined,
+                          Symbols.push_pin_rounded,
+                          fill: preset.pinned ? 1 : 0,
                           size: 18,
                           color: preset.pinned
                               ? theme.colorScheme.primary

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../../../utils/link_launcher.dart';
 import 'onebox_base.dart';
 
@@ -280,7 +281,7 @@ class TechOneboxBuilder {
             children: [
               if (score.isNotEmpty)
                 OneboxStatItem(
-                  icon: Icons.arrow_upward,
+                  icon: Symbols.arrow_upward_rounded,
                   value: score,
                   iconColor: const Color(0xFFff6600),
                 ),
@@ -288,7 +289,7 @@ class TechOneboxBuilder {
                 const SizedBox(width: 16),
               if (comments.isNotEmpty)
                 OneboxStatItem(
-                  icon: Icons.chat_bubble_outline,
+                  icon: Symbols.chat_bubble_rounded,
                   value: comments,
                 ),
               if (clickCount != null && clickCount.isNotEmpty) ...[
@@ -368,7 +369,7 @@ class TechOneboxBuilder {
               child: Row(
                 children: [
                   const Icon(
-                    Icons.content_paste,
+                    Symbols.content_paste_rounded,
                     size: 16,
                     color: Colors.white,
                   ),
@@ -395,7 +396,7 @@ class TechOneboxBuilder {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(
-                            Icons.visibility_outlined,
+                            Symbols.visibility_rounded,
                             size: 10,
                             color: Colors.white,
                           ),

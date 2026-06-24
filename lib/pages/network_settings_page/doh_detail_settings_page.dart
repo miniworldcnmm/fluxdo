@@ -1,12 +1,18 @@
+import 'dart:async';
+
+import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 
 import '../../l10n/s.dart';
 import '../../services/network/doh/doh_resolver.dart';
 import '../../utils/dialog_utils.dart';
 import '../../services/network/doh/network_settings_service.dart';
+import '../../services/network/doh_proxy/doh_proxy_ffi.dart';
 import '../../services/toast_service.dart';
-import '../../widgets/common/dismissible_popup_menu.dart';
+import '../../widgets/common/app_bottom_sheet.dart';
+import 'package:common_ui/common_ui.dart';
 
 /// DOH 详细设置页面（服务器列表、IPv6、服务端 IP、ECH）
 class DohDetailSettingsPage extends StatefulWidget {
@@ -24,11 +30,20 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
   bool _dnsCacheBusy = false;
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(_service.refreshDnsCacheStats());
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return AnimatedBuilder(
-      animation: _service.notifier,
+      animation: Listenable.merge([
+        _service.notifier,
+        _service.dnsCacheStatsNotifier,
+      ]),
       builder: (context, _) {
         final settings = _service.current;
 
@@ -52,13 +67,15 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
                             ? context.l10n.dohDetail_gatewayEnabledDesc
                             : context.l10n.dohDetail_gatewayDisabledDesc,
                       ),
-                      secondary: const Icon(Icons.swap_horiz),
+                      secondary: const Icon(Symbols.swap_horiz_rounded),
                       value: settings.gatewayEnabled,
                       onChanged: (value) => _service.setGatewayEnabled(value),
                     ),
                     Divider(
                       height: 1,
-                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
+                      color: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.2,
+                      ),
                     ),
                     SwitchListTile(
                       title: Text(context.l10n.dohDetail_h2Mitm),
@@ -67,40 +84,47 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
                             ? context.l10n.dohDetail_h2MitmEnabledDesc
                             : context.l10n.dohDetail_h2MitmDisabledDesc,
                       ),
-                      secondary: const Icon(Icons.bolt),
+                      secondary: const Icon(Symbols.bolt_rounded),
                       value: settings.h2Mitm,
                       onChanged: (value) => _service.setH2Mitm(value),
                     ),
                     Divider(
                       height: 1,
-                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
+                      color: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.2,
+                      ),
                     ),
                     SwitchListTile(
                       title: Text(context.l10n.dohDetail_ipv6Prefer),
                       subtitle: Text(context.l10n.dohDetail_ipv6PreferDesc),
-                      secondary: const Icon(Icons.language),
+                      secondary: const Icon(Symbols.language_rounded),
                       value: settings.preferIPv6,
                       onChanged: (value) => _service.setPreferIPv6(value),
                     ),
                     Divider(
                       height: 1,
-                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
+                      color: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.2,
+                      ),
                     ),
                     // Server IP
                     ListTile(
-                      leading: const Icon(Icons.dns),
+                      leading: const Icon(Symbols.dns_rounded),
                       title: Text(context.l10n.dohDetail_serverIp),
                       subtitle: Text(
-                        settings.serverIp != null && settings.serverIp!.isNotEmpty
+                        settings.serverIp != null &&
+                                settings.serverIp!.isNotEmpty
                             ? settings.serverIp!
                             : context.l10n.common_notSet,
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      trailing: settings.serverIp != null && settings.serverIp!.isNotEmpty
+                      trailing:
+                          settings.serverIp != null &&
+                              settings.serverIp!.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.clear, size: 20),
+                              icon: const Icon(Symbols.clear_rounded, size: 20),
                               tooltip: context.l10n.common_clear,
                               onPressed: () => _service.setServerIp(null),
                             )
@@ -134,21 +158,31 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
                                 ? const SizedBox(
                                     width: 14,
                                     height: 14,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
                                   )
-                                : const Icon(Icons.speed, size: 16),
-                            label: Text(_testingAll ? context.l10n.dohDetail_testingSpeed : context.l10n.dohDetail_testAllSpeed),
+                                : const Icon(Symbols.speed_rounded, size: 16),
+                            label: Text(
+                              _testingAll
+                                  ? context.l10n.dohDetail_testingSpeed
+                                  : context.l10n.dohDetail_testAllSpeed,
+                            ),
                             style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
                               visualDensity: VisualDensity.compact,
                             ),
                           ),
                           TextButton.icon(
                             onPressed: _showAddServerDialog,
-                            icon: const Icon(Icons.add, size: 16),
+                            icon: const Icon(Symbols.add_rounded, size: 16),
                             label: Text(context.l10n.common_add),
                             style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
                               visualDensity: VisualDensity.compact,
                             ),
                           ),
@@ -174,7 +208,10 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
               ),
               const SizedBox(height: 24),
 
-              _buildSectionHeader(theme, context.l10n.dohDetail_dnsCacheSection),
+              _buildSectionHeader(
+                theme,
+                context.l10n.dohDetail_dnsCacheSection,
+              ),
               const SizedBox(height: 12),
               Card(
                 clipBehavior: Clip.antiAlias,
@@ -227,24 +264,21 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
     );
   }
 
-  Widget _buildServerTile(ThemeData theme, DohServer server, NetworkSettings settings) {
+  Widget _buildServerTile(
+    ThemeData theme,
+    DohServer server,
+    NetworkSettings settings,
+  ) {
     final selected = server.url == settings.selectedServerUrl;
     final isTesting = _testingServers.contains(server.url);
     final latency = _latencies[server.url];
 
     return ListTile(
       contentPadding: const EdgeInsets.only(left: 8, right: 12),
-      leading: Radio<String>(
-        value: server.url,
-      ),
+      leading: Radio<String>(value: server.url),
       title: Row(
         children: [
-          Expanded(
-            child: Text(
-              server.name,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+          Expanded(child: Text(server.name, overflow: TextOverflow.ellipsis)),
           if (server.isCustom)
             Container(
               margin: const EdgeInsets.only(left: 8),
@@ -301,14 +335,18 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
             SizedBox(
               width: 48,
               child: IconButton(
-                icon: const Icon(Icons.speed, size: 20),
+                icon: const Icon(Symbols.speed_rounded, size: 20),
                 tooltip: S.current.dohDetail_testSpeed,
                 onPressed: () => _testServer(server),
                 visualDensity: VisualDensity.compact,
               ),
             ),
           SwipeDismissiblePopupMenuButton<String>(
-            icon: Icon(Icons.more_vert, size: 20, color: theme.colorScheme.onSurfaceVariant),
+            icon: Icon(
+              Symbols.more_vert_rounded,
+              size: 20,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
             tooltip: S.current.common_more,
             padding: EdgeInsets.zero,
             onSelected: (value) {
@@ -326,7 +364,7 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
               PopupMenuItem(
                 value: 'copy',
                 child: ListTile(
-                  leading: const Icon(Icons.copy, size: 20),
+                  leading: const Icon(Symbols.content_copy_rounded, size: 20),
                   title: Text(S.current.dohDetail_copyAddress),
                   dense: true,
                   contentPadding: EdgeInsets.zero,
@@ -336,7 +374,7 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
                 PopupMenuItem(
                   value: 'edit',
                   child: ListTile(
-                    leading: const Icon(Icons.edit, size: 20),
+                    leading: const Icon(Symbols.edit_rounded, size: 20),
                     title: Text(S.current.common_edit),
                     dense: true,
                     contentPadding: EdgeInsets.zero,
@@ -345,8 +383,15 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
                 PopupMenuItem(
                   value: 'delete',
                   child: ListTile(
-                    leading: Icon(Icons.delete_outline, size: 20, color: theme.colorScheme.error),
-                    title: Text(S.current.common_delete, style: TextStyle(color: theme.colorScheme.error)),
+                    leading: Icon(
+                      Symbols.delete_rounded,
+                      size: 20,
+                      color: theme.colorScheme.error,
+                    ),
+                    title: Text(
+                      S.current.common_delete,
+                      style: TextStyle(color: theme.colorScheme.error),
+                    ),
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                   ),
@@ -422,7 +467,7 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
     }
 
     return ListTile(
-      leading: const Icon(Icons.security),
+      leading: const Icon(Symbols.security_rounded),
       title: Text(S.current.dohDetail_echServer),
       subtitle: Text(
         echLabel,
@@ -430,7 +475,7 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
           color: theme.colorScheme.onSurfaceVariant,
         ),
       ),
-      trailing: const Icon(Icons.chevron_right),
+      trailing: const Icon(Symbols.chevron_right_rounded),
       onTap: () => _showEchServerDialog(servers, currentEch),
     );
   }
@@ -440,8 +485,13 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
     return Column(
       children: [
         ListTile(
-          leading: const Icon(Icons.storage),
+          leading: const Icon(Symbols.storage_rounded),
           title: Text(S.current.dohDetail_localDnsCache),
+          trailing: IconButton(
+            icon: const Icon(Symbols.list_alt_rounded),
+            tooltip: S.current.dohDetail_viewDnsRecords,
+            onPressed: _showDnsCacheRecords,
+          ),
           subtitle: Text(
             S.current.dohDetail_dnsCacheDesc(cacheCount),
             style: theme.textTheme.bodySmall?.copyWith(
@@ -466,8 +516,12 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.delete_outline),
-                  label: Text(_dnsCacheBusy ? S.current.dohDetail_processing : S.current.dohDetail_clearCache),
+                      : const Icon(Symbols.delete_rounded),
+                  label: Text(
+                    _dnsCacheBusy
+                        ? S.current.dohDetail_processing
+                        : S.current.dohDetail_clearCache,
+                  ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -480,8 +534,12 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
                           height: 16,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Icon(Icons.refresh),
-                  label: Text(_dnsCacheBusy ? S.current.dohDetail_processing : S.current.dohDetail_forceRefresh),
+                      : const Icon(Symbols.refresh_rounded),
+                  label: Text(
+                    _dnsCacheBusy
+                        ? S.current.dohDetail_processing
+                        : S.current.dohDetail_forceRefresh,
+                  ),
                 ),
               ),
             ],
@@ -491,7 +549,25 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
     );
   }
 
-  Future<void> _showEchServerDialog(List<DohServer> servers, String? currentEch) async {
+  Future<void> _showDnsCacheRecords() async {
+    await AppBottomSheet.showDraggable<void>(
+      context: context,
+      title: context.l10n.dohDetail_dnsRecords,
+      showCloseButton: true,
+      contentPadding: EdgeInsets.zero,
+      initialSize: 0.75,
+      minSize: 0.5,
+      maxSize: 0.95,
+      bodyBuilder: (context, scrollController) {
+        return _DnsRecordsSheet(scrollController: scrollController);
+      },
+    );
+  }
+
+  Future<void> _showEchServerDialog(
+    List<DohServer> servers,
+    String? currentEch,
+  ) async {
     final result = await showAppDialog<String?>(
       context: context,
       builder: (context) {
@@ -500,8 +576,7 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
           children: [
             RadioGroup<String?>(
               groupValue: currentEch,
-              onChanged: (value) =>
-                  Navigator.pop(context, value ?? '__null__'),
+              onChanged: (value) => Navigator.pop(context, value ?? '__null__'),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -567,7 +642,9 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
       final count = await _service.forceRefreshDnsCache();
       if (mounted) {
         ToastService.showSuccess(
-          count > 0 ? S.current.dohDetail_dnsCacheRefreshed(count) : S.current.dohDetail_dnsCacheRefreshedSimple,
+          count > 0
+              ? S.current.dohDetail_dnsCacheRefreshed(count)
+              : S.current.dohDetail_dnsCacheRefreshedSimple,
         );
       }
     } catch (e) {
@@ -643,7 +720,9 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
                   ToastService.showError(S.current.dohDetail_urlMustHttps);
                   return;
                 }
-                final bootstrapIps = _parseBootstrapIps(bootstrapIpsController.text);
+                final bootstrapIps = _parseBootstrapIps(
+                  bootstrapIpsController.text,
+                );
                 Navigator.pop(
                   context,
                   DohServer(
@@ -730,7 +809,9 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
                   ToastService.showError(S.current.dohDetail_urlMustHttps);
                   return;
                 }
-                final bootstrapIps = _parseBootstrapIps(bootstrapIpsController.text);
+                final bootstrapIps = _parseBootstrapIps(
+                  bootstrapIpsController.text,
+                );
                 Navigator.pop(
                   context,
                   DohServer(
@@ -755,9 +836,7 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
 
   Future<void> _showServerIpDialog() async {
     final settings = _service.current;
-    final controller = TextEditingController(
-      text: settings.serverIp ?? '',
-    );
+    final controller = TextEditingController(text: settings.serverIp ?? '');
 
     final result = await showAppDialog<String?>(
       context: context,
@@ -830,5 +909,553 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
         .map((s) => s.trim())
         .where((s) => s.isNotEmpty)
         .toList();
+  }
+}
+
+class _DnsCacheRecordGroup {
+  const _DnsCacheRecordGroup({required this.host, required this.records});
+
+  final String host;
+  final List<DohDnsCacheRecord> records;
+
+  bool get hasEch => records.any((r) => r.kind == 'ech');
+  bool get hasEchNegative => records.any((r) => r.kind == 'ech_negative');
+  String? get stickyIp =>
+      records.firstWhereOrNull((r) => r.kind == 'preferred_ip')?.values.first;
+  List<String> get ips =>
+      records.firstWhereOrNull((r) => r.kind == 'ip')?.values ?? const [];
+  String? get echConfig =>
+      records.firstWhereOrNull((r) => r.kind == 'ech')?.values.firstOrNull;
+  Duration get maxTtl => records
+      .where((r) => r.kind != 'ech_negative')
+      .map((r) => r.ttl)
+      .fold(Duration.zero, (a, b) => a > b ? a : b);
+}
+
+List<_DnsCacheRecordGroup> _groupDnsRecords(List<DohDnsCacheRecord> records) {
+  final grouped = <String, List<DohDnsCacheRecord>>{};
+  for (final record in records) {
+    grouped.putIfAbsent(record.host, () => <DohDnsCacheRecord>[]).add(record);
+  }
+
+  final groups = grouped.entries.map((entry) {
+    final list = entry.value
+      ..sort(
+        (a, b) =>
+            _dnsRecordKindOrder(a.kind).compareTo(_dnsRecordKindOrder(b.kind)),
+      );
+    return _DnsCacheRecordGroup(host: entry.key, records: list);
+  }).toList();
+  groups.sort((a, b) => a.host.compareTo(b.host));
+  return groups;
+}
+
+int _dnsRecordKindOrder(String kind) {
+  switch (kind) {
+    case 'ip':
+      return 0;
+    case 'ech':
+      return 1;
+    case 'ech_negative':
+      return 2;
+    case 'preferred_ip':
+      return 3;
+    default:
+      return 4;
+  }
+}
+
+String _formatDnsRecordTtl(Duration ttl) {
+  if (ttl <= Duration.zero) {
+    return '0s';
+  }
+  if (ttl.inHours > 0) {
+    final minutes = ttl.inMinutes.remainder(60);
+    return minutes == 0 ? '${ttl.inHours}h' : '${ttl.inHours}h ${minutes}m';
+  }
+  if (ttl.inMinutes > 0) {
+    final seconds = ttl.inSeconds.remainder(60);
+    return seconds == 0
+        ? '${ttl.inMinutes}m'
+        : '${ttl.inMinutes}m ${seconds}s';
+  }
+  return '${ttl.inSeconds}s';
+}
+
+class _DnsRecordsSheet extends StatefulWidget {
+  const _DnsRecordsSheet({required this.scrollController});
+
+  final ScrollController scrollController;
+
+  @override
+  State<_DnsRecordsSheet> createState() => _DnsRecordsSheetState();
+}
+
+class _DnsRecordsSheetState extends State<_DnsRecordsSheet> {
+  final TextEditingController _searchController = TextEditingController();
+  late final Future<List<DohDnsCacheRecord>> _recordsFuture;
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _recordsFuture = NetworkSettingsService.instance.dnsCacheRecords();
+    _searchController.addListener(() {
+      final next = _searchController.text.trim().toLowerCase();
+      if (next != _query) {
+        setState(() => _query = next);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+
+    return FutureBuilder<List<DohDnsCacheRecord>>(
+      future: _recordsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: SelectableText(snapshot.error.toString()),
+          );
+        }
+
+        final records = snapshot.data ?? const <DohDnsCacheRecord>[];
+        final groups = _groupDnsRecords(records);
+        final visibleGroups = _query.isEmpty
+            ? groups
+            : groups.where((g) => g.host.toLowerCase().contains(_query)).toList();
+
+        if (records.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(
+              child: Text(
+                l10n.dohDetail_noDnsRecords,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          );
+        }
+
+        return CustomScrollView(
+          controller: widget.scrollController,
+          slivers: [
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _DnsRecordsHeaderDelegate(
+                child: _buildHeader(theme, l10n, groups.length),
+              ),
+            ),
+            if (visibleGroups.isEmpty)
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Center(
+                  child: Text(
+                    l10n.dohDetail_hostsSearchEmpty,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+                sliver: SliverList.separated(
+                  itemCount: visibleGroups.length,
+                  separatorBuilder: (context, index) =>
+                      const SizedBox(height: 10),
+                  itemBuilder: (context, index) =>
+                      _DnsRecordGroupCard(group: visibleGroups[index]),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildHeader(ThemeData theme, AppLocalizations l10n, int totalCount) {
+    return Container(
+      color: theme.colorScheme.surface,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _searchController,
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Symbols.search_rounded, size: 20),
+              hintText: l10n.dohDetail_searchHosts,
+              isDense: true,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.4,
+                  ),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.4,
+                  ),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(color: theme.colorScheme.primary),
+              ),
+              suffixIcon: _query.isEmpty
+                  ? null
+                  : IconButton(
+                      icon: const Icon(Symbols.close_rounded, size: 18),
+                      onPressed: () => _searchController.clear(),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            l10n.dohDetail_hostsCount(totalCount),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DnsRecordsHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _DnsRecordsHeaderDelegate({required this.child});
+
+  final Widget child;
+
+  @override
+  double get minExtent => 84;
+  @override
+  double get maxExtent => 84;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Material(color: Colors.transparent, child: child);
+  }
+
+  @override
+  bool shouldRebuild(covariant _DnsRecordsHeaderDelegate oldDelegate) =>
+      oldDelegate.child != child;
+}
+
+class _DnsRecordGroupCard extends StatefulWidget {
+  const _DnsRecordGroupCard({required this.group});
+
+  final _DnsCacheRecordGroup group;
+
+  @override
+  State<_DnsRecordGroupCard> createState() => _DnsRecordGroupCardState();
+}
+
+class _DnsRecordGroupCardState extends State<_DnsRecordGroupCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l10n = context.l10n;
+    final group = widget.group;
+    final hasDetails = group.ips.isNotEmpty || group.echConfig != null;
+
+    return Material(
+      color: theme.colorScheme.surfaceContainerLow,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            onTap: hasDetails
+                ? () => setState(() => _expanded = !_expanded)
+                : null,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 头部：host 名 + 展开箭头
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          group.host,
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                      InkWell(
+                        borderRadius: BorderRadius.circular(8),
+                        onTap: () {
+                          Clipboard.setData(ClipboardData(text: group.host));
+                          ToastService.showInfo(l10n.dohDetail_recordCopied);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Icon(
+                            Symbols.content_copy_rounded,
+                            size: 16,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                      if (hasDetails)
+                        AnimatedRotation(
+                          turns: _expanded ? 0.5 : 0,
+                          duration: const Duration(milliseconds: 180),
+                          child: Icon(
+                            Symbols.expand_more_rounded,
+                            size: 20,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  // 状态标签行
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      if (group.ips.isNotEmpty)
+                        _StatusChip(
+                          icon: Symbols.public_rounded,
+                          label: '${group.ips.length} IP',
+                        ),
+                      if (group.maxTtl > Duration.zero)
+                        _StatusChip(
+                          icon: Symbols.timer_rounded,
+                          label: 'TTL ${_formatDnsRecordTtl(group.maxTtl)}',
+                        ),
+                      if (group.hasEch)
+                        _StatusChip(
+                          icon: Symbols.shield_rounded,
+                          label: l10n.dohDetail_echAvailable,
+                          tone: _ChipTone.success,
+                        )
+                      else if (group.hasEchNegative)
+                        _StatusChip(
+                          icon: Symbols.shield_rounded,
+                          label: l10n.dohDetail_echUnavailable,
+                          tone: _ChipTone.muted,
+                        ),
+                      if (group.stickyIp != null)
+                        _StatusChip(
+                          icon: Symbols.push_pin_rounded,
+                          label: '${l10n.dohDetail_stickyIp} ${group.stickyIp}',
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (group.ips.isNotEmpty)
+                    _RecordSection(
+                      icon: Symbols.public_rounded,
+                      label: l10n.dohDetail_ipAddresses,
+                      values: group.ips,
+                      copyText: group.ips.join('\n'),
+                    ),
+                  if (group.echConfig != null) ...[
+                    if (group.ips.isNotEmpty) const SizedBox(height: 10),
+                    _RecordSection(
+                      icon: Symbols.security_rounded,
+                      label: l10n.dohDetail_echConfig,
+                      values: [group.echConfig!],
+                      copyText: group.echConfig!,
+                      ellipsisLong: true,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            crossFadeState: _expanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 180),
+            sizeCurve: Curves.easeInOut,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _ChipTone { neutral, success, muted }
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({
+    required this.icon,
+    required this.label,
+    this.tone = _ChipTone.neutral,
+  });
+
+  final IconData icon;
+  final String label;
+  final _ChipTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final (bg, fg) = switch (tone) {
+      _ChipTone.success => (
+        theme.colorScheme.tertiaryContainer.withValues(alpha: 0.7),
+        theme.colorScheme.onTertiaryContainer,
+      ),
+      _ChipTone.muted => (
+        theme.colorScheme.surfaceContainerHighest,
+        theme.colorScheme.onSurfaceVariant,
+      ),
+      _ChipTone.neutral => (
+        theme.colorScheme.surfaceContainerHighest,
+        theme.colorScheme.onSurfaceVariant,
+      ),
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: fg),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(color: fg),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecordSection extends StatelessWidget {
+  const _RecordSection({
+    required this.icon,
+    required this.label,
+    required this.values,
+    required this.copyText,
+    this.ellipsisLong = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final List<String> values;
+  final String copyText;
+  final bool ellipsisLong;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.4,
+              ),
+            ),
+            const Spacer(),
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: copyText));
+                ToastService.showInfo(
+                  context.l10n.dohDetail_recordCopied,
+                );
+              },
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  Symbols.content_copy_rounded,
+                  size: 14,
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: theme.colorScheme.outlineVariant.withValues(alpha: 0.25),
+            ),
+          ),
+          child: SelectableText(
+            values.join('\n'),
+            maxLines: ellipsisLong ? 3 : null,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontFamily: 'monospace',
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

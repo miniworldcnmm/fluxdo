@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../../services/app_error_handler.dart';
 import '../../services/notion/notion_bookmark_auto_sync.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:share_plus/share_plus.dart';
@@ -37,10 +38,11 @@ import '../../widgets/content/lazy_load_scope.dart';
 import '../../widgets/post/post_item_skeleton.dart';
 import '../../widgets/post/post_item/widgets/post_flag_sheet.dart';
 import '../../widgets/post/post_replies_sheet.dart';
+import '../../widgets/post/post_revision/revision_modal.dart';
 import '../../widgets/post/reply_sheet.dart';
 import '../../widgets/topic/topic_progress.dart';
 import '../../widgets/topic/topic_notification_button.dart';
-import '../../widgets/common/dismissible_popup_menu.dart';
+import 'package:common_ui/common_ui.dart';
 import '../../widgets/common/emoji_text.dart';
 import '../../widgets/common/error_view.dart';
 import '../../widgets/content/discourse_html_content/chunked/chunked_html_content.dart';
@@ -66,6 +68,7 @@ import 'topic_more_menu_actions.dart';
 import 'widgets/ai_chat_page.dart';
 import 'widgets/ai_chat_guide.dart';
 import '../../utils/dialog_utils.dart';
+import '../../widgets/common/app_bottom_sheet.dart';
 import '../../utils/platform_utils.dart';
 import '../../models/shortcut_binding.dart';
 import '../../providers/shortcut_provider.dart';
@@ -93,6 +96,11 @@ class TopicDetailPage extends ConsumerStatefulWidget {
   final String? initialBookmarkName;
   final DateTime? initialBookmarkReminderAt;
   final String? initialBookmarkableType;
+
+  /// 从「编辑通知」跳转时,带上目标帖子的编号 + revision number,
+  /// 加载完成并滚动到位后自动弹出历史 modal 到对应版本。
+  final int? initialRevisionPostNumber;
+  final int? initialRevisionNumber;
   final VoidCallback? onEmbeddedBack;
   final VoidCallback? onEmbeddedClose;
   final int? embeddedTabCount;
@@ -117,6 +125,8 @@ class TopicDetailPage extends ConsumerStatefulWidget {
     this.initialBookmarkName,
     this.initialBookmarkReminderAt,
     this.initialBookmarkableType,
+    this.initialRevisionPostNumber,
+    this.initialRevisionNumber,
     this.onEmbeddedBack,
     this.onEmbeddedClose,
     this.embeddedTabCount,
@@ -177,6 +187,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   bool? _lastCanShowDetailPane;
   bool _isAutoSwitching = false;
   bool _autoOpenReplyHandled = false; // 是否已处理自动打开回复框
+  bool _autoOpenRevisionHandled = false; // 是否已处理自动打开编辑历史 modal
   bool _autoOpenAiChatHandled = false; // 是否已处理自动打开 AI 聊天
   late final TopicSearchNotifier _topicSearchNotifier;
   // AI 滑动入口相关
@@ -731,7 +742,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.close),
+            icon: const Icon(Symbols.close_rounded),
             onPressed: () {
               _searchController.clear();
               ref
@@ -823,7 +834,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                   child: Padding(
                     padding: const EdgeInsets.only(right: 4),
                     child: Icon(
-                      Icons.mail_outline,
+                      Symbols.mail_rounded,
                       size: 18,
                       color: theme.colorScheme.primary,
                     ),
@@ -835,7 +846,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                   child: Padding(
                     padding: const EdgeInsets.only(right: 4),
                     child: Icon(
-                      Icons.lock_outline,
+                      Symbols.lock_rounded,
                       size: 18,
                       color:
                           theme.textTheme.titleMedium?.color ??
@@ -848,7 +859,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                   alignment: PlaceholderAlignment.middle,
                   child: Padding(
                     padding: const EdgeInsets.only(right: 4),
-                    child: Icon(Icons.check_box, size: 18, color: Colors.green),
+                    child: Icon(Symbols.check_box_rounded, size: 18, color: Colors.green),
                   ),
                 ),
               ...EmojiText.buildEmojiSpans(
@@ -937,7 +948,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                 child: Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: Icon(
-                    Icons.mail_outline,
+                    Symbols.mail_rounded,
                     size: 16,
                     color: theme.colorScheme.primary,
                   ),
@@ -949,7 +960,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                 child: Padding(
                   padding: const EdgeInsets.only(right: 4),
                   child: Icon(
-                    Icons.lock_outline,
+                    Symbols.lock_rounded,
                     size: 16,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -960,7 +971,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                 alignment: PlaceholderAlignment.middle,
                 child: Padding(
                   padding: const EdgeInsets.only(right: 4),
-                  child: Icon(Icons.check_box, size: 16, color: Colors.green),
+                  child: Icon(Symbols.check_box_rounded, size: 16, color: Colors.green),
                 ),
               ),
             ...EmojiText.buildEmojiSpans(
@@ -982,7 +993,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       key: _usesEmbeddedMobileWorkspaceChrome
           ? const ValueKey('bookmark-workspace-mobile-search')
           : null,
-      icon: const Icon(Icons.search),
+      icon: const Icon(Symbols.search_rounded),
       tooltip: context.l10n.topicDetail_searchTopic,
       onPressed: () {
         ref
@@ -1041,13 +1052,187 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   }) {
     final bookmarkTarget = _bookmarkEditTarget(detail);
     final hasEditableBookmark = bookmarkTarget != null || detail.bookmarked;
+    final isInReadLater = ref
+        .read(readLaterProvider.notifier)
+        .contains(widget.topicId);
+    final hasFilter =
+        notifier.isSummaryMode ||
+        notifier.isAuthorOnlyMode ||
+        notifier.isTopLevelMode ||
+        _isNestedView;
+    final bool subscribed =
+        detail.notificationLevel.value >= TopicNotificationLevel.tracking.value;
+
+    void doBookmark() {
+      final traceTarget = _bookmarkEditTarget(detail);
+      final traceId = createBookmarkEditTraceId();
+      writeBookmarkEditTrace(
+        phase: 'menu_selected',
+        traceId: traceId,
+        source: 'topic_detail_topic_menu',
+        message: '详情页更多菜单已选中编辑书签',
+        topicId: widget.topicId,
+        postId: traceTarget?.postId,
+        bookmarkId: traceTarget?.bookmarkId ?? detail.bookmarkId,
+        bookmarkName: traceTarget?.initialName ?? detail.bookmarkName,
+        bookmarked: detail.bookmarked,
+        hasReminder:
+            traceTarget?.initialReminderAt != null ||
+            detail.bookmarkReminderAt != null,
+        selectedAction: 'bookmark',
+      );
+      unawaited(
+        _handleBookmark(
+          notifier,
+          traceId: traceId,
+          source: 'topic_detail_topic_menu',
+        ),
+      );
+    }
+
+    void doSubscribe() {
+      showNotificationLevelSheet(
+        context,
+        detail.notificationLevel,
+        (level) => _handleNotificationLevelChanged(notifier, level),
+      );
+    }
+
     return SwipeDismissiblePopupMenuButton<String>(
       key: _usesEmbeddedMobileWorkspaceChrome
           ? const ValueKey('bookmark-workspace-mobile-more')
           : null,
-      icon: const Icon(Icons.more_vert),
+      icon: const Icon(Symbols.more_vert_rounded),
       tooltip: context.l10n.topicDetail_moreOptions,
+      headerActions: [
+        MenuQuickAction(
+          icon: Symbols.bookmark_rounded,
+          tooltip: hasEditableBookmark
+              ? context.l10n.topicDetail_editBookmark
+              : context.l10n.common_addBookmark,
+          active: hasEditableBookmark,
+          onTap: doBookmark,
+        ),
+        MenuQuickAction(
+          icon: Symbols.layers_rounded,
+          tooltip: isInReadLater
+              ? context.l10n.topicDetail_removeFromReadLater
+              : context.l10n.topicDetail_addToReadLater,
+          active: isInReadLater,
+          onTap: _handleReadLater,
+        ),
+        MenuQuickAction(
+          icon: TopicNotificationButton.getIcon(detail.notificationLevel),
+          tooltip: context.l10n.topic_notificationSettings,
+          active: subscribed,
+          submenu: MenuQuickActionSubmenu(
+            icon: TopicNotificationButton.getIcon(detail.notificationLevel),
+            label: context.l10n.topic_notificationSettings,
+            iconColor: subscribed
+                ? Theme.of(context).colorScheme.primary
+                : null,
+            children: [
+              for (final level in TopicNotificationLevel.values)
+                MenuQuickActionSubmenuChild(
+                  icon: TopicNotificationButton.getIcon(level),
+                  label: level.label,
+                  subtitle: level.description,
+                  selected: level == detail.notificationLevel,
+                  onTap: () => _handleNotificationLevelChanged(notifier, level),
+                ),
+            ],
+          ),
+        ),
+        if (!detail.isPrivateMessage)
+          MenuQuickAction(
+            icon: Symbols.link_rounded,
+            tooltip: context.l10n.topicDetail_shareLink,
+            onTap: _shareTopic,
+          ),
+        MenuQuickAction(
+          icon: Symbols.filter_list_rounded,
+          tooltip: context.l10n.topicDetail_filter,
+          active: hasFilter,
+          submenu: MenuQuickActionSubmenu(
+            icon: Symbols.filter_list_rounded,
+            label: context.l10n.topicDetail_filter,
+            iconColor: hasFilter ? Theme.of(context).colorScheme.primary : null,
+            children: [
+              if (detail.hasSummary)
+                MenuQuickActionSubmenuChild(
+                  icon: notifier.isSummaryMode
+                      ? Symbols.local_fire_department_rounded
+                      : Symbols.local_fire_department_rounded,
+                  label: context.l10n.topicDetail_hotOnly,
+                  selected: notifier.isSummaryMode,
+                  onTap: () {
+                    if (notifier.isSummaryMode) {
+                      _handleCancelFilter();
+                    } else {
+                      _handleShowTopReplies();
+                    }
+                  },
+                ),
+              MenuQuickActionSubmenuChild(
+                icon: notifier.isAuthorOnlyMode
+                    ? Symbols.person_rounded
+                    : Symbols.person_rounded,
+                label: context.l10n.topicDetail_authorOnly,
+                selected: notifier.isAuthorOnlyMode,
+                onTap: () {
+                  if (notifier.isAuthorOnlyMode) {
+                    _handleCancelFilter();
+                  } else {
+                    _handleShowAuthorOnly();
+                  }
+                },
+              ),
+              MenuQuickActionSubmenuChild(
+                icon: notifier.isTopLevelMode
+                    ? Symbols.account_tree_rounded
+                    : Symbols.account_tree_rounded,
+                label: context.l10n.topicDetail_topLevelOnly,
+                selected: notifier.isTopLevelMode,
+                onTap: () {
+                  if (notifier.isTopLevelMode) {
+                    _handleCancelFilter();
+                  } else {
+                    _handleShowTopLevelReplies();
+                  }
+                },
+              ),
+              MenuQuickActionSubmenuChild(
+                icon: Symbols.forum_rounded,
+                label: context.l10n.nested_title,
+                selected: _isNestedView,
+                onTap: _toggleNestedView,
+              ),
+              if (hasFilter)
+                MenuQuickActionSubmenuChild(
+                  icon: Symbols.filter_list_off_rounded,
+                  label: context.l10n.common_cancel,
+                  onTap: _handleCancelFilter,
+                ),
+            ],
+          ),
+        ),
+      ],
       onSelected: (value) {
+        // 行内展开的订阅子项：value 形如 'subscribe_level_<int>'
+        const subscribePrefix = 'subscribe_level_';
+        if (value.startsWith(subscribePrefix)) {
+          final levelValue = int.tryParse(
+            value.substring(subscribePrefix.length),
+          );
+          if (levelValue != null) {
+            final level = TopicNotificationLevel.values.firstWhere(
+              (e) => e.value == levelValue,
+              orElse: () => detail.notificationLevel,
+            );
+            _handleNotificationLevelChanged(notifier, level);
+          }
+          return;
+        }
         final bookmarkTraceTarget = value == 'bookmark'
             ? _bookmarkEditTarget(detail)
             : null;
@@ -1083,13 +1268,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             ),
           ),
           onReadLater: _handleReadLater,
-          onSubscribe: () {
-            showNotificationLevelSheet(
-              context,
-              detail.notificationLevel,
-              (level) => _handleNotificationLevelChanged(notifier, level),
-            );
-          },
+          onSubscribe: doSubscribe,
           onShareLink: _shareTopic,
           onShareImage: _shareAsImage,
           onExport: _showExportSheet,
@@ -1111,93 +1290,12 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.edit_outlined,
+                  Symbols.edit_rounded,
                   size: 20,
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
                 const SizedBox(width: 12),
                 Text(context.l10n.topicDetail_editTopic),
-              ],
-            ),
-          ),
-        PopupMenuItem(
-          value: 'bookmark',
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                hasEditableBookmark ? Icons.bookmark : Icons.bookmark_border,
-                size: 20,
-                color: hasEditableBookmark
-                    ? Theme.of(context).colorScheme.primary
-                    : Theme.of(context).colorScheme.onSurface,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                hasEditableBookmark
-                    ? context.l10n.topicDetail_editBookmark
-                    : context.l10n.common_addBookmark,
-              ),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'read_later',
-          child: Builder(
-            builder: (context) {
-              final isInReadLater = ref
-                  .read(readLaterProvider.notifier)
-                  .contains(widget.topicId);
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    isInReadLater ? Icons.layers : Icons.layers_outlined,
-                    size: 20,
-                    color: isInReadLater
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurface,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    isInReadLater
-                        ? context.l10n.topicDetail_removeFromReadLater
-                        : context.l10n.topicDetail_addToReadLater,
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-        PopupMenuItem(
-          value: 'subscribe',
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                TopicNotificationButton.getIcon(detail.notificationLevel),
-                size: 20,
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-              const SizedBox(width: 12),
-              Text(context.l10n.topic_notificationSettings),
-            ],
-          ),
-        ),
-        const PopupMenuDivider(),
-        if (!detail.isPrivateMessage)
-          PopupMenuItem(
-            value: 'share_link',
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.link,
-                  size: 20,
-                  color: Theme.of(context).colorScheme.onSurface,
-                ),
-                const SizedBox(width: 12),
-                Text(context.l10n.topicDetail_shareLink),
               ],
             ),
           ),
@@ -1208,7 +1306,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  Icons.image_outlined,
+                  Symbols.image_rounded,
                   size: 20,
                   color: Theme.of(context).colorScheme.onSurface,
                 ),
@@ -1223,7 +1321,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.download_outlined,
+                Symbols.download_rounded,
                 size: 20,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
@@ -1238,7 +1336,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.language,
+                Symbols.language_rounded,
                 size: 20,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
@@ -1249,46 +1347,12 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         ),
         const PopupMenuDivider(),
         PopupMenuItem(
-          value: 'filter',
-          child: Builder(
-            builder: (context) {
-              final hasFilter =
-                  notifier.isSummaryMode ||
-                  notifier.isAuthorOnlyMode ||
-                  notifier.isTopLevelMode ||
-                  _isNestedView;
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    Icons.filter_list,
-                    size: 20,
-                    color: hasFilter
-                        ? Theme.of(context).colorScheme.primary
-                        : Theme.of(context).colorScheme.onSurface,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    context.l10n.topicDetail_filter,
-                    style: hasFilter
-                        ? TextStyle(
-                            color: Theme.of(context).colorScheme.primary,
-                          )
-                        : null,
-                  ),
-                ],
-              );
-            },
-          ),
-        ),
-        const PopupMenuDivider(),
-        PopupMenuItem(
           value: 'reading_settings',
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.auto_stories_rounded,
+                Symbols.auto_stories_rounded,
                 size: 20,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
@@ -1391,7 +1455,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     final canShowDetailPane = MasterDetailLayout.canShowBothPanesFor(context);
 
     ref.listen<AsyncValue<void>>(authStateProvider, (_, _) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       final stillLoggedIn = ref.read(currentUserProvider).value != null;
       if (_controller.trackEnabled != stillLoggedIn) {
         _controller.trackEnabled = stillLoggedIn;
@@ -1410,7 +1474,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
 
     // 监听 MessageBus 事件
     ref.listen(topicChannelProvider(widget.topicId), (previous, next) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       // 1. reload_topic（话题状态变更：关闭/打开/固定等）
       if (next.reloadRequested && !(previous?.reloadRequested ?? false)) {
         ref
@@ -1473,11 +1537,13 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
 
     // 预解析帖子 HTML
     ref.listen(topicDetailProvider(params), (previous, next) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       final detail = next.value;
       // 记录话题标题到会话状态，供用户卡片「基于话题的私信」预填标题
       if (detail != null) {
-        ref.read(topicSessionProvider(widget.topicId).notifier).setTopicTitle(detail.title);
+        ref
+            .read(topicSessionProvider(widget.topicId).notifier)
+            .setTopicTitle(detail.title);
       }
       // 首次拿到 detail 后再决定是否应用默认嵌套视图：
       // 私信场景下树形视图 API 拉不到数据，跳过该配置
@@ -1527,6 +1593,29 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
               _handleReply(replyToPost);
             }
           });
+        }
+
+        // 自动打开编辑历史 modal(从编辑通知点击进入时)
+        if (widget.initialRevisionPostNumber != null &&
+            widget.initialRevisionNumber != null &&
+            !_autoOpenRevisionHandled) {
+          final targetPost = posts
+              .where((p) => p.postNumber == widget.initialRevisionPostNumber)
+              .firstOrNull;
+          if (targetPost != null) {
+            _autoOpenRevisionHandled = true;
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              if (!mounted) return;
+              await _scrollToPost(widget.initialRevisionPostNumber!);
+              if (!mounted) return;
+              if (!context.mounted) return;
+              await showPostRevisionSheet(
+                context: context,
+                postId: targetPost.id,
+                initialRevision: widget.initialRevisionNumber,
+              );
+            });
+          }
         }
 
         // 自动打开 AI 聊天面板（从会话历史进入时）
@@ -1663,6 +1752,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                               initialContent: '$imageMarkdown\n',
                               topicTitle: detail.title,
                               isPrivateMessageTopic: detail.isPrivateMessage,
+                              isPmWithNonHumanUser: detail.pmWithNonHumanUser,
                             );
                           },
                   ),
@@ -1703,6 +1793,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
             initialContent: '$imageMarkdown\n',
             topicTitle: detail.title,
             isPrivateMessageTopic: detail.isPrivateMessage,
+            isPmWithNonHumanUser: detail.pmWithNonHumanUser,
           );
         },
       ),
@@ -2052,6 +2143,7 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
                     topicId: widget.topicId,
                     topicTitle: detail.title,
                     isPrivateMessageTopic: detail.isPrivateMessage,
+                    isPmWithNonHumanUser: detail.pmWithNonHumanUser,
                     onJumpToPost: _scrollToPost,
                   ),
                 );
@@ -2095,7 +2187,7 @@ class _AiAssistantActionIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!isGenerating) {
-      return const Icon(Icons.auto_awesome);
+      return const Icon(Symbols.auto_awesome_rounded);
     }
 
     final color = IconTheme.of(context).color;
@@ -2108,12 +2200,9 @@ class _AiAssistantActionIcon extends StatelessWidget {
           SizedBox(
             width: 22,
             height: 22,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: color,
-            ),
+            child: CircularProgressIndicator(strokeWidth: 2, color: color),
           ),
-          Icon(Icons.auto_awesome, size: 13, color: color),
+          Icon(Symbols.auto_awesome_rounded, size: 13, color: color),
         ],
       ),
     );

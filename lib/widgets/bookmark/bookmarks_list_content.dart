@@ -1,5 +1,6 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/s.dart';
@@ -78,7 +79,7 @@ class BookmarksListContent extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.bookmark_border, size: 64, color: Colors.grey),
+            const Icon(Symbols.bookmark_rounded, size: 64, color: Colors.grey),
             const SizedBox(height: 16),
             Text(
               context.l10n.bookmarks_empty,
@@ -187,18 +188,18 @@ class BookmarksListContent extends StatelessWidget {
 
     return [
       PreviewAction(
-        icon: Icons.edit_outlined,
+        icon: Symbols.edit_rounded,
         label: context.l10n.bookmark_editBookmark,
         onTap: () => onEditBookmark(topic),
       ),
       if (topic.bookmarkReminderAt != null)
         PreviewAction(
-          icon: Icons.alarm_off,
+          icon: Symbols.alarm_off_rounded,
           label: context.l10n.bookmarks_cancelReminder,
           onTap: () => onClearReminder(topic),
         ),
       PreviewAction(
-        icon: Icons.delete_outline,
+        icon: Symbols.delete_rounded,
         label: context.l10n.common_deleteBookmark,
         color: theme.colorScheme.error,
         onTap: () => onDeleteBookmark(topic),
@@ -235,7 +236,7 @@ class BookmarksListContent extends StatelessWidget {
               WidgetSpan(
                 alignment: PlaceholderAlignment.middle,
                 child: Icon(
-                  Icons.bookmark_outlined,
+                  Symbols.bookmark_rounded,
                   size: 13,
                   color: foregroundColor,
                 ),
@@ -252,7 +253,7 @@ class BookmarksListContent extends StatelessWidget {
                 ),
               WidgetSpan(
                 alignment: PlaceholderAlignment.middle,
-                child: Icon(Icons.alarm, size: 13, color: foregroundColor),
+                child: Icon(Symbols.alarm_rounded, size: 13, color: foregroundColor),
               ),
               TextSpan(
                 text: isExpired

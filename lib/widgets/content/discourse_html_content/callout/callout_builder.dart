@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'callout_config.dart';
 import 'foldable_callout.dart';
 
@@ -29,15 +30,20 @@ Widget buildCalloutBlock({
       ? contentHtml.substring(nestedBlockquoteIndex)
       : '';
 
-  // 情况1: <p>[!type]...<br> 格式，移除标记和标题，但保留 <p> 和后续内容
+  // 情况1: <p>[!type]...<br> 格式，移除首段中 <br> 之前的标记与可选标题。
+  // 注意:
+  // - `dotAll` 让 `.` 匹配换行 (markdown 渲染后的 HTML 可能含换行),
+  // - 但 `[^<]*?` 限制只能匹配「非标签字符」,避免跨越其它 <p>/<br>/标签,
+  //   防止把整段后续内容(包括正文 li 里的 <br>)一并吃掉。
   cleanPart = cleanPart.replaceFirst(
-    RegExp(r'<p>\s*\[![^\]]+\][+-]?.*?<br\s*/?>', dotAll: true),
+    RegExp(r'<p>\s*\[![^\]]+\][+-]?[^<]*?<br\s*/?>', dotAll: true),
     '<p>',
   );
 
-  // 情况2: <p>[!type]...</p> 格式，整个 <p> 只包含标记/标题
+  // 情况2: <p>[!type]...</p> 格式，整个 <p> 只包含标记/标题。
+  // 同样用 `[^<]*?` 防止匹配跨越到下一个 <p>。
   cleanPart = cleanPart.replaceFirst(
-    RegExp(r'<p>\s*\[![^\]]+\][+-]?.*?</p>', dotAll: true),
+    RegExp(r'<p>\s*\[![^\]]+\][+-]?[^<]*?</p>', dotAll: true),
     '',
   );
 
@@ -94,7 +100,7 @@ Widget buildCalloutBlock({
       ),
       if (foldable != null)
         Icon(
-          Icons.expand_more,
+          Symbols.expand_more_rounded,
           size: 18,
           color: config.color.withValues(alpha: 0.7),
         ),

@@ -5,6 +5,7 @@ import '../../models/nested_topic.dart';
 import '../../models/topic.dart';
 import '../../providers/nested_topic_provider.dart';
 import '../../utils/dialog_utils.dart';
+import '../common/app_bottom_sheet.dart';
 import 'nested_post_card.dart';
 
 /// 打开深层嵌套子树弹框
@@ -28,11 +29,7 @@ void showNestedThreadSheet({
   showAppBottomSheet(
     context: context,
     isScrollControlled: true,
-    useSafeArea: true,
-    backgroundColor: Theme.of(context).colorScheme.surfaceContainerLow,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
+    backgroundColor: Colors.transparent,
     builder: (context) => _NestedThreadSheetContent(
       node: node,
       topicId: topicId,
@@ -125,6 +122,7 @@ class _NestedThreadSheetContentState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final post = widget.node.post;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.7,
@@ -132,103 +130,65 @@ class _NestedThreadSheetContentState
       maxChildSize: 0.95,
       expand: false,
       builder: (context, scrollController) {
-        return Column(
-          children: [
-            _buildHandle(theme),
-            _buildTitleBar(context, theme),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView(
-                controller: scrollController,
-                padding: const EdgeInsets.only(bottom: 32),
-                children: [
-                  // 子回复列表，depth 从 0 重新开始
-                  for (int i = 0; i < _children.length; i++)
-                    NestedPostCard(
-                      node: _children[i],
-                      topicId: widget.topicId,
-                      detail: widget.detail,
-                      params: widget.params,
-                      depth: 0,
-                      maxDepth: widget.maxDepth,
-                      isLastChild: i == _children.length - 1 && !_hasMore,
-                      isLoggedIn: widget.isLoggedIn,
-                      onReply: widget.onReply,
-                      onEdit: widget.onEdit,
-                      onRefreshPost: widget.onRefreshPost,
-                      onJumpToPost: widget.onJumpToPost,
-                      onSolutionChanged: widget.onSolutionChanged,
-                      expansionState: _expansionState,
-                    ),
-                  // 加载更多
-                  if (_hasMore)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      child: _isLoadingMore
-                          ? const Center(
-                              child: SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
-                            )
-                          : Center(
-                              child: TextButton(
-                                onPressed: _loadChildren,
-                                child: Text(context.l10n.nested_loadMore),
-                              ),
-                            ),
-                    ),
-                ],
-              ),
+        return AppSheetScaffold(
+          expandToFill: true,
+          showTitleDivider: true,
+          contentPadding: EdgeInsets.zero,
+          titleWidget: Text(
+            '@${post.username} · ${context.l10n.nested_continueThread}',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w600,
             ),
-          ],
+            overflow: TextOverflow.ellipsis,
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.only(bottom: 32),
+            children: [
+              // 子回复列表，depth 从 0 重新开始
+              for (int i = 0; i < _children.length; i++)
+                NestedPostCard(
+                  node: _children[i],
+                  topicId: widget.topicId,
+                  detail: widget.detail,
+                  params: widget.params,
+                  depth: 0,
+                  maxDepth: widget.maxDepth,
+                  isLastChild: i == _children.length - 1 && !_hasMore,
+                  isLoggedIn: widget.isLoggedIn,
+                  onReply: widget.onReply,
+                  onEdit: widget.onEdit,
+                  onRefreshPost: widget.onRefreshPost,
+                  onJumpToPost: widget.onJumpToPost,
+                  onSolutionChanged: widget.onSolutionChanged,
+                  expansionState: _expansionState,
+                ),
+              // 加载更多
+              if (_hasMore)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: _isLoadingMore
+                      ? const Center(
+                          child: SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        )
+                      : Center(
+                          child: TextButton(
+                            onPressed: _loadChildren,
+                            child: Text(context.l10n.nested_loadMore),
+                          ),
+                        ),
+                ),
+            ],
+          ),
         );
       },
-    );
-  }
-
-  Widget _buildHandle(ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 4),
-      child: Container(
-        width: 36,
-        height: 4,
-        decoration: BoxDecoration(
-          color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTitleBar(BuildContext context, ThemeData theme) {
-    final post = widget.node.post;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              '@${post.username} · ${context.l10n.nested_continueThread}',
-              style: theme.textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.close, size: 20),
-            onPressed: () => Navigator.of(context).pop(),
-            visualDensity: VisualDensity.compact,
-          ),
-        ],
-      ),
     );
   }
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../l10n/s.dart';
 import '../../../models/emoji.dart';
 import '../../../utils/emoji_shortcodes.dart';
+import '../../../utils/dialog_utils.dart';
 import '../../../utils/platform_utils.dart';
 import '../../common/emoji_text.dart';
 import '../../markdown_editor/emoji_picker.dart';
@@ -27,7 +29,7 @@ class BoostInputReplyResult extends BoostInputResult {
 /// 以底部浮层方式显示 Boost 输入框
 /// 返回类型化提交结果，用户取消则返回 null
 Future<BoostInputResult?> showBoostInputSheet(BuildContext context) {
-  return showModalBottomSheet<BoostInputResult>(
+  return showAppBottomSheet<BoostInputResult>(
     context: context,
     isScrollControlled: true,
     builder: (ctx) => const _BoostInputSheet(),
@@ -203,8 +205,8 @@ class _BoostInputSheetState extends ConsumerState<_BoostInputSheet> {
                   onPressed: _toggleEmojiPanel,
                   icon: Icon(
                     _showEmojiPanel
-                        ? Icons.keyboard
-                        : Icons.emoji_emotions_outlined,
+                        ? Symbols.keyboard_rounded
+                        : Symbols.emoji_emotions_rounded,
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                   visualDensity: VisualDensity.compact,
@@ -265,7 +267,7 @@ class _BoostInputSheetState extends ConsumerState<_BoostInputSheet> {
                       ? context.l10n.common_reply
                       : context.l10n.boost_send,
                   icon: Icon(
-                    isReplyIntent ? Icons.reply_rounded : Icons.send_rounded,
+                    isReplyIntent ? Symbols.reply_rounded : Symbols.send_rounded,
                     color: _canSubmit
                         ? theme.colorScheme.primary
                         : theme.colorScheme.onSurfaceVariant.withValues(

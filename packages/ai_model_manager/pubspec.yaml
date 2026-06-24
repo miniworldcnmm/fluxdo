@@ -11,6 +11,8 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
+  common_ui:
+    path: ../common_ui
   flutter_riverpod:
   dio:
   http: ^1.6.0
@@ -20,6 +22,8 @@ dependencies:
   path:
   uuid:
   jovial_svg: ^1.1.29  # 用于渲染 ModelIcon 中的 brand SVG（CC0 simple-icons 资产）
+  app_icons:
+    path: ../app_icons
   # 直接用各 LLM provider 的官方 SDK，不经过 langchain_dart 抽象层
   openai_dart: ^4.3.0           # 同时覆盖 Chat Completions + Responses API
   googleai_dart: ^3.6.0         # Gemini

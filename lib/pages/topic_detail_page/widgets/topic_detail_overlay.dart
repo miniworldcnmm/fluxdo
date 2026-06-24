@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../models/topic.dart';
 import '../../../providers/preferences_provider.dart';
 import '../../../widgets/topic/topic_progress.dart';
@@ -127,7 +128,7 @@ class TopicDetailOverlay extends StatelessWidget {
             child: FloatingActionButton(
               heroTag: 'replyTopic',
               onPressed: onReply,
-              child: const Icon(Icons.reply),
+              child: const Icon(Symbols.reply_rounded),
             ),
           ),
       ],

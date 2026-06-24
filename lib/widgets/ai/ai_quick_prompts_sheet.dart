@@ -1,9 +1,11 @@
 import 'package:ai_model_manager/ai_model_manager.dart';
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../l10n/s.dart';
 import '../../utils/dialog_utils.dart';
+import '../common/app_bottom_sheet.dart';
 
 /// 弹出"全部 preset"面板（更多 chip 的展开）
 ///
@@ -15,12 +17,13 @@ Future<void> showAiQuickPromptsSheet({
   required void Function(
     PromptPreset preset,
     Map<String, String>? dimensionValues,
-  ) onPick,
+  )
+  onPick,
 }) {
   return showAppBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    showDragHandle: true,
+    backgroundColor: Colors.transparent,
     builder: (ctx) => _PromptPresetsSheet(type: type, onPick: onPick),
   );
 }
@@ -34,7 +37,7 @@ Future<void> showAiPresetDimensionSheet({
   return showAppBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    showDragHandle: true,
+    backgroundColor: Colors.transparent,
     builder: (ctx) =>
         _DimensionConfigSheet(preset: preset, onConfirm: onConfirm),
   );
@@ -44,10 +47,8 @@ class _PromptPresetsSheet extends ConsumerWidget {
   const _PromptPresetsSheet({required this.type, required this.onPick});
 
   final PromptType type;
-  final void Function(
-    PromptPreset preset,
-    Map<String, String>? dimensionValues,
-  ) onPick;
+  final void Function(PromptPreset preset, Map<String, String>? dimensionValues)
+  onPick;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -56,78 +57,51 @@ class _PromptPresetsSheet extends ConsumerWidget {
     final builtIns = all.where((p) => p.builtIn).toList(growable: false);
     final customs = all.where((p) => !p.builtIn).toList(growable: false);
 
-    return SafeArea(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+    return AppSheetScaffold(
+      title: S.current.ai_quickPromptsTitle,
+      showCloseButton: false,
+      showTitleDivider: true,
+      contentPadding: EdgeInsets.zero,
+      maxHeightFactor: 0.75,
+      actions: [
+        TextButton.icon(
+          icon: const Icon(Symbols.tune_rounded, size: 16),
+          label: Text(S.current.ai_quickPromptsManage),
+          onPressed: () {
+            Navigator.of(context).pop();
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const PromptPresetsPage()),
+            );
+          },
         ),
+      ],
+      child: SingleChildScrollView(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // 标题栏
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 8, 8),
-              child: Row(
-                children: [
-                  Text(
-                    S.current.ai_quickPromptsTitle,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const Spacer(),
-                  TextButton.icon(
-                    icon: const Icon(Icons.tune, size: 16),
-                    label: Text(S.current.ai_quickPromptsManage),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const PromptPresetsPage(),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+            if (builtIns.isNotEmpty) ...[
+              _SectionHeader(text: S.current.ai_quickPromptsBuiltInSection),
+              ...builtIns.map(
+                (p) => _PresetTile(preset: p, onPick: _onTilePick),
               ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (builtIns.isNotEmpty) ...[
-                      _SectionHeader(
-                        text: S.current.ai_quickPromptsBuiltInSection,
-                      ),
-                      ...builtIns.map((p) =>
-                          _PresetTile(preset: p, onPick: _onTilePick)),
-                    ],
-                    if (customs.isNotEmpty) ...[
-                      _SectionHeader(
-                        text: S.current.ai_quickPromptsCustomSection,
-                      ),
-                      ...customs.map((p) =>
-                          _PresetTile(preset: p, onPick: _onTilePick)),
-                    ] else if (customs.isEmpty && builtIns.isNotEmpty) ...[
-                      _SectionHeader(
-                        text: S.current.ai_quickPromptsCustomSection,
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
-                        child: Text(
-                          S.current.ai_quickPromptsEmpty,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
+            ],
+            if (customs.isNotEmpty) ...[
+              _SectionHeader(text: S.current.ai_quickPromptsCustomSection),
+              ...customs.map(
+                (p) => _PresetTile(preset: p, onPick: _onTilePick),
+              ),
+            ] else if (customs.isEmpty && builtIns.isNotEmpty) ...[
+              _SectionHeader(text: S.current.ai_quickPromptsCustomSection),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+                child: Text(
+                  S.current.ai_quickPromptsEmpty,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -233,8 +207,7 @@ class _PresetTile extends ConsumerWidget {
               tooltip: preset.pinned
                   ? S.current.ai_quickPromptsUnpin
                   : S.current.ai_quickPromptsPin,
-              icon: Icon(
-                preset.pinned ? Icons.push_pin : Icons.push_pin_outlined,
+              icon: Icon(Symbols.push_pin_rounded, fill: preset.pinned ? 1 : 0,
                 size: 18,
                 color: preset.pinned
                     ? theme.colorScheme.primary
@@ -274,84 +247,84 @@ class _PresetTile extends ConsumerWidget {
   }
 
   Future<void> _showActions(BuildContext context, WidgetRef ref) async {
-    await showAppBottomSheet<void>(
+    await AppBottomSheet.show<void>(
       context: context,
+      contentPadding: EdgeInsets.zero,
       builder: (ctx) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                leading: Icon(
-                  preset.pinned ? Icons.push_pin : Icons.push_pin_outlined,
-                ),
-                title: Text(preset.pinned
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Symbols.push_pin_rounded, fill: preset.pinned ? 1 : 0,
+              ),
+              title: Text(
+                preset.pinned
                     ? S.current.ai_quickPromptsUnpin
-                    : S.current.ai_quickPromptsPin),
+                    : S.current.ai_quickPromptsPin,
+              ),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                ref
+                    .read(promptPresetListProvider.notifier)
+                    .togglePin(preset.id);
+              },
+            ),
+            if (!preset.builtIn)
+              ListTile(
+                leading: const Icon(Symbols.edit_rounded),
+                title: Text(S.current.common_edit),
                 onTap: () {
                   Navigator.of(ctx).pop();
-                  ref
-                      .read(promptPresetListProvider.notifier)
-                      .togglePin(preset.id);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PromptPresetEditPage(preset: preset),
+                    ),
+                  );
                 },
               ),
-              if (!preset.builtIn)
-                ListTile(
-                  leading: const Icon(Icons.edit_outlined),
-                  title: Text(S.current.common_edit),
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => PromptPresetEditPage(preset: preset),
-                      ),
-                    );
-                  },
+            if (!preset.builtIn)
+              ListTile(
+                leading: Icon(
+                  Symbols.delete_rounded,
+                  color: Theme.of(context).colorScheme.error,
                 ),
-              if (!preset.builtIn)
-                ListTile(
-                  leading: Icon(
-                    Icons.delete_outline,
-                    color: Theme.of(context).colorScheme.error,
-                  ),
-                  title: Text(
-                    S.current.ai_quickPromptsDelete,
-                    style: TextStyle(
-                        color: Theme.of(context).colorScheme.error),
-                  ),
-                  onTap: () async {
-                    Navigator.of(ctx).pop();
-                    final ok = await _confirmDelete(context, preset.name);
-                    if (ok) {
-                      await ref
-                          .read(promptPresetListProvider.notifier)
-                          .deletePreset(preset.id);
-                    }
-                  },
+                title: Text(
+                  S.current.ai_quickPromptsDelete,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
-              if (preset.builtIn)
-                ListTile(
-                  leading: Icon(
-                    preset.hidden
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
-                  ),
-                  title: Text(preset.hidden
+                onTap: () async {
+                  Navigator.of(ctx).pop();
+                  final ok = await _confirmDelete(context, preset.name);
+                  if (ok) {
+                    await ref
+                        .read(promptPresetListProvider.notifier)
+                        .deletePreset(preset.id);
+                  }
+                },
+              ),
+            if (preset.builtIn)
+              ListTile(
+                leading: Icon(
+                  preset.hidden
+                      ? Symbols.visibility_rounded
+                      : Symbols.visibility_off_rounded,
+                ),
+                title: Text(
+                  preset.hidden
                       ? S.current.ai_quickPromptsUnhide
-                      : S.current.ai_quickPromptsHide),
-                  onTap: () {
-                    Navigator.of(ctx).pop();
-                    final notifier =
-                        ref.read(promptPresetListProvider.notifier);
-                    if (preset.hidden) {
-                      notifier.unhide(preset.id);
-                    } else {
-                      notifier.hide(preset.id);
-                    }
-                  },
+                      : S.current.ai_quickPromptsHide,
                 ),
-            ],
-          ),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  final notifier = ref.read(promptPresetListProvider.notifier);
+                  if (preset.hidden) {
+                    notifier.unhide(preset.id);
+                  } else {
+                    notifier.hide(preset.id);
+                  }
+                },
+              ),
+          ],
         );
       },
     );
@@ -406,20 +379,35 @@ class _DimensionConfigSheetState extends State<_DimensionConfigSheet> {
     final theme = Theme.of(context);
     final dimensions = widget.preset.dimensions ?? const [];
 
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+    return AppSheetScaffold(
+      title: widget.preset.name,
+      showCloseButton: false,
+      contentPadding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      footer: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(S.current.common_cancel),
+            ),
+            const SizedBox(width: 8),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                widget.onConfirm(_values);
+              },
+              child: Text(S.current.common_confirm),
+            ),
+          ],
+        ),
+      ),
+      child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              widget.preset.name,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 12),
             for (final dim in dimensions) ...[
               Text(
                 dim.label,
@@ -452,23 +440,6 @@ class _DimensionConfigSheetState extends State<_DimensionConfigSheet> {
               ),
               const SizedBox(height: 14),
             ],
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(S.current.common_cancel),
-                ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                    widget.onConfirm(_values);
-                  },
-                  child: Text(S.current.common_confirm),
-                ),
-              ],
-            ),
           ],
         ),
       ),

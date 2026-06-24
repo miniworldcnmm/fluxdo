@@ -167,7 +167,17 @@ class MainActivity : FlutterActivity() {
                                 // 优先：GET_COOKIE_INFO 拿每条 cookie 的真实 domain/path 精确删，
                                 // 与 countCookiesByName(getCookie) 对齐，杜绝"数得到删不掉"的残留循环。
                                 // 旧 WebView(<105) 不支持时回退到穷举候选组合。
-                                val targets = mutableListOf<Pair<String?, String>>()
+                                val targets = linkedSetOf<Pair<String?, String>>()
+                                fun addDomainVariants(rawDomain: String?, path: String) {
+                                    targets.add(Pair(null, path))
+                                    val trimmed = rawDomain?.trim()
+                                    if (!trimmed.isNullOrEmpty()) {
+                                        val bare = trimmed.removePrefix(".")
+                                        targets.add(Pair(trimmed, path))
+                                        targets.add(Pair(bare, path))
+                                        targets.add(Pair(".$bare", path))
+                                    }
+                                }
                                 if (WebViewFeature.isFeatureSupported(WebViewFeature.GET_COOKIE_INFO)) {
                                     for (line in CookieManagerCompat.getCookieInfo(mgr, url)) {
                                         val params = line.split(";")
@@ -186,33 +196,76 @@ class MainActivity : FlutterActivity() {
                                                 path = v
                                             }
                                         }
-                                        targets.add(Pair(domain, path))
+                                        addDomainVariants(domain, path)
                                     }
-                                } else {
-                                    for (domain in domainCandidates) {
-                                        for (path in pathCandidates) {
-                                            targets.add(Pair(domain, path))
-                                        }
+                                }
+                                for (domain in domainCandidates) {
+                                    for (path in pathCandidates) {
+                                        addDomainVariants(domain, path)
                                     }
                                 }
                                 if (targets.isEmpty()) {
                                     result.success(0)
                                     return@post
                                 }
-                                val remaining = AtomicInteger(targets.size)
-                                val deletedCount = AtomicInteger(0)
-                                for ((domain, path) in targets) {
-                                    val attrs = mutableListOf("$name=", "Max-Age=0", "Path=$path")
-                                    if (domain != null) attrs.add("Domain=$domain")
-                                    val rawCookie = attrs.joinToString("; ")
-                                    mgr.setCookie(url, rawCookie) { success ->
-                                        if (success == true) deletedCount.incrementAndGet()
-                                        if (remaining.decrementAndGet() == 0) {
-                                            mgr.flush()
-                                            result.success(deletedCount.get())
+                                // 删除写入的属性变体:覆盖 普通 / Secure / Secure;SameSite=None。
+                                // 仅带 Path/Domain 无法覆盖 cf_clearance 这种
+                                // SameSite=None;Secure 的 cookie(覆盖判定不匹配 → 删不掉)。
+                                fun deleteRawVariants(domain: String?, path: String): List<String> {
+                                    val base = mutableListOf(
+                                        "$name=",
+                                        "Max-Age=0",
+                                        "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+                                        "Path=$path"
+                                    )
+                                    if (domain != null) base.add("Domain=$domain")
+                                    val plain = base.joinToString("; ")
+                                    return listOf(
+                                        plain,
+                                        "$plain; Secure",
+                                        "$plain; Secure; SameSite=None"
+                                    )
+                                }
+                                fun countName(): Int {
+                                    val cs = mgr.getCookie(url) ?: ""
+                                    return cs.split(";").count { entry ->
+                                        val t = entry.trim()
+                                        val i = t.indexOf('=')
+                                        i > 0 && t.substring(0, i).trim() == name
+                                    }
+                                }
+                                val deletedTotal = AtomicInteger(0)
+                                // 同 (name,domain,path) 多份时,单次 setCookie 只覆盖一份,
+                                // 需"删除→数→再删"多轮逐份清净,带硬上限防死循环。
+                                val maxRounds = 5
+                                fun runRound(round: Int, prevAfter: Int) {
+                                    val raws = targets.flatMap { (domain, path) ->
+                                        deleteRawVariants(domain, path)
+                                    }
+                                    val remaining = AtomicInteger(raws.size)
+                                    for (raw in raws) {
+                                        mgr.setCookie(url, raw) { success ->
+                                            if (success == true) deletedTotal.incrementAndGet()
+                                            if (remaining.decrementAndGet() == 0) {
+                                                mgr.flush()
+                                                val after = countName()
+                                                Log.d(
+                                                    "RawCookie",
+                                                    "nukeAllVariants name=$name round=$round after=$after"
+                                                )
+                                                // after>0 但相比上轮没减少 → 删不动了(如 CHIPS 分区 cookie),
+                                                // 提前停,别白跑剩余轮次。
+                                                val stuck = round > 1 && after >= prevAfter
+                                                if (after > 0 && round < maxRounds && !stuck) {
+                                                    mainHandler.post { runRound(round + 1, after) }
+                                                } else {
+                                                    result.success(deletedTotal.get())
+                                                }
+                                            }
                                         }
                                     }
                                 }
+                                runRound(1, Int.MAX_VALUE)
                             } catch (e: Exception) {
                                 Log.e("RawCookie", "nukeAllVariants failed: ${e.message}", e)
                                 result.success(0)
@@ -233,12 +286,30 @@ class MainActivity : FlutterActivity() {
                     if (url != null && name != null && path != null) {
                         try {
                             val mgr = WebCookieManager.getInstance()
-                            val attrs = mutableListOf("$name=", "Max-Age=0", "Path=$path")
-                            if (domain != null) attrs.add("Domain=$domain")
-                            val rawCookie = attrs.joinToString("; ")
-                            mgr.setCookie(url, rawCookie) { success ->
-                                mgr.flush()
-                                result.success(success ?: false)
+                            val base = mutableListOf(
+                                "$name=",
+                                "Max-Age=0",
+                                "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+                                "Path=$path"
+                            )
+                            if (domain != null) base.add("Domain=$domain")
+                            val plain = base.joinToString("; ")
+                            // 带全属性变体,覆盖 Secure / SameSite=None;Secure 的 cookie。
+                            val raws = listOf(
+                                plain,
+                                "$plain; Secure",
+                                "$plain; Secure; SameSite=None"
+                            )
+                            val remaining = AtomicInteger(raws.size)
+                            val anySuccess = java.util.concurrent.atomic.AtomicBoolean(false)
+                            for (raw in raws) {
+                                mgr.setCookie(url, raw) { success ->
+                                    if (success == true) anySuccess.set(true)
+                                    if (remaining.decrementAndGet() == 0) {
+                                        mgr.flush()
+                                        result.success(anySuccess.get())
+                                    }
+                                }
                             }
                         } catch (e: Exception) {
                             Log.e("RawCookie", "deleteExactCookie failed: ${e.message}", e)
@@ -250,38 +321,116 @@ class MainActivity : FlutterActivity() {
                 }
 
                 // 读取指定 url 下所有 cookie 的完整信息
-                // 依据 §3.3.3: Android 旧 API 仅能拿到 name + value
-                //               domain/path/secure/httpOnly/expires 字段返回 null
-                //               (不依赖 GET_COOKIE_INFO, 按 §3.4 用户决策)
+                // 新 WebView 通过 GET_COOKIE_INFO 拿 domain/path 等字段；
+                // 旧 WebView 回退到 getCookie()，只能拿到 name + value。
                 "getAllCookieInfos" -> {
                     val url = call.argument<String>("url")
                     if (url != null) {
-                        try {
-                            val mgr = WebCookieManager.getInstance()
-                            val cookieString = mgr.getCookie(url) ?: ""
-                            val infos = cookieString.split(";").mapNotNull { entry ->
-                                val trimmed = entry.trim()
-                                if (trimmed.isEmpty()) return@mapNotNull null
-                                val eqIdx = trimmed.indexOf('=')
-                                if (eqIdx <= 0) return@mapNotNull null
-                                val cookieName = trimmed.substring(0, eqIdx).trim()
-                                val cookieValue = trimmed.substring(eqIdx + 1).trim()
-                                mapOf<String, Any?>(
-                                    "name" to cookieName,
-                                    "value" to cookieValue,
-                                    "domain" to null,
-                                    "path" to null,
-                                    "isSecure" to null,
-                                    "isHttpOnly" to null,
-                                    "expiresMillis" to null,
-                                    // Android WebCookieManager.getCookie 只返回 name=value 字符串,
-                                    // 拿不到 sameSite (需要 newer getCookieInfo API), 这里始终 null
-                                    "sameSite" to null,
-                                )
-                            }
-                            result.success(infos)
-                        } catch (e: Exception) {
-                            Log.e("RawCookie", "getAllCookieInfos failed: ${e.message}", e)
+                            try {
+                                val mgr = WebCookieManager.getInstance()
+                                fun parseCookieInfo(line: String): Map<String, Any?>? {
+                                    val params = line.split(";")
+                                    if (params.isEmpty()) return null
+                                    val nv = params[0].split("=", limit = 2)
+                                    val cookieName = nv[0].trim()
+                                    if (cookieName.isEmpty()) return null
+
+                                    var domain: String? = null
+                                    var path: String? = null
+                                    var isSecure: Boolean? = null
+                                    var isHttpOnly: Boolean? = null
+                                    var expiresMillis: Long? = null
+                                    var sameSite: String? = null
+                                    var isPartitioned: Boolean? = null
+
+                                    fun parseExpires(value: String): Long? {
+                                        val patterns = listOf(
+                                            "EEE, dd MMM yyyy HH:mm:ss zzz",
+                                            "EEE, dd-MMM-yyyy HH:mm:ss zzz"
+                                        )
+                                        for (pattern in patterns) {
+                                            try {
+                                                val format = java.text.SimpleDateFormat(
+                                                    pattern,
+                                                    java.util.Locale.US
+                                                )
+                                                format.timeZone = java.util.TimeZone.getTimeZone("GMT")
+                                                return format.parse(value)?.time
+                                            } catch (ignored: Exception) {
+                                            }
+                                        }
+                                        return null
+                                    }
+
+                                    for (i in 1 until params.size) {
+                                        val part = params[i].trim()
+                                        if (part.isEmpty()) continue
+                                        val kv = part.split("=", limit = 2)
+                                        val key = kv[0].trim()
+                                        val value = if (kv.size > 1) kv[1].trim() else ""
+                                        when {
+                                            key.equals("Domain", ignoreCase = true) -> domain = value
+                                            key.equals("Path", ignoreCase = true) -> path = value
+                                            key.equals("Secure", ignoreCase = true) -> isSecure = true
+                                            key.equals("HttpOnly", ignoreCase = true) -> isHttpOnly = true
+                                            key.equals("Expires", ignoreCase = true) -> expiresMillis = parseExpires(value)
+                                            key.equals("SameSite", ignoreCase = true) -> sameSite = value
+                                            key.equals("Partitioned", ignoreCase = true) -> isPartitioned = true
+                                        }
+                                    }
+
+                                    // 诊断:cf_clearance 是否被 CF 设为 Partitioned(CHIPS)。
+                                    // 只打属性,绝不打 value——cf_clearance 是有效凭证,不能进 logcat。
+                                    if (cookieName == "cf_clearance") {
+                                        Log.d(
+                                            "RawCookie",
+                                            "cf_clearance attrs: partitioned=$isPartitioned " +
+                                                "secure=$isSecure samesite=$sameSite " +
+                                                "domain=$domain path=$path"
+                                        )
+                                    }
+
+                                    return mapOf<String, Any?>(
+                                        "name" to cookieName,
+                                        "value" to if (nv.size > 1) nv[1].trim() else "",
+                                        "domain" to domain,
+                                        "path" to path,
+                                        "isSecure" to isSecure,
+                                        "isHttpOnly" to isHttpOnly,
+                                        "expiresMillis" to expiresMillis,
+                                        "sameSite" to sameSite,
+                                        "partitioned" to isPartitioned,
+                                    )
+                                }
+
+                                val cookieString = mgr.getCookie(url) ?: ""
+                                val infos = if (WebViewFeature.isFeatureSupported(WebViewFeature.GET_COOKIE_INFO)) {
+                                    CookieManagerCompat.getCookieInfo(mgr, url).mapNotNull { line ->
+                                        parseCookieInfo(line)
+                                    }
+                                } else {
+                                    cookieString.split(";").mapNotNull { entry ->
+                                        val trimmed = entry.trim()
+                                        if (trimmed.isEmpty()) return@mapNotNull null
+                                        val eqIdx = trimmed.indexOf('=')
+                                        if (eqIdx <= 0) return@mapNotNull null
+                                        val cookieName = trimmed.substring(0, eqIdx).trim()
+                                        val cookieValue = trimmed.substring(eqIdx + 1).trim()
+                                        mapOf<String, Any?>(
+                                            "name" to cookieName,
+                                            "value" to cookieValue,
+                                            "domain" to null,
+                                            "path" to null,
+                                            "isSecure" to null,
+                                            "isHttpOnly" to null,
+                                            "expiresMillis" to null,
+                                            "sameSite" to null,
+                                        )
+                                    }
+                                }
+                                result.success(infos)
+                            } catch (e: Exception) {
+                                Log.e("RawCookie", "getAllCookieInfos failed: ${e.message}", e)
                             result.success(emptyList<Map<String, Any?>>())
                         }
                     } else {

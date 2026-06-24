@@ -9,11 +9,14 @@ mixin _AuthMixin on _DiscourseServiceBase {
   static const Duration _strikeWindow = Duration(seconds: 45);
   static const Duration _inconclusiveCooldown = Duration(seconds: 30);
   static const Duration _candidateProbeFailureCooldown = Duration(minutes: 5);
+  static const Duration _previousTTokenFallbackTtl = Duration(minutes: 15);
   int _authStrikeCount = 0;
   DateTime? _lastStrikeAt;
   DateTime? _lastInconclusiveAt;
-  String? _lastRejectedWebViewCandidateHash;
-  DateTime? _lastRejectedWebViewCandidateAt;
+  String? _lastRejectedSessionCandidateHash;
+  DateTime? _lastRejectedSessionCandidateAt;
+  String? _previousTTokenFallback;
+  DateTime? _previousTTokenFallbackAt;
   Future<bool?>? _activeProbe;
 
   void _resetStrikes() {
@@ -41,28 +44,73 @@ mixin _AuthMixin on _DiscourseServiceBase {
 
   bool _hasTokenValue(String? token) => token != null && token.isNotEmpty;
 
-  bool _isRejectedWebViewCandidateInCooldown(String? token) {
+  bool _isRejectedSessionCandidateInCooldown(String? token) {
     final hash = _safeTokenHash(token);
-    final rejectedAt = _lastRejectedWebViewCandidateAt;
+    final rejectedAt = _lastRejectedSessionCandidateAt;
     if (hash == null ||
         rejectedAt == null ||
-        hash != _lastRejectedWebViewCandidateHash) {
+        hash != _lastRejectedSessionCandidateHash) {
       return false;
     }
     return DateTime.now().difference(rejectedAt) <=
         _candidateProbeFailureCooldown;
   }
 
-  void _markRejectedWebViewCandidate(String? token) {
+  void _markRejectedSessionCandidate(String? token) {
     final hash = _safeTokenHash(token);
     if (hash == null) return;
-    _lastRejectedWebViewCandidateHash = hash;
-    _lastRejectedWebViewCandidateAt = DateTime.now();
+    _lastRejectedSessionCandidateHash = hash;
+    _lastRejectedSessionCandidateAt = DateTime.now();
   }
 
-  void _clearRejectedWebViewCandidate() {
-    _lastRejectedWebViewCandidateHash = null;
-    _lastRejectedWebViewCandidateAt = null;
+  void _clearRejectedSessionCandidate() {
+    _lastRejectedSessionCandidateHash = null;
+    _lastRejectedSessionCandidateAt = null;
+  }
+
+  void _rememberPreviousTTokenFallback(
+    String? token, {
+    required String reason,
+    String? replacementToken,
+    RequestOptions? requestOptions,
+  }) {
+    if (!_hasTokenValue(token) || token == replacementToken) return;
+
+    _previousTTokenFallback = token;
+    _previousTTokenFallbackAt = DateTime.now();
+
+    LogWriter.instance.write({
+      'timestamp': DateTime.now().toIso8601String(),
+      'level': 'info',
+      'type': 'auth',
+      'event': 'previous_t_token_fallback_stored',
+      'message': '已临时保存上一枚 _t，供登录失效 probe 回退使用',
+      'reason': reason,
+      'previousTLen': _tokenLength(token),
+      'previousTHash': _safeTokenHash(token),
+      'replacementTLen': _tokenLength(replacementToken),
+      'replacementTHash': _safeTokenHash(replacementToken),
+      if (requestOptions != null) 'method': requestOptions.method,
+      if (requestOptions != null) 'url': requestOptions.uri.toString(),
+    });
+  }
+
+  String? _readPreviousTTokenFallback({String? sentTToken, String? jarTToken}) {
+    final token = _previousTTokenFallback;
+    final storedAt = _previousTTokenFallbackAt;
+    if (!_hasTokenValue(token) || storedAt == null) return null;
+
+    if (DateTime.now().difference(storedAt) > _previousTTokenFallbackTtl) {
+      _clearPreviousTTokenFallback();
+      return null;
+    }
+    if (token == sentTToken || token == jarTToken) return null;
+    return token;
+  }
+
+  void _clearPreviousTTokenFallback() {
+    _previousTTokenFallback = null;
+    _previousTTokenFallbackAt = null;
   }
 
   bool? _sameNonEmptyToken(String? left, String? right) {
@@ -402,6 +450,37 @@ mixin _AuthMixin on _DiscourseServiceBase {
           'username': user.username,
           ..._sentTDiagnostics(response.requestOptions),
         });
+        _clearPreviousTTokenFallback();
+        _resetStrikes();
+        return true;
+      }
+
+      final recoveredByPrevious = await _recoverPreviousSessionBeforeLogout(
+        source: source,
+        triggerInfo: triggerInfo,
+        signalRequestOptions: signalRequestOptions,
+        failedJarTToken: probeJarTToken,
+      );
+      if (recoveredByPrevious != null) {
+        currentUserNotifier.value = recoveredByPrevious;
+        if (recoveredByPrevious.username.isNotEmpty) {
+          _username = recoveredByPrevious.username;
+          await _storage.write(
+            key: DiscourseService._usernameKey,
+            value: recoveredByPrevious.username,
+          );
+        }
+        LogWriter.instance.write({
+          'timestamp': DateTime.now().toIso8601String(),
+          'level': 'info',
+          'type': 'auth',
+          'event': 'auth_probe_success',
+          'message': '上一枚 session 候选已确认有效，取消本次登出',
+          'source': source,
+          if (triggerInfo != null) 'trigger': triggerInfo,
+          'username': recoveredByPrevious.username,
+          ..._sentTDiagnostics(response.requestOptions),
+        });
         _resetStrikes();
         return true;
       }
@@ -427,6 +506,38 @@ mixin _AuthMixin on _DiscourseServiceBase {
       final status = e.response?.statusCode;
       // 404 = 无用户（session_controller.rb:676）
       if (status == 404) {
+        final recoveredByPrevious = await _recoverPreviousSessionBeforeLogout(
+          source: source,
+          triggerInfo: triggerInfo,
+          signalRequestOptions: signalRequestOptions,
+          failedJarTToken: probeJarTToken,
+        );
+        if (recoveredByPrevious != null) {
+          currentUserNotifier.value = recoveredByPrevious;
+          if (recoveredByPrevious.username.isNotEmpty) {
+            _username = recoveredByPrevious.username;
+            await _storage.write(
+              key: DiscourseService._usernameKey,
+              value: recoveredByPrevious.username,
+            );
+          }
+          LogWriter.instance.write({
+            'timestamp': DateTime.now().toIso8601String(),
+            'level': 'info',
+            'type': 'auth',
+            'event': 'auth_probe_success',
+            'message': '上一枚 session 候选已确认有效，取消本次登出',
+            'source': source,
+            if (triggerInfo != null) 'trigger': triggerInfo,
+            'username': recoveredByPrevious.username,
+            ..._sentTDiagnostics(
+              e.response?.requestOptions ?? e.requestOptions,
+            ),
+          });
+          _resetStrikes();
+          return true;
+        }
+
         LogWriter.instance.write({
           'timestamp': DateTime.now().toIso8601String(),
           'level': 'warning',
@@ -509,10 +620,10 @@ mixin _AuthMixin on _DiscourseServiceBase {
     try {
       candidateTToken = await BoundarySyncService.instance
           .readCookieValueFromWebView(
-        currentUrl: AppConstants.baseUrl,
-        name: '_t',
-        allowLowConfidenceSessionCookies: true,
-      );
+            currentUrl: AppConstants.baseUrl,
+            name: '_t',
+            allowLowConfidenceSessionCookies: true,
+          );
     } catch (e) {
       debugPrint('[Auth] probe 前读取 WebView session 失败: $e');
       return null;
@@ -523,16 +634,16 @@ mixin _AuthMixin on _DiscourseServiceBase {
         candidateTToken == sentTToken) {
       return null;
     }
-    if (_isRejectedWebViewCandidateInCooldown(candidateTToken)) return null;
+    if (_isRejectedSessionCandidateInCooldown(candidateTToken)) return null;
 
     String? candidateForumSession;
     try {
       candidateForumSession = await BoundarySyncService.instance
           .readCookieValueFromWebView(
-        currentUrl: AppConstants.baseUrl,
-        name: '_forum_session',
-        allowLowConfidenceSessionCookies: true,
-      );
+            currentUrl: AppConstants.baseUrl,
+            name: '_forum_session',
+            allowLowConfidenceSessionCookies: true,
+          );
     } catch (e) {
       debugPrint('[Auth] probe 前读取 WebView _forum_session 失败: $e');
     }
@@ -542,15 +653,15 @@ mixin _AuthMixin on _DiscourseServiceBase {
         '_forum_session': candidateForumSession!,
     };
 
-    final candidateUser = await _probeCandidateWebViewSession(
+    final candidateUser = await _probeCandidateSession(
       candidateSessionCookies,
       requestGeneration: requestGeneration,
     );
     if (candidateUser == null) {
-      _markRejectedWebViewCandidate(candidateTToken);
+      _markRejectedSessionCandidate(candidateTToken);
       return null;
     }
-    _clearRejectedWebViewCandidate();
+    _clearRejectedSessionCandidate();
 
     if (requestGeneration != null &&
         !AuthSession().isValid(requestGeneration)) {
@@ -575,6 +686,7 @@ mixin _AuthMixin on _DiscourseServiceBase {
     }
 
     _tToken = afterJarTToken;
+    _clearPreviousTTokenFallback();
     LogWriter.instance.write({
       'timestamp': DateTime.now().toIso8601String(),
       'level': 'info',
@@ -595,7 +707,81 @@ mixin _AuthMixin on _DiscourseServiceBase {
     return candidateUser;
   }
 
-  Future<User?> _probeCandidateWebViewSession(
+  Future<User?> _recoverPreviousSessionBeforeLogout({
+    required String source,
+    String? triggerInfo,
+    RequestOptions? signalRequestOptions,
+    String? failedJarTToken,
+  }) async {
+    final sentTToken = signalRequestOptions == null
+        ? null
+        : _sentTTokenFromRequest(signalRequestOptions);
+    final candidateTToken = _readPreviousTTokenFallback(
+      sentTToken: sentTToken,
+      jarTToken: failedJarTToken,
+    );
+    if (!_hasTokenValue(candidateTToken)) return null;
+    final candidateTTokenValue = candidateTToken!;
+
+    final requestGeneration =
+        signalRequestOptions?.extra['_sessionGeneration'] as int?;
+    if (requestGeneration != null &&
+        !AuthSession().isValid(requestGeneration)) {
+      return null;
+    }
+    if (_isRejectedSessionCandidateInCooldown(candidateTTokenValue)) {
+      return null;
+    }
+
+    final candidateUser = await _probeCandidateSession({
+      '_t': candidateTTokenValue,
+    }, requestGeneration: requestGeneration);
+    if (candidateUser == null) {
+      _markRejectedSessionCandidate(candidateTTokenValue);
+      return null;
+    }
+    _clearRejectedSessionCandidate();
+
+    if (requestGeneration != null &&
+        !AuthSession().isValid(requestGeneration)) {
+      return null;
+    }
+
+    await _cookieJar.setCookie(
+      '_t',
+      candidateTTokenValue,
+      httpOnly: true,
+      trusted: true,
+    );
+    final afterJarTToken = await _cookieJar.getTToken();
+    if (!_hasTokenValue(afterJarTToken) ||
+        afterJarTToken != candidateTTokenValue) {
+      return null;
+    }
+
+    _tToken = afterJarTToken;
+    _clearPreviousTTokenFallback();
+    LogWriter.instance.write({
+      'timestamp': DateTime.now().toIso8601String(),
+      'level': 'info',
+      'type': 'auth',
+      'event': 'auth_probe_previous_session_cookie_recovered',
+      'message': '登录失效前用上一枚 _t 候选恢复了 session cookie',
+      'source': source,
+      if (triggerInfo != null) 'trigger': triggerInfo,
+      'sentTLen': _tokenLength(sentTToken),
+      'sentTHash': _safeTokenHash(sentTToken),
+      'failedJarTLen': _tokenLength(failedJarTToken),
+      'failedJarTHash': _safeTokenHash(failedJarTToken),
+      'afterJarTLen': _tokenLength(afterJarTToken),
+      'afterJarTHash': _safeTokenHash(afterJarTToken),
+      'afterMatchesSentT': _sameNonEmptyToken(afterJarTToken, sentTToken),
+      if (requestGeneration != null) 'requestGeneration': requestGeneration,
+    });
+    return candidateUser;
+  }
+
+  Future<User?> _probeCandidateSession(
     Map<String, String> candidateCookies, {
     int? requestGeneration,
   }) async {
@@ -620,6 +806,7 @@ mixin _AuthMixin on _DiscourseServiceBase {
             'skipAuthCheck': true,
             'skipCsrf': true,
             'skipSessionStateSync': true,
+            'skipWebViewAdapter': true,
             AppCookieManager.skipCookieManagerExtraKey: true,
             SelfHealingInterceptor.selfHealedExtraKey: true,
           },
@@ -633,7 +820,7 @@ mixin _AuthMixin on _DiscourseServiceBase {
     } on DioException {
       return null;
     } catch (e) {
-      debugPrint('[Auth] WebView candidate session probe 异常: $e');
+      debugPrint('[Auth] candidate session probe 异常: $e');
       return null;
     }
   }
@@ -676,6 +863,12 @@ mixin _AuthMixin on _DiscourseServiceBase {
           final sessionState = await _readSessionCookieState();
           final liveToken = sessionState.tToken;
           if (liveToken != _tToken) {
+            _rememberPreviousTTokenFallback(
+              _tToken,
+              reason: 'request_cookie_jar_changed',
+              replacementToken: liveToken,
+              requestOptions: options,
+            );
             if ((liveToken == null || liveToken.isEmpty) &&
                 _tToken != null &&
                 _tToken!.isNotEmpty) {
@@ -699,6 +892,15 @@ mixin _AuthMixin on _DiscourseServiceBase {
           options.extra['_sessionCookieFingerprint'] = sessionState.fingerprint;
 
           if (_tToken != null && _tToken!.isNotEmpty) {
+            if (!_isLoggingOut) {
+              // bootstrap 是站点风控的指纹上报，产物 _rt 是软依赖：
+              // 服务端用 _t 已经能完成认证，首个请求漏掉 _rt 不会被拒。
+              // 后台触发，不阻塞业务请求，避免冷启动后第一次点话题被
+              // bootstrap (Mac 上 6~20s) 整段拖住。
+              WebViewSessionCookieRefreshService.instance.ensureInBackground(
+                reason: 'dio_request:${options.method}',
+              );
+            }
             options.headers['Discourse-Logged-In'] = 'true';
             if (UserPresenceService().isPresent) {
               options.headers['Discourse-Present'] = 'true';
@@ -912,6 +1114,12 @@ mixin _AuthMixin on _DiscourseServiceBase {
       return sessionState;
     }
 
+    _rememberPreviousTTokenFallback(
+      beforeFingerprint,
+      reason: 'response_session_cookie_changed',
+      replacementToken: afterFingerprint,
+      requestOptions: requestOptions,
+    );
     requestOptions.extra['_sessionCookieFingerprint'] = afterFingerprint;
 
     LogWriter.instance.write({
@@ -1229,16 +1437,22 @@ mixin _AuthMixin on _DiscourseServiceBase {
 
   /// 仅设置 token，不触发状态广播（登录流程中先设置 token，等数据就绪后再广播）
   void setToken(String tToken) {
+    _clearPreviousTTokenFallback();
     _tToken = tToken;
     _credentialsLoaded = false;
   }
 
   /// 登录成功后通知监听者（应在预加载数据就绪后调用）
   /// 会话写入由显式边界同步统一处理。
-  void onLoginSuccess(String tToken) {
+  void onLoginSuccess(String tToken, {bool forceBrowserSessionSync = true}) {
+    _clearPreviousTTokenFallback();
     _tToken = tToken;
     _credentialsLoaded = false;
     AuthIssueNoticeService.instance.clearSessionCookieRepairHint();
+    WebViewSessionCookieRefreshService.instance.ensureInBackground(
+      reason: 'login_success',
+      force: forceBrowserSessionSync,
+    );
     _authStateController.add(null);
   }
 
@@ -1271,6 +1485,7 @@ mixin _AuthMixin on _DiscourseServiceBase {
     }
 
     // ===== 第四步：清除内存状态 =====
+    _clearPreviousTTokenFallback();
     _tToken = null;
     _username = null;
     _cachedUserSummary = null;

@@ -20,6 +20,7 @@ class CookieFullInfo {
     this.isHttpOnly,
     this.expiresMillis,
     this.sameSite,
+    this.isPartitioned,
   });
 
   final String name;
@@ -46,6 +47,13 @@ class CookieFullInfo {
   /// third-party iframe 场景 (如 CF Turnstile challenge widget,
   /// CF 的 cookie 是 SameSite=None) 下 cookie 不被发送, 验证失败。
   final String? sameSite;
+
+  /// 是否为 CHIPS 分区 cookie (Partitioned)。CF 给 cf_clearance 设
+  /// SameSite=None; Secure; Partitioned;分区那份在 Android WebView 上删不掉
+  /// (Chromium partition-key bug),且本就是合法的跨站共存——sweep 据此豁免,
+  /// 不再把它当"重复变体"反复清、空转 nuclear reset。
+  /// null = 未知 / 旧 WebView 无法获取该属性。
+  final bool? isPartitioned;
 
   /// 是否为 host-only cookie（[domain] 缺失则视为 host-only）。
   ///
@@ -85,6 +93,6 @@ class CookieFullInfo {
     return 'CookieFullInfo(name=$name, valueLength=${value.length}, '
         'domain=$domain, path=$path, hostOnly=$isHostOnly, '
         'secure=$isSecure, httpOnly=$isHttpOnly, expires=$expiresMillis, '
-        'sameSite=$sameSite)';
+        'sameSite=$sameSite, partitioned=$isPartitioned)';
   }
 }

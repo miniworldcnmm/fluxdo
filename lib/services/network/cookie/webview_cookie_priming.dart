@@ -50,6 +50,9 @@ class WebViewCookiePriming {
 
   bool _isPrimed = false;
 
+  static const Duration _variantCleanupRetryDelay = Duration(milliseconds: 120);
+  static const int _variantCleanupMaxAttempts = 2;
+
   /// 当前进行中的 prime Future（用于同 url 并发去重）。
   Future<void>? _primingFuture;
   String? _primingUrl;
@@ -120,6 +123,7 @@ class WebViewCookiePriming {
       if (!_jar.isInitialized) {
         await _jar.initialize();
       }
+      await _jar.enforceAuthCookiePolicy(reason: 'webview_priming');
 
       // 2. 从 jar 读"当前 url 适用的所有 cookie" (RFC 6265 domain matching)
       // 不再按 criticalCookieNames 过滤 — 该列表 hard-code 维护不可持续
@@ -171,9 +175,7 @@ class WebViewCookiePriming {
         final fresh = await _jar.getCanonicalCookie(initialCookie.name);
         if (fresh == null || fresh.value.isEmpty) {
           skippedRaceRemoved++;
-          debugPrint(
-            '[Priming] ${initialCookie.name} 在 priming 期间被外部删除, 跳过',
-          );
+          debugPrint('[Priming] ${initialCookie.name} 在 priming 期间被外部删除, 跳过');
           continue;
         }
         if (_isExpired(fresh)) {
@@ -184,51 +186,56 @@ class WebViewCookiePriming {
 
         attempted++;
 
-        // a) nuke 同 name 所有 variant
-        await _sentinel.sweep(url, cookie.name, intent: SweepIntent.delete);
-
-        // b) 再次 race check: 上面 sweep 是 async, 期间外部又可能删 cookie
+        // a) 再次 race check: 上面读取是 async, 期间外部又可能删 cookie
         // 例如 sweep 跑到一半 cf_challenge_service 介入, 我们要尊重那个删除
         final reFresh = await _jar.getCanonicalCookie(cookie.name);
         if (reFresh == null || reFresh.value.isEmpty) {
           skippedRaceRemoved++;
           attempted--;
-          debugPrint(
-            '[Priming] ${cookie.name} 在 sweep 期间被外部删除, 不写回',
-          );
+          debugPrint('[Priming] ${cookie.name} 在 sweep 期间被外部删除, 不写回');
           continue;
         }
         final writeCookie = reFresh;
 
-        // c) 写入 jar canonical (含 hostOnly/Domain/SameSite)
-        final ok = await _writer.setRawCookie(
+        // b) nuke 同 name 所有 variant 后写入 jar canonical
+        // (含 hostOnly/Domain/SameSite)。Apple WebKit cookie store 偶发会在
+        // 删除/写入短窗口里留下同名变体，因此这里带一次重试收敛。
+        final writeResult = await _writeCookieWithVariantCleanup(
           url,
-          writeCookie.toSetCookieHeader(),
+          writeCookie,
         );
-        if (ok) injected++;
+        if (writeResult.skipped) {
+          skippedRaceRemoved++;
+          attempted--;
+          debugPrint('[Priming] ${writeCookie.name} 在 sweep 期间被外部删除, 不写回');
+          continue;
+        }
+        final writtenCookie = writeResult.cookie ?? writeCookie;
+        if (writeResult.written) injected++;
 
-        // d) verify 是否恰好 1 条
-        final postCount = await _writer.countCookiesByName(
-          url,
-          writeCookie.name,
-        );
+        // c) verify 是否恰好 1 条
+        final postCount = writeResult.postCount;
+        final observedPostCount = writeResult.observedPostCount ?? postCount;
         final isOk = postCount == 1;
-        if (!isOk) mismatched[writeCookie.name] = postCount;
+        if (!isOk) mismatched[writtenCookie.name] = observedPostCount;
         debugPrint(
-          '[Priming] ${writeCookie.name} '
-          '(hostOnly=${writeCookie.hostOnly}, domain=${writeCookie.domain}, '
-          'len=${writeCookie.value.length}) write=$ok postCount=$postCount '
+          '[Priming] ${writtenCookie.name} '
+          '(hostOnly=${writtenCookie.hostOnly}, domain=${writtenCookie.domain}, '
+          'len=${writtenCookie.value.length}) write=${writeResult.written} '
+          'postCount=$observedPostCount attempts=${writeResult.attempts} '
+          '${writeResult.acceptedDuplicate ? "acceptedDuplicate=true " : ""}'
           '${isOk ? "✓" : "⚠️ expected=1"}',
         );
 
-        // d.1) 若 count != 1, dump WV 中该 name 所有 variant 完整字段
+        // c.1) 若 count != 1, dump WV 中该 name 所有 variant 完整字段
         if (!isOk) {
           final all = await _writer.getAllCookieInfos(url);
           final variants = all
-              .where((c) => c.name == writeCookie.name)
+              .where((c) => c.name == writtenCookie.name)
               .toList();
           debugPrint(
-            '[Priming] ⚠️ ${writeCookie.name} variants in WV ($postCount):',
+            '[Priming] ⚠️ ${writtenCookie.name} variants in WV '
+            '($observedPostCount):',
           );
           for (var i = 0; i < variants.length; i++) {
             debugPrint('  [$i] ${variants[i]}');
@@ -268,7 +275,7 @@ class WebViewCookiePriming {
         durationMs: stopwatch.elapsedMilliseconds,
         reason: hasMismatch
             ? 'missing=$missingNames count_mismatch=$mismatched '
-                'verified=$verified/$attempted'
+                  'verified=$verified/$attempted'
             : null,
       );
     } catch (e, s) {
@@ -284,10 +291,119 @@ class WebViewCookiePriming {
     }
   }
 
+  Future<_PrimeWriteResult> _writeCookieWithVariantCleanup(
+    String url,
+    CanonicalCookie cookie,
+  ) async {
+    var written = false;
+    var postCount = 0;
+    for (var attempt = 1; attempt <= _variantCleanupMaxAttempts; attempt++) {
+      await _sentinel.sweep(
+        url,
+        cookie.name,
+        intent: SweepIntent.delete,
+        force: true,
+      );
+      final fresh = await _jar.getCanonicalCookie(cookie.name);
+      if (fresh == null || fresh.value.isEmpty || _isExpired(fresh)) {
+        postCount = await _writer.countCookiesByName(url, cookie.name);
+        return _PrimeWriteResult(
+          written: written,
+          postCount: postCount,
+          attempts: attempt,
+          skipped: true,
+        );
+      }
+      final ok = await _writer.setRawCookie(
+        url,
+        fresh.toSetCookieHeader(),
+        writeSharedStorage: fresh.name != 'cf_clearance',
+      );
+      written = written || ok;
+      postCount = await _writer.countCookiesByName(url, fresh.name);
+      if (postCount == 1) {
+        return _PrimeWriteResult(
+          written: written,
+          postCount: postCount,
+          attempts: attempt,
+          cookie: fresh,
+        );
+      }
+      if (await _isAcceptableDuplicate(url, fresh, postCount)) {
+        return _PrimeWriteResult(
+          written: written,
+          postCount: 1,
+          observedPostCount: postCount,
+          attempts: attempt,
+          cookie: fresh,
+          acceptedDuplicate: true,
+        );
+      }
+      if (attempt == _variantCleanupMaxAttempts) {
+        return _PrimeWriteResult(
+          written: written,
+          postCount: postCount,
+          attempts: attempt,
+          cookie: fresh,
+        );
+      }
+      debugPrint('[Priming] ${cookie.name} 写入后仍有 $postCount 个变体，重试清理');
+      await Future<void>.delayed(_variantCleanupRetryDelay);
+    }
+    return _PrimeWriteResult(
+      written: written,
+      postCount: postCount,
+      attempts: _variantCleanupMaxAttempts,
+      cookie: cookie,
+    );
+  }
+
   bool _isExpired(CanonicalCookie cookie) {
     final expiresAt = cookie.expiresAt;
     return expiresAt != null && expiresAt.isBefore(DateTime.now());
   }
+
+  Future<bool> _isAcceptableDuplicate(
+    String url,
+    CanonicalCookie cookie,
+    int postCount,
+  ) async {
+    if (cookie.name != 'cf_clearance' || postCount <= 1) return false;
+    final variants = (await _writer.getAllCookieInfos(
+      url,
+    )).where((variant) => variant.name == cookie.name).toList(growable: false);
+    if (variants.length <= 1) return false;
+    final sameValue = variants.every(
+      (variant) => variant.value == cookie.value,
+    );
+    if (!sameValue) return false;
+
+    debugPrint(
+      '[Priming] ${cookie.name} 存在 ${variants.length} 个同值变体，'
+      '接受并跳过重试清理',
+    );
+    return true;
+  }
+}
+
+class _PrimeWriteResult {
+  const _PrimeWriteResult({
+    required this.written,
+    required this.postCount,
+    required this.attempts,
+    this.observedPostCount,
+    this.cookie,
+    this.skipped = false,
+    this.acceptedDuplicate = false,
+  });
+
+  final bool written;
+  final int postCount;
+  final int attempts;
+  final int? observedPostCount;
+  final CanonicalCookie? cookie;
+  final bool skipped;
+  final bool acceptedDuplicate;
 }
 
 /// WV priming 失败时抛出。
@@ -297,6 +413,7 @@ class WebViewPrimingException implements Exception {
   final Object? cause;
 
   @override
-  String toString() => 'WebViewPrimingException: $message'
+  String toString() =>
+      'WebViewPrimingException: $message'
       '${cause != null ? ' (caused by $cause)' : ''}';
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../models/topic.dart';
 import '../../../providers/discourse_providers.dart';
@@ -179,7 +180,7 @@ class _TopicVoteButtonState extends ConsumerState<TopicVoteButton> {
                 )
               else
                 Icon(
-                  _userVoted ? Icons.check_circle : Icons.arrow_upward_rounded,
+                  _userVoted ? Symbols.check_circle_rounded : Symbols.arrow_upward_rounded,
                   size: 20,
                   color: _userVoted
                       ? theme.colorScheme.onPrimary

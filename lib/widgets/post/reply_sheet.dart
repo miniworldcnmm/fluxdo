@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../markdown_editor/markdown_editor.dart';
@@ -43,6 +44,7 @@ Future<Post?> showReplySheet({
   String? initialTitle,
   String? topicTitle,
   bool isPrivateMessageTopic = false,
+  bool isPmWithNonHumanUser = false,
   ShortcutSurfaceConfig? shortcutSurface,
 }) async {
   final result = await showAppBottomSheet<Post?>(
@@ -62,6 +64,7 @@ Future<Post?> showReplySheet({
       initialTitle: initialTitle,
       topicTitle: topicTitle,
       isPrivateMessageTopic: isPrivateMessageTopic,
+      isPmWithNonHumanUser: isPmWithNonHumanUser,
     ),
   );
   return result;
@@ -77,6 +80,8 @@ Future<Post?> showEditSheet({
   required int topicId,
   required Post post,
   int? categoryId,
+  bool isPrivateMessageTopic = false,
+  bool isPmWithNonHumanUser = false,
   ShortcutSurfaceConfig? shortcutSurface,
 }) async {
   final result = await showAppBottomSheet<Post?>(
@@ -85,8 +90,13 @@ Future<Post?> showEditSheet({
     useSafeArea: false,
     backgroundColor: Colors.transparent,
     shortcutSurface: shortcutSurface,
-    builder: (context) =>
-        ReplySheet(topicId: topicId, categoryId: categoryId, editPost: post),
+    builder: (context) => ReplySheet(
+      topicId: topicId,
+      categoryId: categoryId,
+      editPost: post,
+      isPrivateMessageTopic: isPrivateMessageTopic,
+      isPmWithNonHumanUser: isPmWithNonHumanUser,
+    ),
   );
   return result;
 }
@@ -103,6 +113,7 @@ class ReplySheet extends ConsumerStatefulWidget {
   final String? initialTitle; // 预填标题（私信模式时使用）
   final String? topicTitle; // 普通回帖审核时带上的话题标题
   final bool isPrivateMessageTopic; // 当前话题是否为私信话题
+  final bool isPmWithNonHumanUser; // 当前私信话题是否包含非真人用户
 
   const ReplySheet({
     super.key,
@@ -117,6 +128,7 @@ class ReplySheet extends ConsumerStatefulWidget {
     this.initialTitle,
     this.topicTitle,
     this.isPrivateMessageTopic = false,
+    this.isPmWithNonHumanUser = false,
   });
 
   @override
@@ -413,7 +425,9 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
 
     // 最小字数校验
     final preloaded = PreloadedDataService();
-    final minLength = _isInPrivateMessageContext
+    final minLength = widget.isPmWithNonHumanUser
+        ? 1
+        : _isInPrivateMessageContext
         ? await preloaded.getMinPmPostLength()
         : await preloaded.getMinPostLength();
     if (content.length < minLength) {
@@ -504,13 +518,13 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
         );
       case DraftSaveStatus.saved:
         return Icon(
-          Icons.cloud_done_outlined,
+          Symbols.cloud_done_rounded,
           size: 16,
           color: theme.colorScheme.outline,
         );
       case DraftSaveStatus.error:
         return Icon(
-          Icons.cloud_off_outlined,
+          Symbols.cloud_off_rounded,
           size: 16,
           color: theme.colorScheme.error,
         );
@@ -579,7 +593,7 @@ class _ReplySheetState extends ConsumerState<ReplySheet> {
                                 // 标题信息
                                 if (_isEditMode) ...[
                                   Icon(
-                                    Icons.edit_outlined,
+                                    Symbols.edit_rounded,
                                     size: 18,
                                     color: theme.colorScheme.primary,
                                   ),

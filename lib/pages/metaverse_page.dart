@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/theme_provider.dart';
@@ -274,7 +275,7 @@ class _MetaversePageState extends ConsumerState<MetaversePage> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
-                  Icons.storefront_rounded,
+                  Symbols.storefront_rounded,
                   size: 32,
                   color: theme.colorScheme.onPrimaryContainer,
                 ),
@@ -352,7 +353,7 @@ class _MetaversePageState extends ConsumerState<MetaversePage> {
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
-                  Icons.token_rounded,
+                  Symbols.token_rounded,
                   size: 32,
                   color: theme.colorScheme.onTertiaryContainer,
                 ),
@@ -413,7 +414,7 @@ class _MetaversePageState extends ConsumerState<MetaversePage> {
           child: Column(
             children: [
               Icon(
-                Icons.hub_rounded,
+                Symbols.hub_rounded,
                 size: 32,
                 color: theme.colorScheme.outline,
               ),

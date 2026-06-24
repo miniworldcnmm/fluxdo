@@ -197,5 +197,78 @@
   "sharedIssue_authorTitle": "呢個係你建嘅話題",
   "sharedIssue_marked": "已標記我都係",
   "sharedIssue_unmarked": "已取消我都係",
-  "sharedIssue_rateLimited": "操作太頻繁，請稍後再試"
+  "sharedIssue_rateLimited": "操作太頻繁，請稍後再試",
+  "postRevision_indicatorTooltipFirst": "創建於 {time}",
+  "@postRevision_indicatorTooltipFirst": {
+    "placeholders": {"time": {"type": "String"}}
+  },
+  "postRevision_indicatorTooltipEdited": "最後編輯於 {time}",
+  "@postRevision_indicatorTooltipEdited": {
+    "placeholders": {"time": {"type": "String"}}
+  },
+  "postRevision_wikiEditTooltip": "wiki · 最後編輯於 {time}",
+  "@postRevision_wikiEditTooltip": {
+    "placeholders": {"time": {"type": "String"}}
+  },
+  "postRevision_wikiAbout": "wiki 帖子,任何人都可以編輯",
+  "postRevision_indicatorDisabled": "冇權限睇編輯歷史",
+  "postRevision_modalTitle": "編輯歷史",
+  "postRevision_versionLabel": "v{current} / {total}",
+  "@postRevision_versionLabel": {
+    "placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}
+  },
+  "postRevision_editedBy": "由 {user} 編輯",
+  "@postRevision_editedBy": {
+    "placeholders": {"user": {"type": "String"}}
+  },
+  "postRevision_editReason": "原因:{reason}",
+  "@postRevision_editReason": {
+    "placeholders": {"reason": {"type": "String"}}
+  },
+  "postRevision_editReasonEmpty": "冇填寫編輯原因",
+  "postRevision_diffInline": "行內對比",
+  "postRevision_diffSideBySide": "並排",
+  "postRevision_diffSideBySideMarkdown": "並排 Markdown",
+  "postRevision_diffError": "呢個版本嘅差異計算失敗",
+  "postRevision_emptyHistory": "暫無編輯歷史",
+  "postRevision_titleChange": "標題",
+  "postRevision_categoryChange": "分類",
+  "postRevision_tagsChange": "標籤",
+  "postRevision_wikiChange": "wiki 狀態",
+  "postRevision_postTypeChange": "帖子類型",
+  "postRevision_replyToChange": "回覆對象",
+  "postRevision_userChange": "作者",
+  "postRevision_localeChange": "語言",
+  "postRevision_hide": "隱藏此版本",
+  "postRevision_show": "顯示此版本",
+  "postRevision_revert": "回退到此版本",
+  "postRevision_revertConfirmTitle": "回退到版本 {revision}",
+  "@postRevision_revertConfirmTitle": {
+    "placeholders": {"revision": {"type": "int"}}
+  },
+  "postRevision_revertConfirmBody": "回退會建立一條新嘅編輯,目標版本嘅內容會作為最新內容寫返。確定繼續?",
+  "postRevision_revertSuccess": "已回退到版本 {revision}",
+  "@postRevision_revertSuccess": {
+    "placeholders": {"revision": {"type": "int"}}
+  },
+  "postRevision_permanentlyDelete": "永久刪除全部歷史",
+  "postRevision_permanentlyDeleteTitle": "永久刪除編輯歷史",
+  "postRevision_permanentlyDeleteBody": "此操作不可撤銷,該帖子嘅全部編輯歷史會被永久刪除。確定繼續?",
+  "postRevision_revisionHidden": "此版本已隱藏",
+  "postRevision_first": "首版",
+  "postRevision_previous": "上一版",
+  "postRevision_next": "下一版",
+  "postRevision_last": "末版",
+  "postRevision_loadFailed": "載入編輯歷史失敗",
+  "postRevision_retry": "重試",
+  "postRevision_actionFailed": "操作失敗,請稍後再試",
+  "postRevision_hideSuccess": "已隱藏版本 {revision}",
+  "@postRevision_hideSuccess": {
+    "placeholders": {"revision": {"type": "int"}}
+  },
+  "postRevision_showSuccess": "已顯示版本 {revision}",
+  "@postRevision_showSuccess": {
+    "placeholders": {"revision": {"type": "int"}}
+  },
+  "postRevision_deleteAllSuccess": "已永久刪除全部編輯歷史"
 }

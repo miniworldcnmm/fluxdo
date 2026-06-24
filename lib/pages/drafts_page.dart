@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/draft.dart';
 import '../navigation/nav_action_bus.dart';
@@ -111,7 +112,7 @@ class _DraftsPageState extends ConsumerState<DraftsPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Icon(
-                      Icons.drafts_outlined,
+                      Symbols.drafts_rounded,
                       size: 64,
                       color: Colors.grey,
                     ),
@@ -302,10 +303,10 @@ class _DraftCard extends StatelessWidget {
 
     if (draft.isNewTopicDraft) {
       typeLabel = context.l10n.drafts_newTopic;
-      typeIcon = Icons.add_circle_outline;
+      typeIcon = Symbols.add_circle_rounded;
     } else if (Draft.isNewPrivateMessageKey(draft.draftKey)) {
       typeLabel = context.l10n.drafts_privateMessage;
-      typeIcon = Icons.mail_outline;
+      typeIcon = Symbols.mail_rounded;
     } else if (draft.draftKey.startsWith('topic_')) {
       // 区分回复话题和回复帖子
       if (data.replyToPostNumber != null && data.replyToPostNumber! > 0) {
@@ -313,10 +314,10 @@ class _DraftCard extends StatelessWidget {
       } else {
         typeLabel = context.l10n.common_reply;
       }
-      typeIcon = Icons.reply_outlined;
+      typeIcon = Symbols.reply_rounded;
     } else {
       typeLabel = context.l10n.drafts_draft;
-      typeIcon = Icons.drafts_outlined;
+      typeIcon = Symbols.drafts_rounded;
     }
 
     // 使用 displayTitle 获取标题
@@ -376,7 +377,7 @@ class _DraftCard extends StatelessWidget {
                   const Spacer(),
                   IconButton(
                     icon: Icon(
-                      Icons.delete_outline,
+                      Symbols.delete_rounded,
                       size: 20,
                       color: theme.colorScheme.error,
                     ),

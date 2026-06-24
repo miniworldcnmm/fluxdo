@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:jovial_svg/jovial_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../services/discourse_cache_manager.dart';
@@ -313,7 +314,7 @@ class _SvgFlairBadgeState extends State<_SvgFlairBadge> {
       content = SizedBox(width: widget.imageSize, height: widget.imageSize);
     } else if (_hasError || _svgContent == null) {
       content = Icon(
-        Icons.broken_image,
+        Symbols.broken_image_rounded,
         size: widget.imageSize * 0.8,
         color: Theme.of(context).colorScheme.outline,
       );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:url_launcher/url_launcher.dart';
@@ -53,7 +54,7 @@ class UpdateDialog extends StatelessWidget {
               right: -30,
               top: -20,
               child: Icon(
-                Icons.rocket_launch_rounded,
+                Symbols.rocket_launch_rounded,
                 size: 200,
                 color: colorScheme.primary.withValues(alpha: 0.05),
               ),
@@ -75,7 +76,7 @@ class UpdateDialog extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
-                           Icons.auto_awesome, 
+                           Symbols.auto_awesome_rounded,
                            color: colorScheme.onPrimaryContainer,
                            size: 20,
                         ),
@@ -100,7 +101,7 @@ class UpdateDialog extends StatelessWidget {
                                   padding: const EdgeInsets.symmetric(
                                       horizontal: 6),
                                   child: Icon(
-                                    Icons.arrow_right_alt_rounded,
+                                    Symbols.arrow_right_alt_rounded,
                                     size: 16,
                                     color: colorScheme.outline,
                                   ),

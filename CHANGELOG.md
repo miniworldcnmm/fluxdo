@@ -2,6 +2,73 @@
 
 所有版本的变更记录。beta / rc 版本提交在 stable 发版时会折叠并入对应 stable 版本。
 
+## [0.2.20] - 2026-06-19
+
+
+### 🌟 新功能
+
+- 改进移动端表情长按面板体验 by @Lingyan000
+
+- 弹出菜单顶部快捷按钮条 + 子面板展开动画 by @Lingyan000
+
+- 帖子编辑历史 + 修复 callout 跨标签贪婪正则 by @Lingyan000
+
+- 优化 CF 信任刷新与 Cookie 同步 by @Lingyan000
+
+- 表情选择器改造为手势驱动的连贯交互 by @Lingyan000
+
+- 长按进度条菜单加入衍生 / 收回动画 by @Lingyan000
+
+- 支持轻量 WebView 会话 cookie bootstrap by @Lingyan000
+
+
+### 🐛 修复
+
+- 识别 CHIPS 分区 cf_clearance，终结 sweep 空转 by @Lingyan000
+
+- 修复页面刷新后通知徽章回退到初值 by @Lingyan000
+
+- 修复通知图标 build 阶段 setState 报错 by @Lingyan000
+
+- 修复 mac 进度指示器卡死 + 表情选择器 tap 误触发动画 by @Lingyan000
+
+- 修复启动页动画卡顿 by @Lingyan000
+
+- 修复话题详情 listener 触发 inactive ancestor lookup by @Lingyan000
+
+- 修复 Cloudflare 验证完成后的 404 闪烁 by @Lingyan000
+
+- 修复登录态 probe 的 _t 回退逻辑 by @Lingyan000
+
+
+### ⚡ 性能
+
+- CDK/LDC 余额改为进入页面才请求，不在冷启动预取 by @Lingyan000
+
+
+### ♻️ 重构
+
+- WebView session bootstrap CF 失败接入 BrowserTrustCoordinator by @Lingyan000
+
+- 网络引擎设置重做为预设单选 + VPN 开关意图/生效分离 by @Lingyan000
+
+
+### 🎨 样式
+
+- 收尾表情选择器手势细节 by @Lingyan000
+
+
+### 🔧 其他
+
+- 🔒 优化浏览器信任与 Cookie 同步 by @Lingyan000
+
+- ⬆️ lock 更新 by @Lingyan000
+
+
+
+
+**Full Changelog**: https://github.com/lingyan000/fluxdo/compare/v0.2.19...v0.2.20
+
 ## [0.2.19] - 2026-06-16
 
 

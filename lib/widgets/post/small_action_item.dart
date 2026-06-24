@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../l10n/s.dart';
 import '../../models/topic.dart';
 import '../common/relative_time_text.dart';
@@ -15,32 +16,32 @@ class PostTypes {
 
 /// action_code 对应的图标映射
 const Map<String, IconData> _actionCodeIcons = {
-  'closed.enabled': Icons.lock_outline,
-  'closed.disabled': Icons.lock_open_outlined,
-  'autoclosed.enabled': Icons.lock_outline,
-  'autoclosed.disabled': Icons.lock_open_outlined,
-  'archived.enabled': Icons.folder_outlined,
-  'archived.disabled': Icons.folder_open_outlined,
-  'pinned.enabled': Icons.push_pin_outlined,
-  'pinned.disabled': Icons.push_pin_outlined,
-  'pinned_globally.enabled': Icons.push_pin,
-  'pinned_globally.disabled': Icons.push_pin_outlined,
-  'banner.enabled': Icons.push_pin,
-  'banner.disabled': Icons.push_pin_outlined,
-  'visible.enabled': Icons.visibility_outlined,
-  'visible.disabled': Icons.visibility_off_outlined,
-  'split_topic': Icons.call_split_outlined,
-  'invited_user': Icons.person_add_outlined,
-  'invited_group': Icons.group_add_outlined,
-  'user_left': Icons.person_remove_outlined,
-  'removed_user': Icons.person_remove_outlined,
-  'removed_group': Icons.group_remove_outlined,
-  'public_topic': Icons.forum_outlined,
-  'open_topic': Icons.forum_outlined,
-  'private_topic': Icons.mail_outline,
-  'autobumped': Icons.arrow_upward_outlined,
-  'tags_changed': Icons.label_outline,
-  'category_changed': Icons.category_outlined,
+  'closed.enabled': Symbols.lock_rounded,
+  'closed.disabled': Symbols.lock_open_rounded,
+  'autoclosed.enabled': Symbols.lock_rounded,
+  'autoclosed.disabled': Symbols.lock_open_rounded,
+  'archived.enabled': Symbols.folder_rounded,
+  'archived.disabled': Symbols.folder_open_rounded,
+  'pinned.enabled': Symbols.push_pin_rounded,
+  'pinned.disabled': Symbols.push_pin_rounded,
+  'pinned_globally.enabled': Symbols.push_pin_rounded,
+  'pinned_globally.disabled': Symbols.push_pin_rounded,
+  'banner.enabled': Symbols.push_pin_rounded,
+  'banner.disabled': Symbols.push_pin_rounded,
+  'visible.enabled': Symbols.visibility_rounded,
+  'visible.disabled': Symbols.visibility_off_rounded,
+  'split_topic': Symbols.call_split_rounded,
+  'invited_user': Symbols.person_add_rounded,
+  'invited_group': Symbols.group_add_rounded,
+  'user_left': Symbols.person_remove_rounded,
+  'removed_user': Symbols.person_remove_rounded,
+  'removed_group': Symbols.group_remove_rounded,
+  'public_topic': Symbols.forum_rounded,
+  'open_topic': Symbols.forum_rounded,
+  'private_topic': Symbols.mail_rounded,
+  'autobumped': Symbols.arrow_upward_rounded,
+  'tags_changed': Symbols.label_rounded,
+  'category_changed': Symbols.category_rounded,
 };
 
 /// action_code 对应的本地化描述
@@ -93,7 +94,7 @@ class SmallActionItem extends StatelessWidget {
 
   IconData get _icon {
     final code = post.actionCode ?? '';
-    return _actionCodeIcons[code] ?? Icons.info_outline;
+    return _actionCodeIcons[code] ?? Symbols.info_rounded;
   }
 
   String get _description {

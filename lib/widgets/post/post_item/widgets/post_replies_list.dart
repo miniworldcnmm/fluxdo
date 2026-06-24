@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import '../../../../l10n/s.dart';
 import '../../../../models/topic.dart';
 import '../../../common/smart_avatar.dart';
@@ -163,7 +164,7 @@ class PostRepliesList extends StatelessWidget {
                               height: 12,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.refresh, size: 16),
+                          : const Icon(Symbols.refresh_rounded, size: 16),
                       label: Text(context.l10n.post_loadMoreReplies),
                       style: TextButton.styleFrom(
                         visualDensity: VisualDensity.compact,
@@ -175,7 +176,7 @@ class PostRepliesList extends StatelessWidget {
                       showRepliesNotifier.value = false;
                     },
                     icon: Icon(
-                      Icons.expand_less,
+                      Symbols.expand_less_rounded,
                       size: 16,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),

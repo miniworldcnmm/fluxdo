@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'callout_config.dart';
 
 /// 可折叠的 Callout Widget
@@ -99,7 +100,7 @@ class _FoldableCalloutState extends State<FoldableCallout>
                   RotationTransition(
                     turns: _iconTurns,
                     child: Icon(
-                      Icons.expand_more,
+                      Symbols.expand_more_rounded,
                       size: 18,
                       color: widget.config.color.withValues(alpha: 0.7),
                     ),

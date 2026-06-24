@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 
 /// 高亮引导遮罩
 ///
@@ -152,7 +153,7 @@ class _SpotlightWidgetState extends State<_SpotlightWidget>
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Icon(
-                        Icons.arrow_downward_rounded,
+                        Symbols.arrow_downward_rounded,
                         color: Colors.white.withValues(alpha: 0.8),
                         size: 20,
                       ),

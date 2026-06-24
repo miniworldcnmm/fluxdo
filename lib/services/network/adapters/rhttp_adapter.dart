@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -38,26 +37,29 @@ class RhttpAdapter implements HttpClientAdapter {
     Future<void>? cancelFuture,
   ) async {
     if (_closed) {
-      throw StateError("Can't establish connection after the adapter was closed.");
+      throw StateError(
+        "Can't establish connection after the adapter was closed.",
+      );
     }
     final host = options.uri.host;
     final config = await _prepareClientConfig(host);
     final delegate = await _ensureDelegate(config);
     try {
-      final response = await delegate.fetch(options, requestStream, cancelFuture);
+      final response = await delegate.fetch(
+        options,
+        requestStream,
+        cancelFuture,
+      );
       _markConfigSuccess(config, response.remoteIp);
       return response.responseBody;
     } catch (error) {
-      if (!_canRetryWithAlternateIp(
-        options,
-        requestStream,
-        config,
-        error,
-      )) {
+      if (!_canRetryWithAlternateIp(options, requestStream, config, error)) {
         rethrow;
       }
 
-      final attemptedIp = config.dnsOverrides.isNotEmpty ? config.dnsOverrides.first : null;
+      final attemptedIp = config.dnsOverrides.isNotEmpty
+          ? config.dnsOverrides.first
+          : null;
       _networkSettings.reportHostConnectionFailure(config.host, attemptedIp);
       final retryConfig = await _prepareClientConfig(host);
       if (retryConfig.clientFingerprint == config.clientFingerprint) {
@@ -70,7 +72,11 @@ class RhttpAdapter implements HttpClientAdapter {
         '${retryConfig.dnsOverrides.isEmpty ? "system" : retryConfig.dnsOverrides.join(", ")})',
       );
       final retryDelegate = await _ensureDelegate(retryConfig);
-      final response = await retryDelegate.fetch(options, requestStream, cancelFuture);
+      final response = await retryDelegate.fetch(
+        options,
+        requestStream,
+        cancelFuture,
+      );
       _markConfigSuccess(retryConfig, response.remoteIp);
       return response.responseBody;
     }
@@ -81,7 +87,8 @@ class RhttpAdapter implements HttpClientAdapter {
     final proxyVersion = _proxySettings.version;
     final rhttpVersion = RhttpSettingsService.instance.version;
 
-    final configChanged = _settingsVersion != settingsVersion ||
+    final configChanged =
+        _settingsVersion != settingsVersion ||
         _proxyVersion != proxyVersion ||
         _rhttpVersion != rhttpVersion;
     if (configChanged) {
@@ -99,7 +106,8 @@ class RhttpAdapter implements HttpClientAdapter {
     }
 
     final building = _delegateBuilds[hostKey];
-    if (building != null && _delegateBuildFingerprints[hostKey] == fingerprint) {
+    if (building != null &&
+        _delegateBuildFingerprints[hostKey] == fingerprint) {
       return building;
     }
 
@@ -124,7 +132,8 @@ class RhttpAdapter implements HttpClientAdapter {
   ) async {
     final client = await _createClient(config);
     final hostKey = config.hostKey;
-    final stillCurrent = !_closed &&
+    final stillCurrent =
+        !_closed &&
         buildEpoch == _buildEpoch &&
         _hostBuildTokens[hostKey] == hostBuildToken;
     if (!stillCurrent) {
@@ -234,20 +243,18 @@ class RhttpAdapter implements HttpClientAdapter {
     if (config.host.isEmpty) {
       return;
     }
-    final successIp = _normalizeIp(remoteIp) ??
-        (config.dnsOverrides.length == 1 ? _normalizeIp(config.dnsOverrides.first) : null);
+    final successIp =
+        _normalizeIp(remoteIp) ??
+        (config.dnsOverrides.length == 1
+            ? _normalizeIp(config.dnsOverrides.first)
+            : null);
     if (successIp == null) {
       return;
     }
-    _networkSettings.reportHostConnectionSuccess(
-      config.host,
-      successIp,
-    );
+    _networkSettings.reportHostConnectionSuccess(config.host, successIp);
   }
 
-  Future<rhttp.RhttpClient> _createClient(
-    _PreparedClientConfig config,
-  ) async {
+  Future<rhttp.RhttpClient> _createClient(_PreparedClientConfig config) async {
     final ns = _networkSettings.current;
     final ps = _proxySettings.current;
 
@@ -264,9 +271,7 @@ class RhttpAdapter implements HttpClientAdapter {
 
         // TLS：始终传入 TlsSettings 以确保 cipher suite 重排生效（对齐 Chrome 指纹）
         // ECH 配置可用时额外启用 ECH
-        tlsSettings: rhttp.TlsSettings(
-          echConfigList: config.echConfig,
-        ),
+        tlsSettings: rhttp.TlsSettings(echConfigList: config.echConfig),
 
         // 代理配置
         proxySettings: _buildProxySettings(ns, ps),
@@ -309,8 +314,9 @@ class RhttpAdapter implements HttpClientAdapter {
     }
 
     // HTTP/SOCKS5：reqwest 原生支持
-    final scheme =
-        ps.protocol == UpstreamProxyProtocol.socks5 ? 'socks5' : 'http';
+    final scheme = ps.protocol == UpstreamProxyProtocol.socks5
+        ? 'socks5'
+        : 'http';
     if (ps.username != null && ps.username!.isNotEmpty) {
       return rhttp.ProxySettings.proxy(
         '$scheme://${ps.username}:${ps.password ?? ""}@${ps.host}:${ps.port}',
@@ -340,10 +346,7 @@ class RhttpAdapter implements HttpClientAdapter {
 }
 
 class _RhttpFetchResult {
-  const _RhttpFetchResult({
-    required this.responseBody,
-    required this.remoteIp,
-  });
+  const _RhttpFetchResult({required this.responseBody, required this.remoteIp});
 
   final ResponseBody responseBody;
   final String? remoteIp;
@@ -378,8 +381,7 @@ class _RhttpDelegate {
             // Dart 端取消了流（页面销毁/请求取消），Rust 端写入已关闭的 StreamSink。
             // 等价于流正常结束，静默吞掉避免 SIGABRT 崩溃。
             (error) {},
-            test: (error) =>
-                error.toString().contains('STREAM_CANCEL_ERROR'),
+            test: (error) => error.toString().contains('STREAM_CANCEL_ERROR'),
           ),
           response.statusCode,
           headers: response.headerMapList,
@@ -402,7 +404,18 @@ class _RhttpDelegate {
       if (value == null) {
         return;
       }
-      headers[key] = value.toString().trim();
+      final headerValue = switch (value) {
+        Iterable<Object?> values =>
+          values
+              .where((e) => e != null)
+              .map((e) => e.toString().trim())
+              .where((e) => e.isNotEmpty)
+              .join(', '),
+        _ => value.toString().trim(),
+      };
+      if (headerValue.isNotEmpty) {
+        headers[key] = headerValue;
+      }
     });
     if (headers.isEmpty) {
       return null;
@@ -420,7 +433,9 @@ class _RhttpDelegate {
       );
       return rhttp.HttpBody.stream(
         requestStream,
-        length: contentLength != null && contentLength >= 0 ? contentLength : null,
+        length: contentLength != null && contentLength >= 0
+            ? contentLength
+            : null,
       );
     }
 
@@ -458,15 +473,13 @@ class _RhttpDelegate {
     if (error is rhttp.RhttpTimeoutException) {
       return DioException.connectionTimeout(
         requestOptions: options,
-        timeout: options.connectTimeout ?? options.receiveTimeout ?? Duration.zero,
+        timeout:
+            options.connectTimeout ?? options.receiveTimeout ?? Duration.zero,
         error: error,
       );
     }
     if (error is rhttp.RhttpInvalidCertificateException) {
-      return DioException.badCertificate(
-        requestOptions: options,
-        error: error,
-      );
+      return DioException.badCertificate(requestOptions: options, error: error);
     }
     if (error is rhttp.RhttpConnectionException) {
       return DioException.connectionError(
@@ -524,8 +537,6 @@ class _PreparedClientConfig {
     if (host.isEmpty || dnsOverrides.isEmpty) {
       return null;
     }
-    return rhttp.DnsSettings.static(
-      overrides: {host: dnsOverrides},
-    );
+    return rhttp.DnsSettings.static(overrides: {host: dnsOverrides});
   }
 }

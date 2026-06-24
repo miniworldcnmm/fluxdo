@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fluxdo/widgets/common/error_view.dart';
 import 'package:fluxdo/widgets/common/loading_spinner.dart';
@@ -459,13 +460,13 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
         );
       case DraftSaveStatus.saved:
         return Icon(
-          Icons.cloud_done_outlined,
+          Symbols.cloud_done_rounded,
           size: 18,
           color: theme.colorScheme.outline,
         );
       case DraftSaveStatus.error:
         return Icon(
-          Icons.cloud_off_outlined,
+          Symbols.cloud_off_rounded,
           size: 18,
           color: theme.colorScheme.error,
         );
@@ -781,7 +782,7 @@ class _CreateTopicPageState extends ConsumerState<CreateTopicPage> {
                     child: FloatingActionButton.small(
                       onPressed: _togglePreview,
                       tooltip: context.l10n.common_exitPreview,
-                      child: const Icon(Icons.edit_outlined),
+                      child: const Icon(Symbols.edit_rounded),
                     ),
                   ),
                 // 草稿加载遮罩

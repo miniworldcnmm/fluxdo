@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -380,7 +381,7 @@ class _TopicsFabState extends ConsumerState<_TopicsFab>
                 child: AnimatedRotation(
                   turns: 0.125,
                   duration: const Duration(milliseconds: 200),
-                  child: const Icon(Icons.add),
+                  child: const Icon(Symbols.add_rounded),
                 ),
               ),
             ),
@@ -396,7 +397,7 @@ class _TopicsFabState extends ConsumerState<_TopicsFab>
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 _buildMiniAction(
-                  icon: Icons.drafts_outlined,
+                  icon: Symbols.drafts_rounded,
                   label: context.l10n.topicsScreen_myDrafts,
                   onTap: () {
                     _close(immediately: true);
@@ -406,7 +407,7 @@ class _TopicsFabState extends ConsumerState<_TopicsFab>
                 ),
                 const SizedBox(height: 12),
                 _buildMiniAction(
-                  icon: Icons.edit_outlined,
+                  icon: Symbols.edit_rounded,
                   label: context.l10n.topicsScreen_createTopic,
                   onTap: () {
                     _close(immediately: true);
@@ -449,7 +450,7 @@ class _TopicsFabState extends ConsumerState<_TopicsFab>
       return FloatingActionButton(
         heroTag: 'createTopic',
         onPressed: _refreshTopics,
-        child: const Icon(Icons.refresh),
+        child: const Icon(Symbols.refresh_rounded),
       );
     }
 
@@ -470,7 +471,7 @@ class _TopicsFabState extends ConsumerState<_TopicsFab>
           child: AnimatedRotation(
             turns: _isExpanded ? 0.125 : 0,
             duration: const Duration(milliseconds: 200),
-            child: const Icon(Icons.add),
+            child: const Icon(Symbols.add_rounded),
           ),
         ),
       ),
@@ -575,8 +576,8 @@ class _PaneActiveIndicatorState extends ConsumerState<_PaneActiveIndicator>
         ? context.l10n.shortcuts_navigation
         : context.l10n.shortcuts_content;
     final icon = widget.pane == ActivePane.master
-        ? Icons.list_rounded
-        : Icons.article_rounded;
+        ? Symbols.list_rounded
+        : Symbols.article_rounded;
 
     return Stack(
       children: [

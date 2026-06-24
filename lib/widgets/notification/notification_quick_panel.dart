@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/shortcut_binding.dart';
 import '../../l10n/s.dart';
@@ -403,7 +404,7 @@ class _NotificationHeader extends ConsumerWidget {
                   .read(recentNotificationsProvider.notifier)
                   .markAllAsRead();
             },
-            icon: const Icon(Icons.done_all, size: 20),
+            icon: const Icon(Symbols.done_all_rounded, size: 20),
             tooltip: context.l10n.notification_markAllRead,
             style: IconButton.styleFrom(
               foregroundColor: colorScheme.onSurfaceVariant,
@@ -426,7 +427,7 @@ class _NotificationHeader extends ConsumerWidget {
                 ),
                 const SizedBox(width: 2),
                 Icon(
-                  Icons.chevron_right,
+                  Symbols.chevron_right_rounded,
                   size: 18,
                   color: colorScheme.onSurfaceVariant,
                 ),
@@ -475,7 +476,7 @@ class _NotificationBodyState extends ConsumerState<_NotificationBody> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(
-                    Icons.notifications_none,
+                    Symbols.notifications_rounded,
                     size: 48,
                     color: Colors.grey,
                   ),
@@ -511,7 +512,7 @@ class _NotificationBodyState extends ConsumerState<_NotificationBody> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+              const Icon(Symbols.error_rounded, size: 48, color: Colors.grey),
               const SizedBox(height: 12),
               Text(
                 context.l10n.common_loadFailed,
