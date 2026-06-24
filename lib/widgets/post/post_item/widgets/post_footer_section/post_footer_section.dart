@@ -28,6 +28,7 @@ import '../post_replies_list.dart';
 import '../post_solution_banner.dart';
 import '../../../../post/post_replies_sheet.dart';
 import '../../../../user/user_card.dart';
+import '../../../../common/smart_avatar.dart';
 import '../../../../../utils/dialog_utils.dart';
 import '../../../../common/app_bottom_sheet.dart';
 
@@ -325,10 +326,11 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
     );
   }
 
-  Future<void> _showBoostActions(Boost boost) => showBoostActions(boost);
+  Future<void> _showBoostActions(Boost boost, Rect? anchorRect) =>
+      showBoostActions(boost, anchorRect: anchorRect);
 
   /// 提供给外层(PostItem)的公开入口，方便弹幕浮层复用同一份 boost actions。
-  Future<void> showBoostActions(Boost boost) async {
+  Future<void> showBoostActions(Boost boost, {Rect? anchorRect}) async {
     final currentUsername = ref.read(currentUserProvider).value?.username;
     Boost resolvedBoost = boost;
     var boostActionStateLoadFailed = false;
@@ -344,7 +346,7 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
     }
     if (!mounted) return;
 
-    final canEmbedAuthorPreview =
+    final canPreviewAuthor =
         canViewBoostAuthor(boost: resolvedBoost) &&
         canShowUserCardPreview(context);
     final canDelete =
@@ -371,7 +373,7 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
             boost: resolvedBoost,
             currentUsername: currentUsername,
           );
-    final canShowSheet = canEmbedAuthorPreview || canFlag || canDelete;
+    final canShowSheet = canPreviewAuthor || canFlag || canDelete;
     if (boostActionStateLoadFailed) {
       ToastService.showError(S.current.common_loadFailed);
     }
@@ -382,69 +384,89 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
       ToastService.showInfo(S.current.boost_flagAlreadyReported);
     }
 
+    if (canPreviewAuthor && !canFlag && !canDelete) {
+      _showBoostAuthorCard(resolvedBoost, anchorRect);
+      return;
+    }
+
     AppBottomSheet.show(
       context: context,
       contentPadding: EdgeInsets.zero,
-      maxHeightFactor: 0.86,
       builder: (ctx) {
-        return SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (canEmbedAuthorPreview)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 36, 12, 12),
-                  child: UserCardContent(
-                    username: resolvedBoost.user.username,
-                    topicId: widget.topicId,
-                    topicTitle: widget.topicTitle,
-                    postNumber: widget.post.postNumber,
-                    avatarFallbackUrl: resolvedBoost.user.avatarTemplate.isEmpty
-                        ? null
-                        : resolvedBoost.user.getAvatarUrl(size: 144),
-                    nameFallback: resolvedBoost.user.name,
-                    flairUrl: null,
-                    flairName: null,
-                    flairBgColor: null,
-                    flairColor: null,
-                    anchorContext: context,
-                    menuNavigatorKey: null,
-                    onClose: () => Navigator.pop(ctx),
-                  ),
-                ),
-              if (canFlag)
-                ListTile(
-                  leading: const Icon(Symbols.flag_rounded, color: Colors.red),
-                  title: Text(
-                    S.current.common_report,
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _showBoostFlagSheet(resolvedBoost);
-                  },
-                ),
-              if (canDelete)
-                ListTile(
-                  leading: const Icon(
-                    Symbols.delete_rounded,
-                    color: Colors.red,
-                  ),
-                  title: Text(S.current.common_delete),
-                  onTap: () {
-                    Navigator.pop(ctx);
-                    _deleteBoost(resolvedBoost);
-                  },
-                ),
-              ListTile(
-                leading: const Icon(Symbols.close_rounded),
-                title: Text(S.current.common_cancel),
-                onTap: () => Navigator.pop(ctx),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (canPreviewAuthor) ...[
+              _BoostAuthorActionTile(
+                boost: resolvedBoost,
+                onTap: () {
+                  Navigator.pop(ctx);
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (!mounted) return;
+                    _showBoostAuthorCard(resolvedBoost, anchorRect);
+                  });
+                },
               ),
+              if (canFlag || canDelete) const Divider(height: 1),
             ],
-          ),
+            if (canFlag)
+              ListTile(
+                leading: const Icon(Symbols.flag_rounded, color: Colors.red),
+                title: Text(
+                  S.current.common_report,
+                  style: const TextStyle(color: Colors.red),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showBoostFlagSheet(resolvedBoost);
+                },
+              ),
+            if (canDelete)
+              ListTile(
+                leading: const Icon(Symbols.delete_rounded, color: Colors.red),
+                title: Text(S.current.common_delete),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _deleteBoost(resolvedBoost);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Symbols.close_rounded),
+              title: Text(S.current.common_cancel),
+              onTap: () => Navigator.pop(ctx),
+            ),
+          ],
         );
       },
+    );
+  }
+
+  Rect _fallbackBoostAuthorAnchorRect() {
+    final media = MediaQuery.maybeOf(context);
+    final size = media?.size ?? const Size(1, 1);
+    return Rect.fromCenter(
+      center: Offset(size.width / 2, size.height * 0.35),
+      width: 1,
+      height: 1,
+    );
+  }
+
+  void _showBoostAuthorCard(Boost boost, Rect? anchorRect) {
+    showUserCard(
+      context: context,
+      anchorRect: anchorRect ?? _fallbackBoostAuthorAnchorRect(),
+      username: boost.user.username,
+      topicId: widget.topicId,
+      topicTitle: widget.topicTitle,
+      postNumber: widget.post.postNumber,
+      avatarFallbackUrl: boost.user.avatarTemplate.isEmpty
+          ? null
+          : boost.user.getAvatarUrl(size: 144),
+      nameFallback: boost.user.name,
+      flairUrl: null,
+      flairName: null,
+      flairBgColor: null,
+      flairColor: null,
     );
   }
 
@@ -575,6 +597,52 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _BoostAuthorActionTile extends StatelessWidget {
+  final Boost boost;
+  final VoidCallback onTap;
+
+  const _BoostAuthorActionTile({required this.boost, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final user = boost.user;
+    final displayName = (user.name?.trim().isNotEmpty ?? false)
+        ? user.name!.trim()
+        : user.username;
+    final avatarUrl = user.avatarTemplate.isEmpty
+        ? null
+        : user.getAvatarUrl(size: 96);
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: SmartAvatar(
+        imageUrl: avatarUrl,
+        radius: 22,
+        fallbackText: user.username,
+      ),
+      title: Text(
+        displayName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      subtitle: Text(
+        '@${user.username}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: Icon(
+        Symbols.chevron_right_rounded,
+        color: theme.colorScheme.onSurfaceVariant,
+      ),
+      onTap: onTap,
     );
   }
 }
