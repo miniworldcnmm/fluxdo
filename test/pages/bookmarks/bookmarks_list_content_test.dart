@@ -150,7 +150,7 @@ void main() {
     expect(find.text('Beta'), findsNothing);
   });
 
-  testWidgets('桌面端可以通过导航按钮横向滚动顶部书签标签', (tester) async {
+  testWidgets('桌面端可以拖动横向滚动顶部书签标签', (tester) async {
     PlatformUtils.debugDesktopOverride = true;
     addTearDown(() => PlatformUtils.debugDesktopOverride = null);
 
@@ -184,8 +184,9 @@ void main() {
 
     expect(summaryScrollable.position.pixels, 0);
 
-    await tester.tap(
-      find.byKey(const ValueKey('bookmark-summary-scroll-right')),
+    await tester.drag(
+      find.byKey(const ValueKey('bookmark-summary-wheel-region')),
+      const Offset(-240, 0),
     );
     await tester.pumpAndSettle();
 

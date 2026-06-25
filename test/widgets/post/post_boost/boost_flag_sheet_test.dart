@@ -205,7 +205,9 @@ void main() {
       expect(find.textContaining('@bob'), findsOneWidget);
       expect(find.byType(TextField), findsNothing);
 
-      await tester.tap(find.byIcon(Icons.radio_button_off).last);
+      await tester.tap(
+        find.byKey(const ValueKey('boost-flag-option-notify_moderators')),
+      );
       await tester.pumpAndSettle();
 
       expect(find.byType(TextField), findsOneWidget);

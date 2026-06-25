@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxdo/l10n/app_localizations.dart';
 import 'package:fluxdo/models/emoji.dart';
 import 'package:fluxdo/providers/emoji_provider.dart';
+import 'package:fluxdo/providers/theme_provider.dart';
 import 'package:fluxdo/services/local_notification_service.dart';
 import 'package:fluxdo/utils/emoji_shortcodes.dart';
 import 'package:fluxdo/widgets/post/post_boost/boost_input.dart';
@@ -16,11 +18,13 @@ void main() {
     String text,
   ) async {
     SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
 
     late Future<BoostInputResult?> resultFuture;
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
           emojiGroupsProvider.overrideWith(
             (ref) async => const <String, List<Emoji>>{},
           ),
@@ -50,8 +54,8 @@ void main() {
     await tester.enterText(find.byType(TextField), text);
     await tester.pump();
     final expectedIcon = visibleLengthWithEmojiShortcodes(text) > 16
-        ? Icons.reply_rounded
-        : Icons.send_rounded;
+        ? Symbols.reply_rounded
+        : Symbols.send_rounded;
     await tester.tap(find.widgetWithIcon(IconButton, expectedIcon));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));

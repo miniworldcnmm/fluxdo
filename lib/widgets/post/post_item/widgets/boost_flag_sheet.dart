@@ -343,6 +343,7 @@ class _BoostFlagSheetState extends State<BoostFlagSheet> {
     final isSelected = _selectedType?.id == type.id;
     final description = _replaceDescription(type.description);
     return InkWell(
+      key: ValueKey('boost-flag-option-${type.nameKey}'),
       onTap: () => setState(() => _selectedType = type),
       borderRadius: BorderRadius.circular(12),
       child: Container(
@@ -363,7 +364,9 @@ class _BoostFlagSheetState extends State<BoostFlagSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(
-              isSelected ? Symbols.radio_button_checked_rounded : Symbols.radio_button_unchecked_rounded,
+              isSelected
+                  ? Symbols.radio_button_checked_rounded
+                  : Symbols.radio_button_unchecked_rounded,
               size: 20,
               color: isSelected
                   ? theme.colorScheme.primary

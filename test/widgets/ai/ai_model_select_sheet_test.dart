@@ -86,7 +86,7 @@ void main() {
 
     expect(find.text('Beta Model'), findsWidgets);
 
-    await tester.tap(find.text('Beta Model').last);
+    await tester.tap(find.byKey(const ValueKey('favorite_row_p1_beta')));
     await tester.pumpAndSettle();
 
     expect(find.text('selected:beta'), findsOneWidget);
@@ -100,14 +100,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('section_favorites')), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('favorite_row_p1_alpha')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey('favorite_row_p2_delta')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('favorite_row_p1_alpha')), findsOneWidget);
+    expect(find.byKey(const ValueKey('favorite_row_p2_delta')), findsOneWidget);
     expect(
       find.byKey(const ValueKey('favorite_row_p2_gamma-image')),
       findsNothing,
@@ -170,9 +164,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      tester
-          .getTopLeft(find.byKey(const ValueKey('favorite_row_p2_delta')))
-          .dy,
+      tester.getTopLeft(find.byKey(const ValueKey('favorite_row_p2_delta'))).dy,
       lessThan(
         tester
             .getTopLeft(find.byKey(const ValueKey('favorite_row_p1_alpha')))

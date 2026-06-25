@@ -6,6 +6,7 @@ import '../models/topic.dart';
 import '../pages/bookmarks/bookmarks_models.dart';
 import 'bookmarks_repository.dart';
 import 'core_providers.dart';
+import 'user_content_providers.dart';
 
 /// 兼容 stub：方案 E 重构后此 provider 不再驱动候选加载（候选已从
 /// [BookmarksRepository] 派生）。仅保留以兼容旧 test override，调用者
@@ -14,11 +15,12 @@ import 'core_providers.dart';
   'Bookmark name suggestions now derive from BookmarksRepository directly; '
   'this provider is retained as a stub for legacy tests only.',
 )
-final bookmarkNameSuggestionPageLoaderProvider =
-    Provider<BookmarkPageLoader>((ref) {
-      final service = ref.read(discourseServiceProvider);
-      return (page, limit) => service.getUserBookmarks(page: page, limit: limit);
-    });
+final bookmarkNameSuggestionPageLoaderProvider = Provider<BookmarkPageLoader>((
+  ref,
+) {
+  final service = ref.read(discourseServiceProvider);
+  return (page, limit) => service.getUserBookmarks(page: page, limit: limit);
+});
 
 /// 书签名候选 Notifier。
 ///
@@ -49,8 +51,7 @@ class BookmarkNameSuggestionsNotifier extends Notifier<List<String>> {
   }
 
   Future<void> _initialize(BookmarksRepository repo) async {
-    final service = ref.read(discourseServiceProvider);
-    final username = await service.getUsername();
+    final username = await ref.read(currentUsernameProvider.future);
     if (username == null) return;
     _accountId = username;
     await _refreshFromRepo(repo);
@@ -92,6 +93,9 @@ class BookmarkNameSuggestionsNotifier extends Notifier<List<String>> {
   /// repository 重新派生——如果 repository 还在对账中，结果可能不完整，
   /// 但不会阻塞编辑面板打开。
   Future<List<String>> ensureLoaded() async {
+    if (state.isNotEmpty) {
+      return state;
+    }
     final init = _initFuture;
     if (init != null) {
       try {
