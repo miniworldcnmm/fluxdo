@@ -1,55 +1,288 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fluxdo_render/fluxdo_render.dart';
+import 'package:html/dom.dart' as dom;
+import 'package:html/parser.dart' as html_parser;
+import '../../../l10n/s.dart';
 import '../../../models/topic.dart';
-import '../../../pages/topic_detail_page/topic_detail_page.dart';
 import '../../../providers/preferences_provider.dart';
-import '../../../services/html_parse_service.dart';
+import '../../../services/toast_service.dart';
+import '../../../utils/fluxdo_render_callbacks.dart';
 import '../../content/collapsed_html_content.dart';
-import '../../content/discourse_html_content/chunked/chunked_html_content.dart';
-import '../../content/discourse_html_content/chunked/html_chunk.dart';
-import '../small_action_item.dart';
+import 'quote_selection_helper.dart';
 import 'widgets/post_footer_section/post_footer_section.dart';
 import 'widgets/post_header_section.dart';
 import 'widgets/post_segment_frame.dart';
 
-class LongPostRenderData {
+/// 新引擎长帖分段数据(一次算好,所有 chunk 共享,避免每 chunk 重复重活)。
+/// - [chunks]:对**预处理后** cooked 切的 chunk(含 emoji/click-count 注入)。
+/// - [imageOffsets]:每个 chunk 的图片 indexInPost 起始偏移(对齐整帖画廊/heroTag)。
+/// - [footnotesHtml]:整帖脚注区源(正文 chunk 不含帖尾脚注区,需额外传)。
+/// - [callbacks]:整帖共享的 FluxdoRenderCallbacks(画廊算一次,避免每 chunk
+///   每帧 parse 整帖)。
+class NewEngineLongPostData {
   final List<HtmlChunk> chunks;
-  final List<String> galleryImages;
-  final Set<String> spoilerImageUrls;
-  final Set<String> revealedImageUrls;
+  final List<List<BlockNode>> parsedChunks;
+  final List<int> imageOffsets;
+  final String? footnotesHtml;
+  final FluxdoRenderCallbacks callbacks;
 
-  LongPostRenderData({
+  const NewEngineLongPostData({
     required this.chunks,
-    required this.galleryImages,
-    required this.spoilerImageUrls,
-    Set<String>? revealedImageUrls,
-  }) : revealedImageUrls = revealedImageUrls ?? <String>{};
+    required this.parsedChunks,
+    required this.imageOffsets,
+    required this.footnotesHtml,
+    required this.callbacks,
+  });
 
-  factory LongPostRenderData.fromHtml(String html) {
-    // 短帖子不分块,直接返回空 chunks 让外层走短帖路径。
-    if (html.length <= ChunkedHtmlContent.chunkThreshold) {
-      return LongPostRenderData(
-        chunks: const <HtmlChunk>[],
-        galleryImages: const <String>[],
-        spoilerImageUrls: <String>{},
+  /// 长帖且可切多 chunk 时返回数据;否则 null(短帖走整段 PostItem)。
+  static NewEngineLongPostData? tryBuild(
+    Post post, {
+    // 链接点击追踪 + 图片引用菜单引用上下文(透传给 forPost → imageContentBuilder
+    // / linkHandler)。NewEngineLongPostData 本身无需新增字段(callbacks 闭包已捕获)。
+    int? topicId,
+    void Function(String quote, Post post)? onQuoteImage,
+  }) {
+    final preprocessed = FluxdoRenderCallbacks.preprocessCookedForRender(post);
+    if (preprocessed.length <= HtmlChunker.chunkThreshold) return null;
+    // 先按顶层切,再把「大 blockquote」装饰下放拆成多片(让容器内部也跟随
+    // sliver 虚拟化,见子包 BlockquoteChunkPos)。拆分后再判 chunk 数 → 单个
+    // 超大引用块的帖子也能拆开,不会退回整段渲染。
+    final chunks = _splitLargeBlockquotes(HtmlChunker.chunk(preprocessed));
+    if (chunks.length <= 1) return null;
+
+    final footnotesHtml = _extractFootnotesSection(preprocessed);
+    // 每 chunk 只 parse 一次:同一份节点同时用于 offset/gallery 计算和后续
+    // FluxdoRender 渲染,避免 build/mount 时重复解析 chunk html。
+    final parser = ParagraphParser();
+    final parsedChunks = <List<BlockNode>>[];
+    final lightboxImageRuns = <ImageRun>[];
+    final offsets = <int>[];
+    var acc = 0;
+    for (final c in chunks) {
+      offsets.add(acc);
+      final nodes = parser.parse(
+        c.html,
+        imageIndexStart: acc,
+        footnotesHtml: footnotesHtml,
       );
+      parsedChunks.add(List.unmodifiable(nodes));
+      acc += countImageRuns(nodes);
+      lightboxImageRuns.addAll(collectLightboxImageRuns(nodes));
+    }
+    return NewEngineLongPostData(
+      chunks: chunks,
+      parsedChunks: List.unmodifiable(parsedChunks),
+      imageOffsets: offsets,
+      footnotesHtml: footnotesHtml,
+      callbacks: FluxdoRenderCallbacks.forPost(
+        post: post,
+        topicId: topicId,
+        onQuoteImage: onQuoteImage,
+        preprocessedCooked: preprocessed,
+        lightboxImageRuns: List.unmodifiable(lightboxImageRuns),
+      ),
+    );
+  }
+
+  // 大引用块拆分阈值:内部块数或字符数超过即拆(都不超 → 小引用块不拆,零开销)。
+  static const _bqSplitMinBlocks = 6;
+  static const _bqSplitMinChars = 1500;
+
+  /// 把 chunk 列表里的「大 blockquote」装饰下放拆成多片,其余原样透传,最后重编 index。
+  static List<HtmlChunk> _splitLargeBlockquotes(List<HtmlChunk> chunks) {
+    final expanded = <HtmlChunk>[];
+    for (final c in chunks) {
+      if (c.type == HtmlChunkType.blockquote) {
+        expanded.addAll(_splitBlockquoteChunk(c.html));
+      } else {
+        expanded.add(c);
+      }
+    }
+    return [
+      for (var i = 0; i < expanded.length; i++)
+        HtmlChunk(
+          html: expanded[i].html,
+          type: expanded[i].type,
+          index: i,
+          joinsPrevious: expanded[i].joinsPrevious,
+          joinsNext: expanded[i].joinsNext,
+        ),
+    ];
+  }
+
+  /// 把一个 `<blockquote>` chunk 拆成多片:每片 re-wrap 成
+  /// `<blockquote ...原属性 data-fxd-pos="first|mid|last">子片</blockquote>`,
+  /// 子包按 pos 渲染连续装饰。小引用块不拆。
+  ///
+  /// callout(`[!type]`):**不可折叠**的大 callout 也拆 —— 首片保留 `[!type]`
+  /// 标记(子包走文本识别出标题头),中/尾片打 `data-fxd-callout` 属性(只 kind
+  /// + body)。可折叠 callout 不拆(折叠态本就懒构建)。
+  static List<HtmlChunk> _splitBlockquoteChunk(String html) {
+    HtmlChunk whole() =>
+        HtmlChunk(html: html, type: HtmlChunkType.blockquote, index: 0);
+    final frag = html_parser.parseFragment(html);
+    final root = frag.children.isNotEmpty ? frag.children.first : null;
+    if (root == null || root.localName?.toLowerCase() != 'blockquote') {
+      return [whole()];
     }
 
-    // 一次解析同时拿到 chunks + gallery,避免重复 DOM 解析。
-    // 详情页 ref.listen 中已经 preload,这里 parseSync 通常命中缓存零成本。
-    final parsed = HtmlParseService.instance.parseSync(html);
-    if (parsed.chunks.length <= 1) {
-      return LongPostRenderData(
-        chunks: const <HtmlChunk>[],
-        galleryImages: parsed.galleryInfo.images,
-        spoilerImageUrls: parsed.galleryInfo.spoilerImageUrls,
-      );
+    // 太小不拆(零开销)。
+    final smallByBlocks = root.children.length <= _bqSplitMinBlocks;
+    final smallByChars = root.text.length <= _bqSplitMinChars;
+    if (smallByBlocks && smallByChars) return [whole()];
+
+    final sub = HtmlChunker.chunk(root.innerHtml);
+    if (sub.length <= 1) return [whole()];
+
+    final attrs = _attrsString(root); // 保留原 class 等属性
+
+    // callout 识别:首行 [!type]([+-] = 可折叠 → 不拆)。
+    final callout =
+        RegExp(r'^\[!([^\]]+)\]([+-])?').firstMatch(root.text.trimLeft());
+    if (callout != null) {
+      if (callout.group(2) != null) return [whole()]; // 可折叠不拆
+      final kind = callout.group(1)!.trim().toLowerCase();
+      return [
+        for (var i = 0; i < sub.length; i++)
+          HtmlChunk(
+            // 首片保留 [!type] 标记(在 sub[0] 内)→ 子包文本识别出标题头;
+            // 中/尾片打属性 → 子包属性识别(只 kind + body,无头)。
+            html: i == 0
+                ? '<blockquote$attrs data-fxd-pos="${_pos(i, sub.length)}">'
+                    '${sub[i].html}</blockquote>'
+                : '<blockquote$attrs data-fxd-callout="$kind" '
+                    'data-fxd-pos="${_pos(i, sub.length)}">'
+                    '${sub[i].html}</blockquote>',
+            type: HtmlChunkType.blockquote,
+            index: i,
+          ),
+      ];
     }
 
-    return LongPostRenderData(
-      chunks: parsed.chunks,
-      galleryImages: parsed.galleryInfo.images,
-      spoilerImageUrls: parsed.galleryInfo.spoilerImageUrls,
+    // 普通 blockquote。
+    return [
+      for (var i = 0; i < sub.length; i++)
+        HtmlChunk(
+          html: '<blockquote$attrs data-fxd-pos="${_pos(i, sub.length)}">'
+              '${sub[i].html}</blockquote>',
+          type: HtmlChunkType.blockquote,
+          index: i,
+        ),
+    ];
+  }
+
+  static String _pos(int i, int n) =>
+      i == 0 ? 'first' : (i == n - 1 ? 'last' : 'mid');
+
+  /// 序列化元素原属性为 ` k="v"` 串(排除 data-fxd-pos,避免重复)。
+  static String _attrsString(dom.Element el) {
+    final buf = StringBuffer();
+    el.attributes.forEach((k, v) {
+      final key = k.toString();
+      if (key == 'data-fxd-pos') return;
+      buf.write(' $key="$v"');
+    });
+    return buf.toString();
+  }
+
+  /// 抽出整帖脚注区 `<section class="footnotes">…</section>`(无则 null)。
+  static String? _extractFootnotesSection(String html) {
+    final m = RegExp(
+      r'<section[^>]*class="[^"]*footnotes[^"]*"[^>]*>[\s\S]*?</section>',
+      caseSensitive: false,
+    ).firstMatch(html);
+    return m?.group(0);
+  }
+}
+
+/// 新引擎长帖的单个 chunk 段:用 [FluxdoRender] 渲染 chunk.html。
+/// 自带自研选区(chunk 内),图片/脚注靠 [imageIndexOffset]/[footnotesHtml]
+/// + 共享 [callbacks] 对齐整帖。
+class NewEngineChunkSegment extends StatelessWidget {
+  final Post post;
+  final int topicId;
+  final bool selected;
+  final bool highlight;
+  final HtmlChunk chunk;
+  final int chunkIndex;
+  final int imageIndexOffset;
+  final List<BlockNode> parsedNodes;
+  final String? footnotesHtml;
+  final FluxdoRenderCallbacks callbacks;
+  final void Function(String plainText, Post post)? onQuoteSelection;
+
+  const NewEngineChunkSegment({
+    super.key,
+    required this.post,
+    required this.topicId,
+    required this.selected,
+    required this.highlight,
+    required this.chunk,
+    required this.chunkIndex,
+    required this.imageIndexOffset,
+    required this.parsedNodes,
+    required this.footnotesHtml,
+    required this.callbacks,
+    required this.onQuoteSelection,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return PostSegmentFrame(
+      post: post,
+      selected: selected,
+      highlight: highlight,
+      showBottomBorder: false,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: FluxdoRender(
+          cookedHtml: chunk.html,
+          parsedNodes: parsedNodes,
+          imageIndexOffset: imageIndexOffset,
+          footnotesHtml: footnotesHtml,
+          // 同 post 各 chunk 共享一个选区作用域 → 选区可跨 chunk。
+          selectionScopeId: post.id,
+          // chunk 文档序号 → 跨 chunk 选区按 (chunkIndex, docOrder) 逻辑序排序。
+          chunkIndex: chunkIndex,
+          // 被分块切断的单段落接缝:裁掉接缝侧外边距 → 与连续渲染无缝拼接。
+          trimTopMargin: chunk.joinsPrevious,
+          trimBottomMargin: chunk.joinsNext,
+          linkHandler: callbacks.linkHandler,
+          emojiImageBuilder: callbacks.emojiImageBuilder,
+          mentionTapHandler: callbacks.mentionTapHandler,
+          imageContentBuilder: callbacks.imageContentBuilder,
+          codeBlockHighlighter: callbacks.codeBlockHighlighter,
+          quoteAvatarBuilder: callbacks.quoteAvatarBuilder,
+          footnoteTapHandler: callbacks.footnoteTapHandler,
+          lazyVideoBuilder: callbacks.lazyVideoBuilder,
+          iframeBuilder: callbacks.iframeBuilder,
+          localDateBuilder: callbacks.localDateBuilder,
+          mathBlockBuilder: callbacks.mathBlockBuilder,
+          mathInlineBuilder: callbacks.mathInlineBuilder,
+          oneboxBuilder: callbacks.oneboxBuilder,
+          imageGridBuilder: callbacks.imageGridBuilder,
+          policyBuilder: callbacks.policyBuilder,
+          pollBuilder: callbacks.pollBuilder,
+          chatTranscriptBuilder: callbacks.chatTranscriptBuilder,
+          svgBuilder: callbacks.svgBuilder,
+          videoBuilder: callbacks.videoBuilder,
+          audioBuilder: callbacks.audioBuilder,
+          onDownloadAttachment: callbacks.onDownloadAttachment,
+          selectionEnabled: onQuoteSelection != null,
+          onQuoteRequest: onQuoteSelection == null
+              ? null
+              : (plainText) => onQuoteSelection!(plainText, post),
+          onCopyQuoteRequest: (plainText) =>
+              QuoteSelectionHelper.copyQuoteToClipboard(
+            selectedText: plainText,
+            post: post,
+            topicId: topicId,
+          ),
+          onCopyToast: () =>
+              ToastService.showSuccess(context.l10n.common_copiedToClipboard),
+        ),
+      ),
     );
   }
 }
@@ -94,87 +327,6 @@ class LongPostHeaderSegment extends StatelessWidget {
           showStamp: post.acceptedAnswer,
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
           onJumpToPost: onJumpToPost,
-        ),
-      ),
-    );
-  }
-}
-
-class LongPostChunkSegment extends ConsumerWidget {
-  final Post post;
-  final int topicId;
-  final bool selected;
-  final bool highlight;
-  final HtmlChunk chunk;
-  final LongPostRenderData renderData;
-  final void Function(String quote, Post post)? onQuoteImage;
-
-  const LongPostChunkSegment({
-    super.key,
-    required this.post,
-    required this.topicId,
-    required this.selected,
-    required this.highlight,
-    required this.chunk,
-    required this.renderData,
-    required this.onQuoteImage,
-  });
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
-    final isModeratorAction = post.postType == PostTypes.moderatorAction;
-    final contentTextStyle = theme.textTheme.bodyMedium?.copyWith(
-      height: 1.5,
-      fontSize:
-          (theme.textTheme.bodyMedium?.fontSize ?? 14) *
-          ref.watch(preferencesProvider).contentFontScale,
-    );
-
-    return PostSegmentFrame(
-      post: post,
-      selected: selected,
-      highlight: highlight,
-      showBottomBorder: false,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Container(
-          decoration: isModeratorAction
-              ? BoxDecoration(
-                  color: theme.colorScheme.tertiaryContainer.withValues(
-                    alpha: 0.2,
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                )
-              : null,
-          padding: isModeratorAction
-              ? const EdgeInsets.all(12)
-              : EdgeInsets.zero,
-          child: HtmlChunkWidget(
-            chunk: chunk,
-            textStyle: contentTextStyle,
-            onInternalLinkTap: (topicId, topicSlug, postNumber) {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => TopicDetailPage(
-                    topicId: topicId,
-                    initialTitle: topicSlug,
-                    scrollToPostNumber: postNumber,
-                  ),
-                ),
-              );
-            },
-            linkCounts: post.linkCounts,
-            galleryImages: renderData.galleryImages,
-            spoilerImageUrls: renderData.spoilerImageUrls,
-            revealedImageUrls: renderData.revealedImageUrls,
-            mentionedUsers: post.mentionedUsers,
-            fullHtml: post.cooked,
-            post: post,
-            topicId: topicId,
-            enableSelectionArea: false,
-            onQuoteImage: onQuoteImage,
-          ),
         ),
       ),
     );

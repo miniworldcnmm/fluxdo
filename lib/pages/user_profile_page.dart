@@ -25,8 +25,8 @@ import '../widgets/common/grain_gradient_background.dart';
 import '../widgets/common/error_view.dart';
 import '../widgets/common/paged_list_footer.dart';
 import '../widgets/common/smart_avatar.dart';
-import '../widgets/content/discourse_html_content/discourse_html_content_widget.dart';
 import '../widgets/content/collapsed_html_content.dart';
+import '../utils/fluxdo_render_callbacks.dart';
 import '../widgets/post/reply_sheet.dart';
 import '../widgets/user/user_profile_skeleton.dart';
 import '../widgets/user/ignore_duration_picker.dart';
@@ -383,11 +383,15 @@ class _UserProfilePageState extends ConsumerState<UserProfilePage>
                           ),
                         ),
                         const SizedBox(height: 12),
-                        DiscourseHtmlContent(
-                          html: _user!.bio!,
-                          textStyle: theme.textTheme.bodyLarge?.copyWith(
+                        // 个人简介属只读展示：走新引擎 FluxdoRender，关闭划词选区。
+                        FluxdoRenderCallbacks.generic(
+                          heroTagNamespace: 'user_profile_bio_${_user!.username}',
+                        ).render(
+                          cookedHtml: _user!.bio!,
+                          baseTextStyle: theme.textTheme.bodyLarge?.copyWith(
                             height: 1.6,
                           ),
+                          selectionEnabled: false,
                         ),
                         const SizedBox(height: 32),
                       ],

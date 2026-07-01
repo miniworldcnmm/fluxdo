@@ -266,6 +266,36 @@ extension _PostFooterMenuActions on _PostFooterSectionState {
                           _showDeleteConfirmDialog(context, theme);
                         },
                 ),
+              // 仅 debug build:复制 cooked HTML(给渲染引擎调试用)
+              if (kDebugMode) ...[
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                ListTile(
+                  leading: Icon(
+                    Symbols.bug_report_rounded,
+                    color: theme.colorScheme.tertiary,
+                  ),
+                  title: Text(
+                    'Copy cooked HTML',
+                    style: TextStyle(color: theme.colorScheme.tertiary),
+                  ),
+                  subtitle: Text(
+                    'debug: ${widget.post.cooked.length} chars',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    await Clipboard.setData(
+                      ClipboardData(text: widget.post.cooked),
+                    );
+                    ToastService.showSuccess(
+                      'cooked HTML 已复制 (${widget.post.cooked.length} chars)',
+                    );
+                  },
+                ),
+              ],
               const Divider(height: 1, indent: 16, endIndent: 16),
               ListTile(
                 title: Text(

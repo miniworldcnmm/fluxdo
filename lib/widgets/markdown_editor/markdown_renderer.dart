@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:markdown/markdown.dart' as md;
-import '../content/discourse_html_content/discourse_html_content.dart';
 import '../../services/emoji_handler.dart';
 import '../../constants.dart';
+import '../../utils/fluxdo_render_callbacks.dart';
 import '../../utils/url_helper.dart';
 
 /// Markdown 预览组件
@@ -68,13 +68,16 @@ class MarkdownBody extends StatelessWidget {
     // 10. 后处理：将 quote 占位符替换回 aside.quote
     html = _restoreQuoteBlocks(html, quoteBlocks);
 
-    // 11. 使用 DiscourseHtmlContent 渲染，与帖子显示保持一致
-    return DiscourseHtmlContent(
-      html: html,
-      textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+    // 11. 使用 FluxdoRender 新引擎渲染，与帖子显示保持一致(只读预览关闭选区)
+    return FluxdoRenderCallbacks.generic(
+      heroTagNamespace: 'markdown_preview',
+      onInternalLinkTap: onInternalLinkTap,
+    ).render(
+      cookedHtml: html,
+      baseTextStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
         height: 1.5,
       ),
-      onInternalLinkTap: onInternalLinkTap,
+      selectionEnabled: false,
     );
   }
   

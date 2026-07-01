@@ -1,0 +1,1620 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:app_icons/app_icons.dart';
+import 'package:flutter_math_fork/flutter_math.dart';
+import 'package:fluxdo_render/fluxdo_render.dart';
+import 'package:html/dom.dart' as dom;
+import 'package:html/parser.dart' as html_parser;
+import 'package:jovial_svg/jovial_svg.dart';
+import 'package:popover/popover.dart';
+import 'package:visibility_detector/visibility_detector.dart';
+
+import '../l10n/s.dart';
+import '../pages/image_viewer_page.dart';
+import '../pages/user_profile_page.dart';
+import '../pages/topic_detail_page/topic_detail_page.dart';
+import '../models/topic.dart' show Post, MentionedUser, LinkCount;
+import '../providers/download_provider.dart';
+import '../services/discourse/discourse_service.dart';
+import '../services/discourse_cache_manager.dart';
+import '../services/emoji_handler.dart';
+import '../services/highlighter_service.dart';
+import '../utils/discourse_url_parser.dart';
+import '../utils/link_launcher.dart';
+import '../utils/url_helper.dart';
+import '../widgets/common/image_context_menu.dart';
+import '../widgets/common/smart_avatar.dart';
+import '../widgets/content/audio/discourse_audio_player.dart';
+import '../widgets/content/discourse_html_content/builders/iframe_builder.dart'
+    show IframeWidget, IframeAttributes;
+import '../widgets/content/discourse_html_content/builders/image_carousel_builder.dart'
+    as legacy_carousel;
+import '../widgets/content/discourse_html_content/builders/image_grid_builder.dart'
+    show GridImageData;
+import '../widgets/content/discourse_html_content/builders/lazy_video_builder.dart'
+    as legacy_video;
+import '../widgets/content/discourse_html_content/builders/local_date_builder.dart'
+    as legacy_local_date;
+import '../widgets/content/discourse_html_content/builders/onebox_card_builder.dart';
+import '../widgets/content/discourse_html_content/builders/policy_builder.dart'
+    as legacy_policy;
+import '../widgets/content/discourse_html_content/builders/poll_builder.dart'
+    as legacy_poll;
+import '../widgets/content/discourse_html_content/builders/chat_transcript_builder.dart'
+    as legacy_chat;
+import '../widgets/content/discourse_html_content/builders/video_builder.dart';
+import '../widgets/content/discourse_html_content/image_utils.dart';
+import '../widgets/content/discourse_html_content/lazy_image.dart';
+import '../widgets/content/lazy_load_scope.dart';
+
+/// 把 fluxdo_render 的全部 callback 一次性创建好,给 FluxdoRender 用。
+///
+/// 这是主项目侧的"接入层" —— 子包不依赖任何主项目 service,所有真实
+/// 体系(emojiImageProvider / SmartAvatar / DiscourseImageUtils.openViewer /
+/// HighlighterService / UserProfilePage 路由 / launchContentLink 等)
+/// 都在这里组装。
+///
+/// 两个入口:
+/// - [FluxdoRenderCallbacks.forPost]:帖子正文场景,有完整 Post 上下文
+///   (画廊左右切 / 图片引用菜单 / 链接点击追踪 / policy/poll 交互)。
+/// - [FluxdoRenderCallbacks.generic]:非正文场景(用户卡 bio / 回复预览 /
+///   徽章 / 分享卡 等),无 Post,按需降级(见该 factory 文档)。
+///
+/// 不依赖 Post 的 builder(emoji/mention/code/avatar/math/svg/video/audio/
+/// download/iframe/localDate/imageGrid + footnote/chat)抽成共享 static,
+/// 两个入口复用;依赖 Post 的(link/image/lazyVideo/onebox/policy/poll)
+/// 各自组装或降级。
+///
+/// 用法:
+/// ```dart
+/// final callbacks = FluxdoRenderCallbacks.forPost(post: post, topicId: id);
+/// return callbacks.render(cookedHtml: post.cooked, baseTextStyle: style);
+/// ```
+class FluxdoRenderCallbacks {
+  FluxdoRenderCallbacks({
+    required this.linkHandler,
+    required this.emojiImageBuilder,
+    required this.mentionTapHandler,
+    required this.imageContentBuilder,
+    required this.codeBlockHighlighter,
+    required this.quoteAvatarBuilder,
+    required this.footnoteTapHandler,
+    required this.lazyVideoBuilder,
+    required this.iframeBuilder,
+    required this.localDateBuilder,
+    required this.mathBlockBuilder,
+    required this.mathInlineBuilder,
+    required this.oneboxBuilder,
+    required this.imageGridBuilder,
+    required this.policyBuilder,
+    required this.pollBuilder,
+    required this.chatTranscriptBuilder,
+    required this.svgBuilder,
+    required this.videoBuilder,
+    required this.audioBuilder,
+    required this.onDownloadAttachment,
+  });
+
+  final LinkActionHandler linkHandler;
+  final EmojiImageBuilder emojiImageBuilder;
+  final MentionTapHandler mentionTapHandler;
+  final ImageContentBuilder imageContentBuilder;
+  final CodeBlockHighlighter codeBlockHighlighter;
+  final QuoteAvatarBuilder quoteAvatarBuilder;
+  final FootnoteTapHandler footnoteTapHandler;
+  final LazyVideoBuilder lazyVideoBuilder;
+  final IframeBuilder iframeBuilder;
+  final LocalDateBuilder localDateBuilder;
+  final MathBlockBuilder mathBlockBuilder;
+  final MathInlineBuilder mathInlineBuilder;
+  final OneboxBuilder oneboxBuilder;
+  final ImageGridBuilder imageGridBuilder;
+  final PolicyBuilder policyBuilder;
+  final PollBuilder pollBuilder;
+  final ChatTranscriptBuilder chatTranscriptBuilder;
+  final SvgBuilder svgBuilder;
+  final VideoBuilder videoBuilder;
+  final AudioBuilder audioBuilder;
+  final AttachmentDownloadHandler onDownloadAttachment;
+
+  /// 把本组 callback 应用到一个 [FluxdoRender]。
+  ///
+  /// 主项目所有渲染场景的统一出口:正文 / 用户卡 bio / 回复预览 / 分享卡 等
+  /// 只需 `callbacks.render(cookedHtml: html, baseTextStyle: style)`,不用再
+  /// 逐字段展开 21 个 builder。[selectionEnabled] 默认 true;只读预览传 false。
+  FluxdoRender render({
+    required String cookedHtml,
+    Key? key,
+    TextStyle? baseTextStyle,
+    bool selectionEnabled = true,
+    bool compact = false,
+    List<BlockNode>? parsedNodes,
+    String? footnotesHtml,
+    int imageIndexOffset = 0,
+    Object? selectionScopeId,
+    int chunkIndex = 0,
+    bool trimTopMargin = false,
+    bool trimBottomMargin = false,
+    QuoteRequestCallback? onQuoteRequest,
+    QuoteRequestCallback? onCopyQuoteRequest,
+    CopyToastCallback? onCopyToast,
+  }) {
+    return FluxdoRender(
+      key: key,
+      cookedHtml: cookedHtml,
+      parsedNodes: parsedNodes,
+      baseTextStyle: baseTextStyle,
+      selectionEnabled: selectionEnabled,
+      compact: compact,
+      footnotesHtml: footnotesHtml,
+      imageIndexOffset: imageIndexOffset,
+      selectionScopeId: selectionScopeId,
+      chunkIndex: chunkIndex,
+      trimTopMargin: trimTopMargin,
+      trimBottomMargin: trimBottomMargin,
+      onQuoteRequest: onQuoteRequest,
+      onCopyQuoteRequest: onCopyQuoteRequest,
+      onCopyToast: onCopyToast,
+      linkHandler: linkHandler,
+      emojiImageBuilder: emojiImageBuilder,
+      mentionTapHandler: mentionTapHandler,
+      imageContentBuilder: imageContentBuilder,
+      codeBlockHighlighter: codeBlockHighlighter,
+      quoteAvatarBuilder: quoteAvatarBuilder,
+      oneboxBuilder: oneboxBuilder,
+      imageGridBuilder: imageGridBuilder,
+      footnoteTapHandler: footnoteTapHandler,
+      lazyVideoBuilder: lazyVideoBuilder,
+      iframeBuilder: iframeBuilder,
+      videoBuilder: videoBuilder,
+      audioBuilder: audioBuilder,
+      localDateBuilder: localDateBuilder,
+      policyBuilder: policyBuilder,
+      pollBuilder: pollBuilder,
+      chatTranscriptBuilder: chatTranscriptBuilder,
+      mathBlockBuilder: mathBlockBuilder,
+      mathInlineBuilder: mathInlineBuilder,
+      svgBuilder: svgBuilder,
+      onDownloadAttachment: onDownloadAttachment,
+    );
+  }
+
+  /// 渲染前预处理 cooked —— 把 legacy 渲染前动态注入的内容补进 HTML,
+  /// 让新引擎 FluxdoRender(接收原始 post.cooked)也能解析渲染。
+  ///
+  /// 注入两类(对齐 legacy `_preprocessHtml` / `_injectClickCounts`):
+  /// 1. **mention 状态 emoji**:原始 cooked 的 mention 链接不含状态 emoji,
+  ///    legacy 用 post.mentionedUsers[].statusEmoji 在 `</a>` 前注入
+  ///    `<img class="emoji mention-status">`。子包 parser 已能从 mention
+  ///    子树提取 EmojiRun,只缺这个 img。
+  /// 2. **链接点击数 click-count**:原始 cooked 不含点击数,legacy 用
+  ///    post.linkCounts 在普通 `<a>` 后注入 `<span class="click-count">`。
+  ///    子包 parser/flattener 已实现 click-count 节点。
+  ///
+  /// onebox/video 的点击数走另一条路(builder 传 linkCounts 按 URL 匹配),
+  /// 不在这里注入(`_injectClickCounts` 正则只匹配普通 `<a>` 不匹配 aside)。
+  static String preprocessCookedForRender(Post post) {
+    var html = post.cooked;
+    html = _injectMentionStatusEmoji(html, post.mentionedUsers);
+    html = _injectClickCounts(html, post.linkCounts);
+    return html;
+  }
+
+  /// 判断普通链接点击是否应上报 trackClick(skip-list,纯函数,便于单测)。
+  ///
+  /// 逐字对齐 legacy `discourse_html_content_widget._trackClick` 的 skip 判定:
+  /// 跳过 1) 用户链接 /u/username(等价 mention);2) 附件/上传链接
+  /// (upload:// 或 /uploads//secure-uploads//secure-media-uploads/);
+  /// 3) mailto: 邮件;4) # 页内锚点。
+  static bool shouldTrackClick(String url) {
+    // 1. 用户链接(/u/username)
+    if (DiscourseUrlParser.isUserLink(url)) return false;
+    // 2. 附件/上传链接
+    if (url.startsWith('upload://') ||
+        url.contains('/uploads/') ||
+        url.contains('/secure-uploads/') ||
+        url.contains('/secure-media-uploads/')) {
+      return false;
+    }
+    // 3. Email 链接
+    if (url.startsWith('mailto:')) return false;
+    // 4. 锚点链接
+    if (url.startsWith('#')) return false;
+    return true;
+  }
+
+  /// 追踪普通链接点击(fire-and-forget)。
+  ///
+  /// 逐字对齐 legacy `discourse_html_content_widget._trackClick`:仅当有
+  /// [topicId] 时才追踪,且跳过 [shouldTrackClick] 判定的链接。底层
+  /// `DiscourseService().trackClick` 自带 catchError(POST /clicks/track),
+  /// 失败只 debugPrint 不抛,这里直接调用即可,无需再包 try。
+  static void _trackClick(String url, int postId, int? topicId) {
+    if (topicId == null) return;
+    if (!shouldTrackClick(url)) return;
+    DiscourseService().trackClick(
+      url: url,
+      postId: postId,
+      topicId: topicId,
+    );
+  }
+
+  /// 默认内部链接点击 —— push 一个新的 TopicDetailPage。
+  /// 供 [linkHandler] 在调用方未定制 onInternalLinkTap 时兜底。
+  static void _defaultInternalLinkTap(
+    BuildContext ctx,
+    int topicId,
+    String? topicSlug,
+    int? postNumber,
+  ) {
+    Navigator.of(ctx).push(MaterialPageRoute(
+      builder: (_) => TopicDetailPage(
+        topicId: topicId,
+        initialTitle: topicSlug,
+        scrollToPostNumber: postNumber,
+      ),
+    ));
+  }
+
+  // ==========================================================================
+  // 共享 static builder —— 不依赖 Post,forPost / generic 复用。
+  // ==========================================================================
+
+  /// Emoji 图片:走主项目 emojiImageProvider(鉴权 + CDN)。
+  static EmojiImageBuilder get _emojiBuilder => (ctx, emoji, size) {
+    if (emoji.url.isEmpty) {
+      return Text(emoji.name.isEmpty ? ':?:' : ':${emoji.name}:');
+    }
+    final resolvedUrl = UrlHelper.resolveUrlWithCdn(emoji.url);
+    return Image(
+      image: emojiImageProvider(resolvedUrl),
+      width: size,
+      height: size,
+      errorBuilder: (_, _, _) => Icon(
+        Symbols.broken_image_rounded,
+        size: size,
+        color: Theme.of(ctx).colorScheme.outline,
+      ),
+    );
+  };
+
+  /// Mention chip 点击 → 跳用户资料页。
+  static MentionTapHandler get _mentionTapHandler => (ctx, username, href) {
+    // 优先 href 解析(group/user 路由不同);兜底走 username
+    final user = DiscourseUrlParser.parseUser(href);
+    Navigator.of(ctx).push(MaterialPageRoute(
+      builder: (_) => UserProfilePage(
+        username: user?.username ?? username,
+      ),
+    ));
+  };
+
+  /// 代码块高亮:mermaid 走服务端出图,其余走 HighlighterService。
+  static CodeBlockHighlighter get _codeBlockHighlighter =>
+      (ctx, code, language) {
+    // mermaid 走服务端出图(mermaid.ink),不走语法高亮。
+    // language 由子包 parser 提取并已小写化(lang-mermaid → 'mermaid'),
+    // 直接全等比较即可。逐字对齐 legacy code_block_builder.dart 的
+    // _MermaidWidget(URL 构造 / 明暗 / 懒加载 / 错误兜底 / 点开高清)。
+    if (language == 'mermaid') {
+      return _MermaidView(code: code);
+    }
+    // 其余语言:同步 fast-path,async 高亮用 _AsyncHighlightedCode 包一层。
+    return _AsyncHighlightedCode(code: code, language: language);
+  };
+
+  /// 引用卡头像:走 SmartAvatar(鉴权 + CDN 重写)。
+  static QuoteAvatarBuilder get _quoteAvatarBuilder =>
+      (ctx, username, avatarUrl, size) {
+    final resolvedUrl = (avatarUrl ?? '').isEmpty
+        ? null
+        : UrlHelper.resolveUrlWithCdn(avatarUrl!);
+    return SmartAvatar(
+      imageUrl: resolvedUrl,
+      radius: size / 2,
+      fallbackText: username,
+      backgroundColor: Theme.of(ctx).colorScheme.surfaceContainerHighest,
+    );
+  };
+
+  /// 块级数学公式:flutter_math_fork,失败回退 monospace 原文。
+  static MathBlockBuilder get _mathBlockBuilder => (ctx, node) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Center(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Math.tex(
+            node.latex,
+            textStyle: TextStyle(
+              fontSize: 16,
+              color: Theme.of(ctx).colorScheme.onSurface,
+            ),
+            onErrorFallback: (_) => Text(
+              node.latex,
+              style: TextStyle(
+                fontFamily: 'monospace',
+                color:
+                    Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.7),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  };
+
+  /// 行内数学公式:flutter_math_fork,失败回退 monospace 原文。
+  static MathInlineBuilder get _mathInlineBuilder => (ctx, node) {
+    return Math.tex(
+      node.latex,
+      textStyle: TextStyle(
+        fontSize: 14,
+        color: Theme.of(ctx).colorScheme.onSurface,
+      ),
+      onErrorFallback: (_) => Text(
+        node.latex,
+        style: TextStyle(
+          fontFamily: 'monospace',
+          color: Theme.of(ctx).colorScheme.onSurface.withValues(alpha: 0.7),
+        ),
+      ),
+    );
+  };
+
+  /// 内容型 SVG:jovial_svg 等比铺满列宽。
+  static SvgBuilder get _svgBuilder => (ctx, node) {
+    return _buildInlineSvgFromSource(node.svgSource);
+  };
+
+  /// 原生上传视频:复用 DiscourseVideoPlayer(chewie)。VideoNode 已结构化,
+  /// upload:// 短链先解析成真实 URL(与 image builder 同套路)。
+  static VideoBuilder get _videoBuilder => (ctx, node) {
+    final rawSrc = node.src;
+    if (rawSrc.isEmpty) return null; // 让子包出占位卡
+    final posterUrl = (node.poster == null || node.poster!.isEmpty)
+        ? null
+        : (DiscourseImageUtils.isUploadUrl(node.poster!)
+            ? (DiscourseImageUtils.getCachedUploadUrl(node.poster!) ??
+                node.poster!)
+            : UrlHelper.resolveUrlWithCdn(node.poster!));
+    final dimensOk = node.width != null &&
+        node.width! > 0 &&
+        node.height != null &&
+        node.height! > 0;
+    Widget playerFor(String resolvedSrc) => Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: DiscourseVideoPlayer(
+              resolvedSrc,
+              aspectRatio: dimensOk ? node.width! / node.height! : 16 / 9,
+              autoResize: !dimensOk,
+              controls: true,
+              poster: posterUrl == null
+                  ? null
+                  : Image(
+                      image: discourseImageProvider(posterUrl),
+                      fit: BoxFit.contain,
+                    ),
+              errorBuilder: (c, _, _) => const SizedBox.shrink(),
+              loadingBuilder: (c, _, child) => Center(
+                child: posterUrl != null
+                    ? child
+                    : const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2)),
+              ),
+            ),
+          ),
+        );
+    if (!DiscourseImageUtils.isUploadUrl(rawSrc)) {
+      return playerFor(UrlHelper.resolveUrlWithCdn(rawSrc));
+    }
+    final cached = DiscourseImageUtils.getCachedUploadUrl(rawSrc);
+    if (cached != null) return playerFor(cached);
+    return FutureBuilder<String?>(
+      future: DiscourseImageUtils.resolveUploadUrl(rawSrc),
+      builder: (c, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: AspectRatio(
+              aspectRatio: 16 / 9,
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+          );
+        }
+        final url = snap.data;
+        if (url == null || url.isEmpty) return const SizedBox.shrink();
+        return playerFor(url);
+      },
+    );
+  };
+
+  /// 原生上传音频:just_audio 的 DiscourseAudioPlayer。upload:// 先解析。
+  static AudioBuilder get _audioBuilder => (ctx, node) {
+    final rawSrc = node.src;
+    if (rawSrc.isEmpty) return null;
+    if (!DiscourseImageUtils.isUploadUrl(rawSrc)) {
+      return DiscourseAudioPlayer(url: UrlHelper.resolveUrlWithCdn(rawSrc));
+    }
+    final cached = DiscourseImageUtils.getCachedUploadUrl(rawSrc);
+    if (cached != null) return DiscourseAudioPlayer(url: cached);
+    return FutureBuilder<String?>(
+      future: DiscourseImageUtils.resolveUploadUrl(rawSrc),
+      builder: (c, snap) {
+        if (snap.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: SizedBox(
+              height: 56,
+              child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            ),
+          );
+        }
+        final url = snap.data;
+        if (url == null || url.isEmpty) return const SizedBox.shrink();
+        return DiscourseAudioPlayer(url: url);
+      },
+    );
+  };
+
+  /// 附件下载:复用 legacy launchContentLink 的下载链路(_isUploadLink 判附件
+  /// 后回调 startDownload);文件名用 parser 抓到的锚点文件名。
+  static AttachmentDownloadHandler get _onDownloadAttachment =>
+      (ctx, href, filename) {
+    launchContentLink(
+      ctx,
+      href,
+      onDownloadAttachment: (downloadUrl) {
+        ProviderScope.containerOf(ctx, listen: false)
+            .read(downloadProvider.notifier)
+            .startDownload(
+              url: downloadUrl,
+              suggestedFilename: filename.isEmpty ? null : filename,
+            );
+      },
+    );
+  };
+
+  /// 嵌入 iframe:用 IframeNode 结构化字段直接构造 IframeWidget(webview),
+  /// 不再反构造 DOM。web 平台无 InAppWebView,返回 null 走子包内置占位卡。
+  static IframeBuilder get _iframeBuilder => (ctx, node) {
+    if (kIsWeb) return null; // web 走子包内置占位卡
+    if (node.src.isEmpty) return null;
+    return IframeWidget(
+      attributes: IframeAttributes(
+        src: node.src,
+        width: node.width,
+        height: node.height,
+        sandbox: node.sandboxFlags.isEmpty ? null : node.sandboxFlags,
+        allow: node.allowFlags,
+        allowFullscreen: node.allowFullscreen,
+        referrerPolicy: node.referrerPolicy,
+        lazyLoad: node.lazyLoad,
+        title: node.title,
+        classes: node.cssClasses,
+      ),
+    );
+  };
+
+  /// 本地日期 chip:复用 legacy 逻辑但取裸 chip(不包 fwfh InlineCustomWidget),
+  /// 子包 local_date_handler 自行包 WidgetSpan 做行内排版。
+  static LocalDateBuilder get _localDateBuilder => (ctx, node) {
+    final el = _localDateElementFrom(node);
+    return legacy_local_date.buildLocalDateChip(
+      context: ctx,
+      theme: Theme.of(ctx),
+      element: el,
+      baseFontSize: Theme.of(ctx).textTheme.bodyMedium?.fontSize ?? 14,
+    );
+  };
+
+  /// 图片网格 carousel:复用 legacy buildImageCarousel(分页 / 计数器 /
+  /// 预加载 / upload:// 异步解析 / 画廊左右切)。不依赖 Post。
+  static ImageGridBuilder get _imageGridBuilder => (ctx, node) {
+    // 仅 carousel 形态会被子包调用(grid 形态子包内置 Wrap 渲染)。
+    if (node.images.isEmpty) return null;
+    // 缩略图用 src、原图用 lightboxUrl(无 lightbox 时回退 src)。
+    final gridImages = [
+      for (final img in node.images)
+        GridImageData(
+          src: img.src,
+          fullSrc: img.lightboxUrl ?? img.src,
+          width: img.width,
+          height: img.height,
+        ),
+    ];
+    // 画廊原图 URL 列表(非 upload:// 先 CDN 重写,保证 findIndex / 左右切
+    // 命中)。upload:// 短链保持原样,由 viewer/解析侧处理。
+    final galleryUrls = [
+      for (final img in node.images)
+        () {
+          final full = img.lightboxUrl ?? img.src;
+          return DiscourseImageUtils.isUploadUrl(full)
+              ? full
+              : UrlHelper.resolveUrlWithCdn(full);
+        }(),
+    ];
+    return legacy_carousel.buildImageCarousel(
+      context: ctx,
+      theme: Theme.of(ctx),
+      images: gridImages,
+      galleryInfo: GalleryInfo.fromImages(galleryUrls),
+    );
+  };
+
+  /// 脚注点击 → popover 显示脚注内容(嵌套 FluxdoRender 渲染,不再走 legacy
+  /// DiscourseHtmlContent)。[heroNamespace] 用于嵌套图片 heroTag,避免与外层
+  /// 正文冲突;[topicId] 透传给嵌套内部链接点击。
+  static FootnoteTapHandler _footnoteHandler(
+    String heroNamespace,
+    int? topicId,
+  ) {
+    return (ctx, fnId, contentHtml) {
+      if (contentHtml == null || contentHtml.isEmpty) return;
+      showPopover(
+        context: ctx,
+        bodyBuilder: (popCtx) {
+          final theme = Theme.of(popCtx);
+          final screenHeight = MediaQuery.of(popCtx).size.height;
+          final screenWidth = MediaQuery.of(popCtx).size.width;
+          final nested = FluxdoRenderCallbacks.generic(
+            heroTagNamespace: '${heroNamespace}_fn$fnId',
+            topicId: topicId,
+          );
+          return ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: screenHeight * 0.3,
+              maxWidth: screenWidth * 0.85,
+            ),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(12),
+              child: nested.render(
+                cookedHtml: contentHtml,
+                baseTextStyle: theme.textTheme.bodyMedium?.copyWith(
+                  height: 1.5,
+                ),
+                selectionEnabled: false,
+              ),
+            ),
+          );
+        },
+        direction: PopoverDirection.bottom,
+        arrowHeight: 8,
+        arrowWidth: 12,
+        backgroundColor: Theme.of(ctx).colorScheme.surfaceContainerHigh,
+        barrierColor: Colors.transparent,
+        radius: 8,
+        shadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      );
+    };
+  }
+
+  /// 聊天记录:反构造 element 喂 legacy buildChatTranscript,消息内容走
+  /// htmlBuilder 递归 —— 改用嵌套 FluxdoRender(generic)渲染,不再走
+  /// DiscourseHtmlContent。[heroNamespace] 用于嵌套图片 heroTag。
+  static ChatTranscriptBuilder _chatTranscriptHandler(
+    String heroNamespace,
+    int? topicId,
+  ) {
+    return (ctx, node) {
+      if (node.rawHtml.isEmpty) return null;
+      final el = _elementFromHtml(node.rawHtml);
+      final nested = FluxdoRenderCallbacks.generic(
+        heroTagNamespace: '${heroNamespace}_chat',
+        topicId: topicId,
+      );
+      return legacy_chat.buildChatTranscript(
+        context: ctx,
+        theme: Theme.of(ctx),
+        element: el,
+        htmlBuilder: (html, textStyle) => nested.render(
+          cookedHtml: html,
+          baseTextStyle: textStyle,
+          selectionEnabled: false,
+        ),
+      );
+    };
+  }
+
+  /// 内容图片 builder(共享实现):算 heroTag + upload:// 解析 + 画廊/菜单上下文。
+  ///
+  /// forPost 传全帖 lightbox 画廊 + Post(左右切 + 引用菜单);generic 传空画廊
+  /// + null Post(单图打开、菜单隐藏引用)。heroTag 统一 `${heroNamespace}_img_N`。
+  static ImageContentBuilder _imageContentBuilder({
+    required String heroNamespace,
+    List<String> galleryUrls = const [],
+    List<String> galleryThumbs = const [],
+    List<String> galleryHeroTags = const [],
+    Map<int, int> galleryIndexByImageIndex = const {},
+    Post? post,
+    int? topicId,
+    void Function(String quote, Post post)? onQuoteImage,
+  }) {
+    return (ctx, image, totalImagesInPost) {
+      final heroTag = '${heroNamespace}_img_${image.indexInPost}';
+      // Discourse cooked 里图片 src 有两种形态:
+      //   1. 普通 http(s) URL —— 直接走 CDN 重写
+      //   2. upload:// 短链 —— 需要 ImageBuildAddon 异步解析为真实 URL
+      // 这里同步用缓存命中(普通帖滚到第二次起命中);未命中走 FutureBuilder。
+      if (!DiscourseImageUtils.isUploadUrl(image.src)) {
+        final resolvedUrl = UrlHelper.resolveUrlWithCdn(image.src);
+        return _buildImageWidget(
+          resolvedUrl: resolvedUrl,
+          originalUrl: image.src,
+          heroTag: heroTag,
+          image: image,
+          galleryUrls: galleryUrls,
+          galleryThumbs: galleryThumbs,
+          galleryHeroTags: galleryHeroTags,
+          galleryIndexByImageIndex: galleryIndexByImageIndex,
+          post: post,
+          topicId: topicId,
+          onQuoteImage: onQuoteImage,
+        );
+      }
+      // upload:// — 优先看缓存
+      final cached = DiscourseImageUtils.getCachedUploadUrl(image.src);
+      if (cached != null) {
+        return _buildImageWidget(
+          resolvedUrl: cached,
+          originalUrl: image.src,
+          heroTag: heroTag,
+          image: image,
+          galleryUrls: galleryUrls,
+          galleryThumbs: galleryThumbs,
+          galleryHeroTags: galleryHeroTags,
+          galleryIndexByImageIndex: galleryIndexByImageIndex,
+          post: post,
+          topicId: topicId,
+          onQuoteImage: onQuoteImage,
+        );
+      }
+      return FutureBuilder<String?>(
+        future: DiscourseImageUtils.resolveUploadUrl(image.src),
+        builder: (ctx, snap) {
+          if (snap.connectionState != ConnectionState.done) {
+            return SizedBox(
+              width: image.width ?? 120,
+              height: image.height ?? 80,
+              child: const Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            );
+          }
+          if (snap.data == null) {
+            return Icon(
+              Symbols.broken_image_rounded,
+              color: Theme.of(ctx).colorScheme.outline,
+              size: 24,
+            );
+          }
+          return _buildImageWidget(
+            resolvedUrl: snap.data!,
+            originalUrl: image.src,
+            heroTag: heroTag,
+            image: image,
+            galleryUrls: galleryUrls,
+            galleryThumbs: galleryThumbs,
+            galleryHeroTags: galleryHeroTags,
+            galleryIndexByImageIndex: galleryIndexByImageIndex,
+            post: post,
+            topicId: topicId,
+            onQuoteImage: onQuoteImage,
+          );
+        },
+      );
+    };
+  }
+
+  /// 懒加载视频 builder(共享):反构造 element 喂 legacy buildLazyVideo。
+  /// [linkCounts] 用于点击数(forPost 传 post.linkCounts,generic 传空)。
+  static LazyVideoBuilder _lazyVideoHandler(List<LinkCount> linkCounts) {
+    return (ctx, node) {
+      final el = _lazyVideoElementFrom(node);
+      return legacy_video.buildLazyVideo(
+        context: ctx,
+        theme: Theme.of(ctx),
+        element: el,
+        linkCounts: linkCounts,
+      );
+    };
+  }
+
+  /// Onebox builder(共享):OneboxNode.rawHtml 是完整 `<aside class="onebox">`,
+  /// parseFragment 后喂 legacy buildOneboxCard(6 子 builder)。
+  /// [linkCounts] 用于点击数(forPost 传 post.linkCounts,generic 传空)。
+  static OneboxBuilder _oneboxHandler(List<LinkCount> linkCounts) {
+    return (ctx, node) {
+      if (node.rawHtml.isEmpty) return null;
+      final el = _elementFromHtml(node.rawHtml);
+      return buildOneboxCard(
+        context: ctx,
+        theme: Theme.of(ctx),
+        element: el,
+        linkCounts: linkCounts,
+      );
+    };
+  }
+
+  // ==========================================================================
+  // 入口 factory
+  // ==========================================================================
+
+  /// 帖子场景:用 postId 作 Hero tag namespace,避免不同 post 间冲突。
+  /// [post] 必传 — policyBuilder 需要 post 实例(legacy `_PolicyWidget`
+  /// 监听 CurrentPostScope 的 post 状态变化)。
+  factory FluxdoRenderCallbacks.forPost({
+    required Post post,
+    // 链接点击追踪 + 图片引用菜单需要 topicId(Post 模型本身不含 topicId,
+    // 由调用方透传)。为 null 时(如分享截图场景)不追踪点击、图片菜单隐藏
+    // 「引用」「复制引用」,对齐 legacy 在 topicId==null 时的降级行为。
+    int? topicId,
+    // 图片长按/右键菜单的引用回调(对齐 legacy DiscourseWidgetFactory
+    // 的 onQuoteImage 字段)。为 null 时菜单隐藏「引用」「复制引用」。
+    void Function(String quote, Post post)? onQuoteImage,
+    String? preprocessedCooked,
+    List<BlockNode>? parsedNodes,
+    List<ImageRun>? lightboxImageRuns,
+  }) {
+    final postId = post.id;
+    final heroNamespace = 'post_$postId';
+    // 预解析 cooked 收集 Discourse lightbox 口径的画廊项。Web 版
+    // PhotoSwipe 的 dataSource 来自 `a.lightbox`,不是所有 <img>;裸图只能
+    // 单图打开,不参与左右切换。
+    final galleryImages = lightboxImageRuns ??
+        collectLightboxImageRuns(
+          parsedNodes ??
+              ParagraphParser().parse(
+                preprocessedCooked ?? preprocessCookedForRender(post),
+              ),
+        );
+    // 画廊原图 URL + heroTag 列表(顺序 = lightbox 出现顺序)。indexInPost 仍是
+    // 全帖所有内容图的编号,所以额外建 imageIndex→galleryIndex 映射,避免裸图
+    // 插在中间时 initialIndex 错位。
+    final galleryUrls = <String>[];
+    final galleryThumbs = <String>[];
+    final galleryHeroTags = <String>[];
+    final galleryIndexByImageIndex = <int, int>{};
+    for (var i = 0; i < galleryImages.length; i++) {
+      final img = galleryImages[i];
+      final full = img.lightboxUrl ?? img.src;
+      final resolvedFull = DiscourseImageUtils.isUploadUrl(full)
+          ? (DiscourseImageUtils.getCachedUploadUrl(full) ?? full)
+          : UrlHelper.resolveUrlWithCdn(full);
+      final resolvedThumb = DiscourseImageUtils.isUploadUrl(img.src)
+          ? (DiscourseImageUtils.getCachedUploadUrl(img.src) ?? img.src)
+          : UrlHelper.resolveUrlWithCdn(img.src);
+      galleryUrls.add(DiscourseImageUtils.getOriginalUrl(resolvedFull));
+      galleryThumbs.add(resolvedThumb);
+      galleryHeroTags.add('${heroNamespace}_img_${img.indexInPost}');
+      galleryIndexByImageIndex[img.indexInPost] = i;
+    }
+    return FluxdoRenderCallbacks(
+      linkHandler: (ctx, href) {
+        // 先追踪链接点击(fire-and-forget,对齐 legacy
+        // discourse_html_content_widget._trackClick:在 launchContentLink
+        // 之前调用,topicId 为 null 时内部直接跳过)。
+        _trackClick(href, post.id, topicId);
+        launchContentLink(
+          ctx,
+          href,
+          onInternalLinkTap: (innerTopicId, topicSlug, postNumber) {
+            _defaultInternalLinkTap(ctx, innerTopicId, topicSlug, postNumber);
+          },
+        );
+      },
+      emojiImageBuilder: _emojiBuilder,
+      mentionTapHandler: _mentionTapHandler,
+      imageContentBuilder: _imageContentBuilder(
+        heroNamespace: heroNamespace,
+        galleryUrls: galleryUrls,
+        galleryThumbs: galleryThumbs,
+        galleryHeroTags: galleryHeroTags,
+        galleryIndexByImageIndex: galleryIndexByImageIndex,
+        post: post,
+        topicId: topicId,
+        onQuoteImage: onQuoteImage,
+      ),
+      codeBlockHighlighter: _codeBlockHighlighter,
+      quoteAvatarBuilder: _quoteAvatarBuilder,
+      footnoteTapHandler: _footnoteHandler(heroNamespace, topicId),
+      lazyVideoBuilder: _lazyVideoHandler(post.linkCounts ?? const []),
+      iframeBuilder: _iframeBuilder,
+      localDateBuilder: _localDateBuilder,
+      mathBlockBuilder: _mathBlockBuilder,
+      mathInlineBuilder: _mathInlineBuilder,
+      oneboxBuilder: _oneboxHandler(post.linkCounts ?? const []),
+      imageGridBuilder: _imageGridBuilder,
+      policyBuilder: (ctx, node) {
+        // 优先用 rawHtml(完整 cooked,legacy htmlBuilder 能渲染 body 富文本);
+        // 没有时回退用反构造的占位 element(BlockNode toString 兜底)
+        final el = node.rawHtml.isNotEmpty
+            ? _elementFromHtml(node.rawHtml)
+            : _policyElementFrom(node);
+        return legacy_policy.buildPolicy(
+          context: ctx,
+          theme: Theme.of(ctx),
+          element: el,
+          post: post,
+          htmlBuilder: (html, textStyle) => _footnoteFreeNested(
+            html: html,
+            textStyle: textStyle,
+            heroNamespace: '${heroNamespace}_policy',
+            topicId: topicId,
+          ),
+        );
+      },
+      pollBuilder: (ctx, node) {
+        // 把 PollNode.rawHtml 反构造成 element 喂给 legacy buildPoll。
+        // legacy 从 element 读 data-poll-name,再从 post.polls match 出
+        // 真实选项/票数,投票交互调 DiscourseService。
+        if (node.rawHtml.isEmpty) return null;
+        final el = _elementFromHtml(node.rawHtml);
+        return legacy_poll.buildPoll(
+          context: ctx,
+          theme: Theme.of(ctx),
+          element: el,
+          post: post,
+        );
+      },
+      chatTranscriptBuilder: _chatTranscriptHandler(heroNamespace, topicId),
+      svgBuilder: _svgBuilder,
+      videoBuilder: _videoBuilder,
+      audioBuilder: _audioBuilder,
+      onDownloadAttachment: _onDownloadAttachment,
+    );
+  }
+
+  /// 非正文场景:用户卡 bio / 个人页 / 徽章 / 回复预览 / 分享卡 / 弹窗 等。
+  ///
+  /// 无 Post,按需降级(对齐 legacy 在无 post/topicId 时的行为):
+  /// - [heroTagNamespace] 作图片 Hero tag namespace(调用方保证唯一,如
+  ///   `'user_card_$userId'`),避免与正文/其他场景 heroTag 冲突。
+  /// - 图片:单图打开(无全帖画廊左右切),菜单隐藏「引用」「复制引用」(无 post)。
+  /// - 链接:走 [onInternalLinkTap] 定制(默认 push TopicDetailPage);不追踪
+  ///   点击(trackClick 需 postId)。
+  /// - onebox / lazyVideo:点击数传空(无 post.linkCounts)。
+  /// - policy / poll:返回 null → 子包 fallback 占位(无 post 无法交互)。
+  /// - 其余(emoji/mention/code/avatar/math/svg/video/audio/download/iframe/
+  ///   localDate/imageGrid/footnote/chat)与 forPost 完全一致(共享 static)。
+  factory FluxdoRenderCallbacks.generic({
+    required String heroTagNamespace,
+    int? topicId,
+    void Function(int topicId, String? topicSlug, int? postNumber)?
+        onInternalLinkTap,
+  }) {
+    return FluxdoRenderCallbacks(
+      linkHandler: (ctx, href) {
+        launchContentLink(
+          ctx,
+          href,
+          onInternalLinkTap: (innerTopicId, topicSlug, postNumber) {
+            if (onInternalLinkTap != null) {
+              onInternalLinkTap(innerTopicId, topicSlug, postNumber);
+            } else {
+              _defaultInternalLinkTap(
+                  ctx, innerTopicId, topicSlug, postNumber);
+            }
+          },
+        );
+      },
+      emojiImageBuilder: _emojiBuilder,
+      mentionTapHandler: _mentionTapHandler,
+      imageContentBuilder: _imageContentBuilder(
+        heroNamespace: heroTagNamespace,
+        topicId: topicId,
+      ),
+      codeBlockHighlighter: _codeBlockHighlighter,
+      quoteAvatarBuilder: _quoteAvatarBuilder,
+      footnoteTapHandler: _footnoteHandler(heroTagNamespace, topicId),
+      lazyVideoBuilder: _lazyVideoHandler(const []),
+      iframeBuilder: _iframeBuilder,
+      localDateBuilder: _localDateBuilder,
+      mathBlockBuilder: _mathBlockBuilder,
+      mathInlineBuilder: _mathInlineBuilder,
+      oneboxBuilder: _oneboxHandler(const []),
+      imageGridBuilder: _imageGridBuilder,
+      // 无 post → 无法做接受/撤销 + 票数交互,返回 null 让子包出 fallback 占位。
+      policyBuilder: (ctx, node) => null,
+      pollBuilder: (ctx, node) => null,
+      chatTranscriptBuilder: _chatTranscriptHandler(heroTagNamespace, topicId),
+      svgBuilder: _svgBuilder,
+      videoBuilder: _videoBuilder,
+      audioBuilder: _audioBuilder,
+      onDownloadAttachment: _onDownloadAttachment,
+    );
+  }
+
+  /// policy body 的嵌套渲染 helper —— 用 generic 嵌套 FluxdoRender 渲染
+  /// policy 富文本 body,替代 legacy DiscourseHtmlContent。
+  static Widget _footnoteFreeNested({
+    required String html,
+    required TextStyle? textStyle,
+    required String heroNamespace,
+    int? topicId,
+  }) {
+    final nested = FluxdoRenderCallbacks.generic(
+      heroTagNamespace: heroNamespace,
+      topicId: topicId,
+    );
+    return nested.render(
+      cookedHtml: html,
+      baseTextStyle: textStyle,
+      selectionEnabled: false,
+    );
+  }
+
+  /// 把已解析好的图片 URL 包装成 LazyImage + Hero + tap → openViewer。
+  /// SVG 走 jovial_svg(ScalableImageWidget),非 SVG 走 LazyImage。
+  ///
+  /// [galleryUrls] / [galleryThumbs] / [galleryHeroTags] 是 Discourse
+  /// lightbox 口径的全帖画廊列表,非空时点击走 gallery viewer 支持左右切。
+  static Widget _buildImageWidget({
+    required String resolvedUrl,
+    required String originalUrl,
+    required String heroTag,
+    required ImageRun image,
+    List<String> galleryUrls = const [],
+    List<String> galleryThumbs = const [],
+    List<String> galleryHeroTags = const [],
+    Map<int, int> galleryIndexByImageIndex = const {},
+    // 图片长按/右键菜单引用上下文(透传到 ImageContextMenu.show)。
+    Post? post,
+    int? topicId,
+    void Function(String quote, Post post)? onQuoteImage,
+  }) {
+    final isSvg = _isSvgUrl(resolvedUrl) || _isSvgUrl(originalUrl);
+    // max-width: 100% + 不上采样 —— 对齐 Discourse `.cooked img { max-width:
+    // 100%; height: auto }`:按 <img width/height> 等比展示,超过可用宽时等比
+    // 缩小(窄屏不溢出),绝不放大(宽屏小图不拉糊)。
+    //
+    // 用 LayoutBuilder 只「观察」WidgetSpan 给的可用宽,不改变约束,故不会像
+    // FittedBox 那样强制无约束测量子树(那会让 LazyImage 占位的 AspectRatio
+    // 在无约束下 assert 崩溃)。
+    return LayoutBuilder(
+      builder: (lbCtx, lbc) {
+        double? dispW = image.width;
+        double? dispH = image.height;
+        if (dispW != null &&
+            dispH != null &&
+            dispW > 0 &&
+            lbc.maxWidth.isFinite &&
+            dispW > lbc.maxWidth) {
+          dispH = dispH * (lbc.maxWidth / dispW);
+          dispW = lbc.maxWidth;
+        }
+        if (isSvg) {
+          // SVG 走 jovial_svg;外包 GestureDetector 支持长按/右键菜单
+          // (对齐 legacy discourse_widget_factory buildGalleryImage 的 SVG 分支)。
+          return Builder(
+            builder: (svgCtx) => GestureDetector(
+              onLongPress: () => _showImageContextMenu(
+                svgCtx,
+                image: image,
+                resolvedUrl: resolvedUrl,
+                post: post,
+                topicId: topicId,
+                onQuoteImage: onQuoteImage,
+              ),
+              onSecondaryTapUp: (details) => _showImageContextMenu(
+                svgCtx,
+                image: image,
+                resolvedUrl: resolvedUrl,
+                post: post,
+                topicId: topicId,
+                onQuoteImage: onQuoteImage,
+                position: details.globalPosition,
+              ),
+              child: SizedBox(
+                width: dispW,
+                height: dispH,
+                child: ScalableImageWidget.fromSISource(
+                  si: ScalableImageSource.fromSvgHttpUrl(Uri.parse(resolvedUrl)),
+                  fit: BoxFit.contain,
+                  onLoading: (ctx) => const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child:
+                        Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  ),
+                  onError: (ctx) => Builder(
+                    builder: (ctx) => Icon(
+                      Symbols.broken_image_rounded,
+                      size: 24,
+                      color: Theme.of(ctx).colorScheme.outline,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+        // LazyImage 加载态用 AspectRatio 包图 —— AspectRatio 会撑满可用宽
+        // (只拿 width/height 算比例,不当实际尺寸),宽列里就被拉成整列宽。
+        // 外层 SizedBox(dispW, dispH) 给它 tight 约束,强制按 Discourse
+        // max-width:100% 的实际尺寸渲染(列宽富余时左对齐留白,不上采样)。
+        return SizedBox(
+          width: dispW,
+          height: dispH,
+          child: Builder(
+            builder: (ctx) => LazyImage(
+              imageProvider: discourseImageProvider(resolvedUrl),
+              width: dispW,
+              height: dispH,
+              heroTag: heroTag,
+              cacheKey: resolvedUrl,
+              onTap: () {
+                // 打开大图前清掉自研选区:图片 tap 被 HeroImage 手势赢走,
+                // 选区层收不到不会自动清(否则返回后选区还残留)。
+                SelectionScope.clearAt(ctx);
+                // 优先用 lightboxUrl(原图大版本);否则用当前 resolvedUrl(已 CDN 重写)
+                final fullUrl = image.lightboxUrl ?? resolvedUrl;
+                final resolvedFullUrl =
+                    DiscourseImageUtils.isUploadUrl(fullUrl)
+                        ? (DiscourseImageUtils.getCachedUploadUrl(fullUrl) ??
+                            fullUrl)
+                        : UrlHelper.resolveUrlWithCdn(fullUrl);
+                // 全帖画廊非空时走画廊 viewer(左右切同帖其他图);否则单图。
+                final galleryIndex = galleryIndexByImageIndex[image.indexInPost];
+                final hasGallery = galleryUrls.length > 1 &&
+                    galleryIndex != null &&
+                    galleryIndex >= 0 &&
+                    galleryIndex < galleryUrls.length;
+                DiscourseImageUtils.openViewer(
+                  context: ctx,
+                  imageUrl: DiscourseImageUtils.getOriginalUrl(resolvedFullUrl),
+                  heroTag: heroTag,
+                  thumbnailUrl: resolvedUrl,
+                  galleryImages: hasGallery ? galleryUrls : null,
+                  thumbnailUrls: hasGallery ? galleryThumbs : null,
+                  heroTags: hasGallery ? galleryHeroTags : null,
+                  initialIndex: hasGallery ? galleryIndex : 0,
+                );
+              },
+              // 长按/右键 → 图片上下文菜单(对齐 legacy LazyImage
+              // onLongPress/onSecondaryTapUp,discourse_widget_factory.dart)。
+              onLongPress: () => _showImageContextMenu(
+                ctx,
+                image: image,
+                resolvedUrl: resolvedUrl,
+                post: post,
+                topicId: topicId,
+                onQuoteImage: onQuoteImage,
+              ),
+              onSecondaryTapUp: (details) => _showImageContextMenu(
+                ctx,
+                image: image,
+                resolvedUrl: resolvedUrl,
+                post: post,
+                topicId: topicId,
+                onQuoteImage: onQuoteImage,
+                position: details.globalPosition,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 显示图片长按/右键菜单(对齐 legacy DiscourseWidgetFactory
+  /// `_showImageContextMenu` → ImageContextMenu.show)。
+  ///
+  /// 菜单展示用「原图 URL」:优先 image.lightboxUrl(原图大版本),
+  /// 否则用当前已 CDN 重写的 resolvedUrl;再过一遍 getOriginalUrl 还原
+  /// /optimized/ → /original/(与 onTap 打开大图同口径)。getOriginalUrl
+  /// 幂等,ImageContextMenu.show 内部还会再调一次,无副作用。
+  static void _showImageContextMenu(
+    BuildContext context, {
+    required ImageRun image,
+    required String resolvedUrl,
+    Post? post,
+    int? topicId,
+    void Function(String quote, Post post)? onQuoteImage,
+    Offset? position,
+  }) {
+    final fullUrl = image.lightboxUrl ?? resolvedUrl;
+    final resolvedFullUrl = DiscourseImageUtils.isUploadUrl(fullUrl)
+        ? (DiscourseImageUtils.getCachedUploadUrl(fullUrl) ?? fullUrl)
+        : UrlHelper.resolveUrlWithCdn(fullUrl);
+    final menuUrl = DiscourseImageUtils.getOriginalUrl(resolvedFullUrl);
+    ImageContextMenu.show(
+      context: context,
+      imageUrl: menuUrl,
+      post: post,
+      topicId: topicId,
+      onQuoteImage: onQuoteImage,
+      position: position,
+    );
+  }
+
+  /// 用 jovial_svg 把内容 svg 源串渲染成等比铺满列宽的 widget。
+  ///
+  /// 逐字对齐 legacy `_buildInlineSvg`(discourse_html_content_widget.dart):
+  /// 解析失败 / viewport 非法 → SizedBox.shrink();否则 LayoutBuilder 取可用宽,
+  /// 按 viewport 宽高比算高,SizedBox + ScalableImageWidget(fit: contain)。
+  static Widget _buildInlineSvgFromSource(String svgSource) {
+    if (svgSource.trim().isEmpty) return const SizedBox.shrink();
+    final ScalableImage si;
+    try {
+      si = ScalableImage.fromSvgString(svgSource, warnF: (_) {});
+    } catch (_) {
+      return const SizedBox.shrink();
+    }
+    final viewport = si.viewport;
+    if (viewport.width <= 0 || viewport.height <= 0) {
+      return const SizedBox.shrink();
+    }
+    final aspectRatio = viewport.width / viewport.height;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.of(context).size.width - 32;
+        final displayWidth = availableWidth;
+        final displayHeight = displayWidth / aspectRatio;
+        return SizedBox(
+          width: displayWidth,
+          height: displayHeight,
+          child: ScalableImageWidget(si: si, fit: BoxFit.contain),
+        );
+      },
+    );
+  }
+
+  static bool _isSvgUrl(String? url) {
+    if (url == null) return false;
+    final uri = Uri.tryParse(url);
+    if (uri == null) return false;
+    return uri.path.toLowerCase().endsWith('.svg');
+  }
+}
+
+/// 异步高亮 widget:HighlighterService.highlightAsync 是 Future,
+/// 期间用纯 monospace 占位,完成后用 RichText 渲染高亮 token。
+class _AsyncHighlightedCode extends StatefulWidget {
+  const _AsyncHighlightedCode({required this.code, required this.language});
+  final String code;
+  final String? language;
+
+  @override
+  State<_AsyncHighlightedCode> createState() => _AsyncHighlightedCodeState();
+}
+
+class _AsyncHighlightedCodeState extends State<_AsyncHighlightedCode> {
+  List<HighlightToken>? _tokens;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_load());
+  }
+
+  @override
+  void didUpdateWidget(_AsyncHighlightedCode old) {
+    super.didUpdateWidget(old);
+    if (old.code != widget.code || old.language != widget.language) {
+      _tokens = null;
+      unawaited(_load());
+    }
+  }
+
+  Future<void> _load() async {
+    try {
+      final tokens = await HighlighterService.instance.highlightAsync(
+        widget.code,
+        language: widget.language,
+      );
+      if (mounted) setState(() => _tokens = tokens);
+    } catch (_) {
+      // 高亮失败:保持 null,fallback 显示纯 monospace
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final baseStyle = TextStyle(
+      fontFamily: 'FiraCode',
+      fontFamilyFallback: const ['monospace', 'Menlo', 'Courier'],
+      fontSize: 13,
+      height: 1.4,
+      color: theme.colorScheme.onSurface,
+    );
+    if (_tokens == null) {
+      return Text(widget.code, style: baseStyle);
+    }
+    final span = HighlighterService.instance.tokensToSpan(
+      _tokens!,
+      isDark: isDark,
+      baseStyle: baseStyle,
+    );
+    return Text.rich(span);
+  }
+}
+
+/// Mermaid 图渲染(纯主项目侧,逐字照搬 legacy
+/// `code_block_builder.dart` 的 `_MermaidWidget`:mermaid.ink 服务端出图 +
+/// 明暗主题 + 懒加载 + 错误重试 + 点开高清 width=2000)。
+///
+/// 与 legacy 的差异(由新引擎容器结构决定):
+/// 1. 不再自带『图表/代码』切换工具栏与外层灰底容器 —— 子包 NodeFactory
+///    的 buildCodeBlock 已经包了灰底容器 + 顶栏(MERMAID chip + 复制按钮)。
+///    本 widget 按 CodeBlockHighlighter 约定『只返回内容』,只出图。
+/// 2. 父级(子包 _CodeBlockBody)水平方向给无界宽,故图片必须用 LayoutBuilder
+///    约束最大宽度,否则 CachedNetworkImage 在无界宽下测量崩溃 / 撑爆。
+class _MermaidView extends StatefulWidget {
+  const _MermaidView({required this.code});
+
+  /// 原始 mermaid 源码(子包已剥掉 ```mermaid 包裹,等于 legacy 的 text)。
+  final String code;
+
+  @override
+  State<_MermaidView> createState() => _MermaidViewState();
+}
+
+class _MermaidViewState extends State<_MermaidView>
+    with SingleTickerProviderStateMixin {
+  bool _shouldLoad = false;
+  bool _initialized = false;
+  int _retryCount = 0;
+  AnimationController? _shimmerController;
+
+  // 缓存 key:对齐 legacy 'mermaid-${text.hashCode}',用于 LazyLoadScope。
+  String get _cacheKey => 'mermaid-${widget.code.hashCode}';
+
+  @override
+  void initState() {
+    super.initState();
+    _shimmerController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initialized = true;
+      // 已在本页 LazyLoadScope 里加载过则直接出图、停掉 shimmer。
+      if (LazyLoadScope.isLoaded(context, _cacheKey)) {
+        _shouldLoad = true;
+        _shimmerController?.stop();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _shimmerController?.dispose();
+    super.dispose();
+  }
+
+  void _triggerLoad() {
+    if (!_shouldLoad) {
+      LazyLoadScope.markLoaded(context, _cacheKey);
+      setState(() => _shouldLoad = true);
+    }
+  }
+
+  void _retry() => setState(() => _retryCount++);
+
+  /// 逐字照搬 legacy _buildMermaidInkUrl:base64url(utf8) +
+  /// theme(dark/default)+ bgColor(282a36/f6f8fa)+ 可选 width。
+  String _buildMermaidInkUrl(String code, bool isDark, {int? width}) {
+    final encoded = base64Url.encode(utf8.encode(code));
+    final theme = isDark ? 'dark' : 'default';
+    final bgColor = isDark ? '282a36' : 'f6f8fa';
+    var url = 'https://mermaid.ink/img/$encoded?theme=$theme&bgColor=$bgColor';
+    if (width != null) url += '&width=$width';
+    return url;
+  }
+
+  /// shimmer 占位(高度 100,1500ms 线性渐变,RepaintBoundary 隔离重绘)。
+  Widget _buildShimmer(ThemeData theme) {
+    final controller = _shimmerController;
+    if (controller == null) return const SizedBox(height: 100);
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, child) {
+          return Container(
+            height: 100,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              gradient: LinearGradient(
+                begin: Alignment(-1.0 + 2.0 * controller.value, 0),
+                end: Alignment(-0.5 + 2.0 * controller.value, 0),
+                colors: [
+                  theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.3),
+                  theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.6),
+                  theme.colorScheme.surfaceContainerHighest
+                      .withValues(alpha: 0.3),
+                ],
+                stops: const [0.0, 0.5, 1.0],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final imageUrl = _buildMermaidInkUrl(widget.code, isDark);
+
+    // 子包父级(_CodeBlockBody)水平方向给无界宽,这里用 LayoutBuilder
+    // 取一个有界最大宽:有界则用之,无界兜底 600,避免 CachedNetworkImage
+    // 在无界宽下崩溃 / 横向无限撑。
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final maxW =
+            constraints.maxWidth.isFinite ? constraints.maxWidth : 600.0;
+        final content = !_shouldLoad
+            ? VisibilityDetector(
+                key: Key('mermaid-$_cacheKey'),
+                onVisibilityChanged: (info) {
+                  if (!_shouldLoad && info.visibleFraction > 0.01) {
+                    _triggerLoad();
+                  }
+                },
+                child: _buildShimmer(theme),
+              )
+            : GestureDetector(
+                onTap: () {
+                  final hdUrl =
+                      _buildMermaidInkUrl(widget.code, isDark, width: 2000);
+                  ImageViewerPage.open(ctx, hdUrl, enableShare: true);
+                },
+                child: CachedNetworkImage(
+                  key: ValueKey('$imageUrl-$_retryCount'),
+                  imageUrl: imageUrl,
+                  cacheManager: ExternalImageCacheManager(),
+                  fit: BoxFit.contain,
+                  placeholder: (context, url) => _buildShimmer(theme),
+                  errorWidget: (context, url, error) => Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Symbols.error_rounded,
+                            color: theme.colorScheme.error),
+                        const SizedBox(height: 8),
+                        Text(
+                          S.current.codeBlock_chartLoadFailed,
+                          style: TextStyle(
+                              color: theme.colorScheme.error, fontSize: 12),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: _retry,
+                          icon: const Icon(Symbols.refresh_rounded, size: 16),
+                          label: Text(S.current.common_retry),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+        // 用有界宽包住,水平方向不再向父级请求无限宽。
+        return ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxW),
+          child: SizedBox(width: maxW, child: content),
+        );
+      },
+    );
+  }
+}
+
+/// HTML 字符串 → dom.Element 的最薄 helper。
+///
+/// 用 html 包 parseFragment 构 element,给 legacy build* 函数喂入参。
+/// 每个 _xxxElementFrom 反构造的字符串精确还原 cooked 关键结构 +
+/// data-* 属性 + 子节点;后续 legacy 函数只读这些(不依赖 fullHtml)。
+dom.Element _elementFromHtml(String html) {
+  final frag = html_parser.parseFragment(html);
+  return frag.children.first;
+}
+
+/// 把 LazyVideoNode 反构造成 `<div class="lazy-video-container" ...>`。
+dom.Element _lazyVideoElementFrom(LazyVideoNode node) {
+  final providerName = node.provider == LazyVideoProvider.other
+      ? ''
+      : node.provider.name;
+  final buf = StringBuffer()
+    ..write('<div class="lazy-video-container"')
+    ..write(' data-provider-name="${_attr(providerName)}"')
+    ..write(' data-video-id="${_attr(node.videoId)}"')
+    ..write(' data-video-title="${_attr(node.title)}"')
+    ..write(' data-video-start-time="${_attr(node.startTime)}"')
+    ..write('>');
+  if (node.url.isNotEmpty) {
+    buf.write('<a class="title-link" href="${_attr(node.url)}">');
+  }
+  if (node.thumbnailUrl.isNotEmpty) {
+    buf.write('<img src="${_attr(node.thumbnailUrl)}">');
+  }
+  if (node.url.isNotEmpty) buf.write('</a>');
+  buf.write('</div>');
+  return _elementFromHtml(buf.toString());
+}
+
+/// 把 LocalDateRun 反构造成 `<span class="discourse-local-date" ...>`。
+dom.Element _localDateElementFrom(LocalDateRun node) {
+  final buf = StringBuffer('<span class="discourse-local-date"')
+    ..write(' data-date="${_attr(node.date)}"');
+  if (node.time != null) buf.write(' data-time="${_attr(node.time!)}"');
+  if (node.timezone != null) {
+    buf.write(' data-timezone="${_attr(node.timezone!)}"');
+  }
+  if (node.timezones.isNotEmpty) {
+    buf.write(' data-timezones="${_attr(node.timezones.join('|'))}"');
+  }
+  if (node.format != null) {
+    buf.write(' data-format="${_attr(node.format!)}"');
+  }
+  if (node.displayedTimezone != null) {
+    buf.write(' data-displayed-timezone="${_attr(node.displayedTimezone!)}"');
+  }
+  if (node.countdown) buf.write(' data-countdown');
+  if (node.range != null) buf.write(' data-range="${_attr(node.range!)}"');
+  buf.write('>${_escape(node.fallbackText)}</span>');
+  return _elementFromHtml(buf.toString());
+}
+
+/// 把 PolicyNode 反构造成 `<div class="policy" data-*>` + 子节点 HTML。
+///
+/// children 是 BlockNode 树,这里不还原 — 直接用 outerHtml 的"占位 body"
+/// 让 legacy buildPolicy 通过 element.innerHtml 走 htmlBuilder。
+/// htmlBuilder 接嵌套 FluxdoRender 渲染,所以 body html 必须是
+/// **原始 cooked HTML 片段**。我们没法从 BlockNode 反向重建,所以这里
+/// fallback 用 textContent 拼接(legacy 在 callback 内会 fallback 渲染)。
+///
+/// **代价**:cell 内富文本(链接/strong/em 等)会丢样式。
+/// **改善方向**:子包 PolicyNode 应该存原始 bodyHtml(类似 OneboxNode.rawHtml),
+/// 让主项目 builder 完整复用 legacy。当前先不要求 — 后续 dogfood 看实际效果。
+dom.Element _policyElementFrom(PolicyNode node) {
+  final buf = StringBuffer('<div class="policy"');
+  if (node.version != null) {
+    buf.write(' data-version="${_attr(node.version!)}"');
+  }
+  if (node.groups != null) {
+    buf.write(' data-groups="${_attr(node.groups!)}"');
+  }
+  if (node.acceptLabel != null) {
+    buf.write(' data-accept="${_attr(node.acceptLabel!)}"');
+  }
+  if (node.revokeLabel != null) {
+    buf.write(' data-revoke="${_attr(node.revokeLabel!)}"');
+  }
+  if (node.renewalDays != null) {
+    buf.write(' data-renewal-days="${_attr(node.renewalDays!)}"');
+  }
+  if (node.renewalStart != null) {
+    buf.write(' data-renewal-start="${_attr(node.renewalStart!)}"');
+  }
+  if (node.reminder != null) {
+    buf.write(' data-reminder="${_attr(node.reminder!)}"');
+  }
+  if (node.isPrivate) buf.write(' data-private="true"');
+  buf.write('>');
+  // body:遍历 children 输出 outerHtml(BlockNode 没有 outerHtml 概念,
+  // 用 toString 兜底;legacy htmlBuilder 收到后嵌套 FluxdoRender
+  // 走 fallback paragraph 渲染)
+  for (final c in node.children) {
+    buf.write('<p>${_escape(c.toString())}</p>');
+  }
+  buf.write('</div>');
+  return _elementFromHtml(buf.toString());
+}
+
+/// 简单转义 attribute 值(只处理双引号 + < + >,够用于 attr 字符串)。
+String _attr(String s) => s
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+
+/// 转义文本内容(用于 textContent)。
+String _escape(String s) => s
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+
+/// 注入 mention 状态 emoji(对齐 legacy discourse_html_content_widget
+/// _preprocessHtml 第 243-264 行)。原始 cooked 的 mention 链接不含状态
+/// emoji,这里按 mentionedUsers[].statusEmoji 在 `</a>` 前插入
+/// `<img class="emoji mention-status">`。
+String _injectMentionStatusEmoji(
+  String html,
+  List<MentionedUser>? mentionedUsers,
+) {
+  if (mentionedUsers == null || mentionedUsers.isEmpty) return html;
+  var result = html;
+  for (final user in mentionedUsers) {
+    final emoji = user.statusEmoji;
+    if (emoji == null || emoji.isEmpty) continue;
+    final emojiUrl = EmojiHandler().getEmojiUrl(emoji);
+    final escapedUsername = RegExp.escape(user.username);
+    final pattern = RegExp(
+      '(<a[^>]*class="[^"]*mention[^"]*"[^>]*href="[^"]*\\/u\\/$escapedUsername"[^>]*>)(@[^<]*)(</a>)',
+      caseSensitive: false,
+    );
+    result = result.replaceAllMapped(pattern, (match) {
+      final openTag = match.group(1)!;
+      final content = match.group(2)!;
+      final closeTag = match.group(3)!;
+      return '$openTag$content'
+          '<img src="$emojiUrl" class="emoji mention-status" '
+          'style="width:14px;height:14px;vertical-align:middle;margin-left:2px">'
+          '$closeTag';
+    });
+  }
+  return result;
+}
+
+/// 注入链接点击数(对齐 legacy discourse_html_content_widget
+/// _injectClickCounts 第 333-359 行)。按 linkCounts 在匹配 URL 的普通
+/// `<a>` 后追加 `<span class="click-count">`,用 data-clicks 防重复。
+String _injectClickCounts(String html, List<LinkCount>? linkCounts) {
+  if (linkCounts == null || linkCounts.isEmpty) return html;
+  var result = html;
+  for (final lc in linkCounts) {
+    if (lc.clicks <= 0) continue;
+    final escapedUrl = RegExp.escape(lc.url);
+    final pattern = RegExp(
+      '(<a(?![^>]*data-clicks)[^>]*href="[^"]*$escapedUrl[^"]*"[^>]*>)'
+      '(.*?)(</a>)(?!\\s*<span[^>]*class="[^"]*click-count)',
+      caseSensitive: false,
+    );
+    final formatted = _formatClickCount(lc.clicks);
+    result = result.replaceAllMapped(pattern, (match) {
+      final openTag = match.group(1)!;
+      final content = match.group(2)!;
+      final closeTag = match.group(3)!;
+      final newOpenTag =
+          openTag.replaceFirst('<a', '<a data-clicks="$formatted"');
+      return '$newOpenTag$content$closeTag'
+          ' <span class="click-count"> $formatted </span>';
+    });
+  }
+  return result;
+}
+
+/// 点击数格式化(对齐 legacy _formatClickCount):>=1000 显示 "N.Nk"。
+String _formatClickCount(int count) {
+  if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}k';
+  return count.toString();
+}

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../l10n/s.dart';
 import '../../../../models/topic.dart';
+import '../../../../utils/fluxdo_render_callbacks.dart';
 import '../../../../utils/time_utils.dart';
-import '../../../content/discourse_html_content/chunked/chunked_html_content.dart';
 
 /// 帖子提示横条（新用户首发帖、回归用户、自定义通知）
 class PostNoticeWidget extends StatelessWidget {
@@ -81,9 +81,13 @@ class PostNoticeWidget extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: ChunkedHtmlContent(
-                  html: notice.cooked!,
-                  textStyle: theme.textTheme.bodySmall?.copyWith(height: 1.5),
+                child: FluxdoRenderCallbacks.generic(
+                  heroTagNamespace: 'post_notice',
+                ).render(
+                  cookedHtml: notice.cooked!,
+                  baseTextStyle:
+                      theme.textTheme.bodySmall?.copyWith(height: 1.5),
+                  selectionEnabled: false,
                 ),
               ),
             ],

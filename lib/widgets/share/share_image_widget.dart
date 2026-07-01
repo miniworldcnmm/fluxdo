@@ -2,15 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:fluxdo_render/fluxdo_render.dart';
 import 'package:jovial_svg/jovial_svg.dart';
 import '../../constants.dart';
 import '../../l10n/s.dart';
 import '../../models/topic.dart';
+import '../../utils/fluxdo_render_callbacks.dart';
 import '../../utils/time_utils.dart';
 import '../common/smart_avatar.dart';
 import '../common/flair_badge.dart';
 import '../common/emoji_text.dart';
-import '../content/discourse_html_content/discourse_html_content_widget.dart';
 import 'share_image_preview.dart';
 
 /// 分享图片 Widget
@@ -97,7 +98,7 @@ class ShareImageWidget extends ConsumerWidget {
             const SizedBox(height: 12),
 
             // 内容
-            _buildContent(context, targetPost, cardColor, textColor),
+            _buildContent(targetPost, cardColor),
 
             const SizedBox(height: 16),
 
@@ -208,7 +209,21 @@ class ShareImageWidget extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, Post post, Color cardColor, Color textColor) {
+  Widget _buildContent(Post post, Color cardColor) {
+    // 预处理 cooked(注入 mention 状态 emoji + 链接点击数),与详情页一致,
+    // 保证截图里 mention/click-count 等动态内容也能渲染。
+    final preprocessed = FluxdoRenderCallbacks.preprocessCookedForRender(post);
+    final parsedNodes = List<BlockNode>.unmodifiable(
+      ParagraphParser().parse(preprocessed),
+    );
+    // 复用主项目接入层(图片/emoji/mention/代码高亮/quote 头像/onebox 等),
+    // 与详情页 post_item.dart 注入同一套 callback。
+    final callbacks = FluxdoRenderCallbacks.forPost(
+      post: post,
+      preprocessedCooked: preprocessed,
+      parsedNodes: parsedNodes,
+    );
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -216,17 +231,36 @@ class ShareImageWidget extends ConsumerWidget {
         color: cardColor,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: DiscourseHtmlContent(
-        html: post.cooked,
-        textStyle: TextStyle(
-          fontSize: 14,
-          height: 1.6,
-          color: textColor.withValues(alpha: 0.85),
-        ),
-        compact: false,
-        enableSelectionArea: false,
-        enablePanguSpacing: false,
-        screenshotMode: true,
+      // 整帖非分块渲染:FluxdoRender 内部就是一个 Column(无虚拟化),适合离屏
+      // RepaintBoundary 全量截图;超高图由 screenshot_utils 分块拼接处理。
+      // 截图场景关闭选区(selectionEnabled:false),不接 quote 交互回调。
+      // 文字颜色走 Theme —— ShareImagePreview 已用对应 brightness 的 Theme
+      // 包裹本 widget,故新引擎从 textTheme 取色能匹配卡片亮/暗背景。
+      child: FluxdoRender(
+        cookedHtml: preprocessed,
+        parsedNodes: parsedNodes,
+        selectionEnabled: false,
+        linkHandler: callbacks.linkHandler,
+        emojiImageBuilder: callbacks.emojiImageBuilder,
+        mentionTapHandler: callbacks.mentionTapHandler,
+        imageContentBuilder: callbacks.imageContentBuilder,
+        codeBlockHighlighter: callbacks.codeBlockHighlighter,
+        quoteAvatarBuilder: callbacks.quoteAvatarBuilder,
+        footnoteTapHandler: callbacks.footnoteTapHandler,
+        lazyVideoBuilder: callbacks.lazyVideoBuilder,
+        iframeBuilder: callbacks.iframeBuilder,
+        localDateBuilder: callbacks.localDateBuilder,
+        mathBlockBuilder: callbacks.mathBlockBuilder,
+        mathInlineBuilder: callbacks.mathInlineBuilder,
+        oneboxBuilder: callbacks.oneboxBuilder,
+        imageGridBuilder: callbacks.imageGridBuilder,
+        policyBuilder: callbacks.policyBuilder,
+        pollBuilder: callbacks.pollBuilder,
+        chatTranscriptBuilder: callbacks.chatTranscriptBuilder,
+        svgBuilder: callbacks.svgBuilder,
+        videoBuilder: callbacks.videoBuilder,
+        audioBuilder: callbacks.audioBuilder,
+        onDownloadAttachment: callbacks.onDownloadAttachment,
       ),
     );
   }

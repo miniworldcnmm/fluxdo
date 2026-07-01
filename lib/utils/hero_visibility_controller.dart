@@ -41,11 +41,17 @@ class HeroVisibilityController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 清除所有状态（dispose 时调用）
+  /// 清除所有状态(dispose 时调用)。
+  ///
+  /// 必须 post-frame 异步通知:
+  /// - 如果 push Hero 飞行被中断 + viewer pop 没有完整 startPopping flow,
+  ///   _hiddenHeroTag 还停留在最后 setHidden 的值,source 的 Opacity 锁在 0
+  /// - 同步 notifyListeners 在 dispose 阶段会触发 widget tree 锁定异常
+  /// - 走 _safeNotify(post-frame callback),帧结束后才通知 source rebuild
   void clear() {
     _hiddenHeroTag = null;
     _isPopping = false;
-    // dispose 时不通知，避免 widget tree 锁定
+    _safeNotify();
   }
 
   /// 统一延迟到帧结束后通知，避免在 build/dispose/动画期间触发 rebuild

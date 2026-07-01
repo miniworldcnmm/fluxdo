@@ -11,7 +11,7 @@ import '../../../utils/code_selection_context.dart';
 import '../../../utils/responsive.dart';
 import '../../../utils/time_utils.dart';
 import '../../../widgets/common/loading_spinner.dart';
-import '../../../widgets/content/discourse_html_content/chunked/html_chunk.dart';
+import 'package:fluxdo_render/fluxdo_render.dart' show HtmlChunk;
 import '../../../widgets/post/post_item/post_item.dart';
 import '../../../widgets/post/post_item/quote_selection_helper.dart';
 import '../../../widgets/post/post_item/segmented_long_post.dart';
@@ -145,6 +145,7 @@ class _TopicPostListState extends State<TopicPostList> {
 
   /// postNumber → postIndex 反查表（避免 indexWhere 线性查找）
   Map<int, int> _postNumberToIndex = const {};
+  final Map<int, _LongPostRenderCacheEntry> _longPostRenderCache = {};
   SelectedContent? _lastLongPostSelectedContent;
   Post? _activeLongSelectionPost;
   CodeSelectionContext? _lastLongCodeSelectionContext;
@@ -380,9 +381,11 @@ class _TopicPostListState extends State<TopicPostList> {
     final postSegmentRanges =
         <int, ({int firstScrollIndex, int lastScrollIndex})>{};
     final gaps = detail.postStream.gaps;
+    final activePostIds = <int>{};
 
     for (int postIndex = 0; postIndex < posts.length; postIndex++) {
       final post = posts[postIndex];
+      activePostIds.add(post.id);
       final firstScrollIndex = segments.length;
 
       // 检查此帖子前面是否有 gap
@@ -401,8 +404,14 @@ class _TopicPostListState extends State<TopicPostList> {
         }
       }
 
-      final renderData = LongPostRenderData.fromHtml(post.cooked);
-      final useLongSegments = renderData.chunks.isNotEmpty;
+      // 长帖分段:新引擎用 NewEngineLongPostData(切预处理后 cooked,每 chunk 一个
+      // FluxdoRender,sliver 虚拟化 → 不卡 + 滚动锚定原生)。
+      final NewEngineLongPostData? newEngineData;
+      final List<HtmlChunk> longChunks;
+      final longPostCache = _longPostDataFor(post);
+      newEngineData = longPostCache.newEngineData;
+      longChunks = longPostCache.chunks;
+      final useLongSegments = longChunks.isNotEmpty;
 
       postIndexToScrollIndex[postIndex] = segments.length;
       postNumberToIndex[post.postNumber] = postIndex;
@@ -426,16 +435,16 @@ class _TopicPostListState extends State<TopicPostList> {
           ),
         );
 
-        for (final chunk in renderData.chunks) {
+        for (var ci = 0; ci < longChunks.length; ci++) {
           scrollIndexToPostNumber[segments.length] = post.postNumber;
           segments.add(
             _PostRenderSegment.chunk(
               scrollIndex: segments.length,
               postIndex: postIndex,
               post: post,
-              chunkIndex: chunk.index,
-              chunkData: chunk,
-              renderData: renderData,
+              chunkIndex: ci,
+              chunkData: longChunks[ci],
+              newEngineData: newEngineData,
             ),
           );
         }
@@ -472,6 +481,9 @@ class _TopicPostListState extends State<TopicPostList> {
       );
     }
 
+    _longPostRenderCache.removeWhere(
+      (postId, _) => !activePostIds.contains(postId),
+    );
     _renderSegments = segments;
     _postIndexToScrollIndex = postIndexToScrollIndex;
     _scrollIndexToPostNumber = scrollIndexToPostNumber;
@@ -479,6 +491,54 @@ class _TopicPostListState extends State<TopicPostList> {
     widget.onScrollIndexMappingChanged?.call(postIndexToScrollIndex);
     widget.onScrollIndexToPostNumberChanged?.call(scrollIndexToPostNumber);
     widget.onPostSegmentRangesChanged?.call(postSegmentRanges);
+  }
+
+  _LongPostRenderCacheEntry _longPostDataFor(Post post) {
+    final signature = _longPostRenderSignature(post);
+    final cached = _longPostRenderCache[post.id];
+    if (cached != null &&
+        identical(cached.post, post) &&
+        cached.signature == signature) {
+      return cached;
+    }
+
+    final entry = _LongPostRenderCacheEntry(
+      post: post,
+      signature: signature,
+      newEngineData: NewEngineLongPostData.tryBuild(
+        post,
+        topicId: detail.id,
+        onQuoteImage: onQuoteImage,
+      ),
+    );
+    _longPostRenderCache[post.id] = entry;
+    return entry;
+  }
+
+  int _longPostRenderSignature(Post post) {
+    final mentionedUsers = post.mentionedUsers;
+    final linkCounts = post.linkCounts;
+    return Object.hash(
+      post.cooked.length,
+      post.cooked.hashCode,
+      mentionedUsers == null
+          ? 0
+          : Object.hashAll(mentionedUsers.map((u) => Object.hash(
+                u.id,
+                u.username,
+                u.statusEmoji,
+                u.statusDescription,
+              ))),
+      linkCounts == null
+          ? 0
+          : Object.hashAll(linkCounts.map((l) => Object.hash(
+                l.url,
+                l.clicks,
+                l.title,
+                l.internal,
+                l.reflection,
+              ))),
+    );
   }
 
   void _rememberLongSelectionPost(Post post) {
@@ -774,14 +834,20 @@ class _TopicPostListState extends State<TopicPostList> {
         );
         break;
       case _PostRenderSegmentType.longChunk:
-        child = LongPostChunkSegment(
+        final data = segment.newEngineData!;
+        final ci = segment.chunkIndex!;
+        child = NewEngineChunkSegment(
           post: post,
           topicId: detail.id,
           selected: isSelectedPost,
           highlight: highlight,
           chunk: segment.chunkData!,
-          renderData: segment.renderData!,
-          onQuoteImage: onQuoteImage,
+          chunkIndex: ci,
+          imageIndexOffset: data.imageOffsets[ci],
+          parsedNodes: data.parsedChunks[ci],
+          footnotesHtml: data.footnotesHtml,
+          callbacks: data.callbacks,
+          onQuoteSelection: onQuoteSelection,
         );
         break;
       case _PostRenderSegmentType.longFooter:
@@ -866,6 +932,21 @@ enum _PostRenderSegmentType {
   gapAfter,
 }
 
+class _LongPostRenderCacheEntry {
+  final Post post;
+  final int signature;
+  final NewEngineLongPostData? newEngineData;
+
+  const _LongPostRenderCacheEntry({
+    required this.post,
+    required this.signature,
+    this.newEngineData,
+  });
+
+  List<HtmlChunk> get chunks =>
+      newEngineData?.chunks ?? const <HtmlChunk>[];
+}
+
 class _PostRenderSegment {
   final _PostRenderSegmentType type;
   final int scrollIndex;
@@ -873,7 +954,7 @@ class _PostRenderSegment {
   final Post post;
   final int? chunkIndex;
   final HtmlChunk? chunkData;
-  final LongPostRenderData? renderData;
+  final NewEngineLongPostData? newEngineData;
   final int gapCount; // gap 段中隐藏帖子的数量
 
   const _PostRenderSegment._({
@@ -883,7 +964,7 @@ class _PostRenderSegment {
     required this.post,
     this.chunkIndex,
     this.chunkData,
-    this.renderData,
+    this.newEngineData,
     this.gapCount = 0,
   });
   factory _PostRenderSegment.shortPost({
@@ -918,7 +999,7 @@ class _PostRenderSegment {
     required Post post,
     required int chunkIndex,
     required HtmlChunk chunkData,
-    required LongPostRenderData renderData,
+    NewEngineLongPostData? newEngineData,
   }) {
     return _PostRenderSegment._(
       type: _PostRenderSegmentType.longChunk,
@@ -927,7 +1008,7 @@ class _PostRenderSegment {
       post: post,
       chunkIndex: chunkIndex,
       chunkData: chunkData,
-      renderData: renderData,
+      newEngineData: newEngineData,
     );
   }
 

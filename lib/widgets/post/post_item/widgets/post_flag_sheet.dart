@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
-import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import '../../../../l10n/s.dart';
 import '../../../../models/topic.dart';
-import '../../../../utils/url_helper.dart';
+import '../../../../utils/fluxdo_render_callbacks.dart';
 import '../../../../services/preloaded_data_service.dart';
 import '../../../../services/discourse/discourse_service.dart';
 import '../../../../services/toast_service.dart';
@@ -263,22 +262,14 @@ class _PostFlagSheetState extends State<PostFlagSheet> {
 
   /// 构建描述文本，支持 HTML 链接
   Widget _buildDescriptionText(String description, ThemeData theme) {
-    return HtmlWidget(
-      description,
-      textStyle: theme.textTheme.bodySmall?.copyWith(
+    // 只读描述，用新引擎 FluxdoRender 渲染；链接点击由 generic 内置
+    // linkHandler(launchContentLink)处理。
+    return FluxdoRenderCallbacks.generic(heroTagNamespace: 'flag_desc').render(
+      cookedHtml: description,
+      baseTextStyle: theme.textTheme.bodySmall?.copyWith(
         color: theme.colorScheme.onSurfaceVariant,
       ),
-      customStylesBuilder: (element) {
-        if (element.localName == 'a') {
-          return {'text-decoration': 'none'};
-        }
-        return null;
-      },
-      onTapUrl: (url) {
-        final fullUrl = UrlHelper.resolveUrl(url);
-        debugPrint('Open URL: $fullUrl');
-        return true;
-      },
+      selectionEnabled: false,
     );
   }
 }
