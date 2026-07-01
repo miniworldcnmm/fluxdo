@@ -720,14 +720,29 @@ class LdcBalanceCard extends ConsumerWidget {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    S.current.ldc_balance,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
+                  // loading 态保持与数据态相同的两行结构（标题 + 占位余额），
+                  // 避免数据到达后由一行变两行导致的卡片高度跳变
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        S.current.ldc_balance,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                      Text(
+                        '—',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                LoadingSpinner(size: 16, color: theme.colorScheme.primary),
+                const SizedBox(width: 8),
+                LoadingSpinner(size: 20, color: theme.colorScheme.primary),
               ],
             ),
           ),
