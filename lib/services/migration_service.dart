@@ -178,6 +178,48 @@ class MigrationService {
         }
       },
     ),
+    // v6: 图片缓存索引从自研 Hive repo 迁回 flutter_cache_manager 默认后端
+    // (移动端 / macOS = sqlite 事务安全; Windows / Linux = Json 纯 Dart)。
+    // 旧的 image_cache_meta_* Hive box 不再使用,其中损坏的 box 正是
+    // "unknown typeId" 崩溃源,一次性删除。图片文件本身仍在,索引重建 =
+    // 首次访问按需重新下载,无数据损失。
+    Migration(
+      key: 'image_cache_meta_hive_purge_v6',
+      name: 'Purge legacy Hive image cache index',
+      shouldRun: (prefs) async {
+        try {
+          final dir = await getApplicationDocumentsDirectory();
+          final hiveDir = io.Directory(p.join(dir.path, 'hive'));
+          if (!await hiveDir.exists()) return false;
+          await for (final e in hiveDir.list()) {
+            if (e is io.File &&
+                p.basename(e.path).startsWith('image_cache_meta_')) {
+              return true;
+            }
+          }
+          return false;
+        } catch (_) {
+          return false;
+        }
+      },
+      run: () async {
+        final dir = await getApplicationDocumentsDirectory();
+        final hiveDir = io.Directory(p.join(dir.path, 'hive'));
+        if (!await hiveDir.exists()) return;
+        await for (final e in hiveDir.list()) {
+          if (e is! io.File ||
+              !p.basename(e.path).startsWith('image_cache_meta_')) {
+            continue;
+          }
+          try {
+            await e.delete();
+            debugPrint('[Migration v6] 删除旧 Hive 图片索引: ${p.basename(e.path)}');
+          } catch (err) {
+            debugPrint('[Migration v6] 删除失败 ${p.basename(e.path)}: $err');
+          }
+        }
+      },
+    ),
   ];
 
   /// 判断是否为 v0.1.x 以前的老用户。

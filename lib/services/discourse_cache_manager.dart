@@ -8,7 +8,6 @@ import 'package:native_animated_image/native_animated_image.dart'
 import 'avif_image_provider.dart';
 export 'avif_image_provider.dart' show AvifImageProvider;
 import 'dio_http_client.dart';
-import 'hive_cache_info_repository.dart';
 
 /// Discourse 图片缓存管理器
 ///
@@ -28,7 +27,7 @@ class DiscourseCacheManager extends CacheManager with ImageCacheManager {
       key,
       stalePeriod: const Duration(days: 7),
       maxNrOfCacheObjects: 500,
-      repo: HiveCacheInfoRepository(databaseName: key),
+      repo: CacheObjectProvider(databaseName: key),
       fileService: HttpFileService(httpClient: DioHttpClient()),
     ),
   );
@@ -140,7 +139,7 @@ class EmojiCacheManager extends CacheManager with ImageCacheManager {
       // 自定义 emoji,5000 太紧 → 滚回前面的 emoji 频繁 LRU evict。
       stalePeriod: const Duration(days: 90),
       maxNrOfCacheObjects: 15000,
-      repo: HiveCacheInfoRepository(databaseName: key),
+      repo: CacheObjectProvider(databaseName: key),
       fileService: HttpFileService(httpClient: DioHttpClient()),
     ),
   );
@@ -164,7 +163,7 @@ class ExternalImageCacheManager extends CacheManager with ImageCacheManager {
       key,
       stalePeriod: const Duration(days: 30),
       maxNrOfCacheObjects: 200,
-      repo: HiveCacheInfoRepository(databaseName: key),
+      repo: CacheObjectProvider(databaseName: key),
     ),
   );
 }
@@ -190,7 +189,7 @@ class StickerCacheManager extends CacheManager with ImageCacheManager {
       // 90 天 + 20000 容量,基本覆盖订阅多 group 的实际用量。
       stalePeriod: const Duration(days: 90),
       maxNrOfCacheObjects: 20000,
-      repo: HiveCacheInfoRepository(databaseName: key),
+      repo: CacheObjectProvider(databaseName: key),
       fileService: HttpFileService(httpClient: DioHttpClient()),
     ),
   );
