@@ -1,6 +1,8 @@
 [submodule "core/doh_proxy"]
 	path = core/doh_proxy
 	url = https://github.com/Lingyan000/fluxdo_doh.git
+	fetchRecurseSubmodules = true
 [submodule "packages/fluxdo_render"]
 	path = packages/fluxdo_render
-	url = git@github.com:Lingyan000/fluxdo_render.git
+	url = https://github.com/Lingyan000/fluxdo_render.git
+	fetchRecurseSubmodules = true
