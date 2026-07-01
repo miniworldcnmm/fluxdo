@@ -1,24 +1,22 @@
-/// Benchmark: 子包 FluxdoRender vs Legacy ChunkedHtmlContent
+/// Benchmark: 子包 FluxdoRender 渲染性能基线
 ///
-/// 阶段 1 退出标准之一:典型帖子 build 时间不超过 legacy。
+/// fwfh legacy 引擎下线后,这里只保留新引擎自身的性能基线(回归监控用)。
 ///
 /// 跑法:
 ///   flutter test test/perf/render_benchmark_test.dart
 ///
-/// 输出 stdout 表格,记录:
+/// 输出 stdout:
 ///   - cold build(首次 pumpWidget,含 parse + flatten + paint)
 ///   - warm rebuild(setState 触发,模拟用户交互后重 build)
 ///   - 3 种 cooked 形态:short / medium / long
 ///
-/// **注意**:这是 widget test 环境(无真 GPU)的相对对比,不是生产环境
-/// 绝对值。但相对差值能反映"子包是不是比 legacy 更快"。
+/// **注意**:这是 widget test 环境(无真 GPU)的相对数值,不是生产环境绝对值,
+/// 用于跨版本对比"新引擎有没有变慢"。
 library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:fluxdo/utils/fluxdo_render_callbacks.dart';
-import 'package:fluxdo/widgets/content/discourse_html_content/chunked/chunked_html_content.dart';
 import 'package:fluxdo_render/fluxdo_render.dart';
 
 void main() {
@@ -27,30 +25,18 @@ void main() {
   final mediumCooked = _generateMediumPost();
   final shortCooked = _generateShortPost();
 
-  group('render benchmark — 子包 vs Legacy', () {
-    testWidgets('cold build x 50 — 子包', (tester) async {
-      final fluxdoCold = await _measureColdBuild(
+  group('render benchmark — FluxdoRender 渲染性能基线', () {
+    testWidgets('cold build x 50 — long', (tester) async {
+      final cold = await _measureColdBuild(
         tester,
         runs: 50,
-        builder: () => FluxdoRender(
-          cookedHtml: longCooked,
-        ),
+        builder: () => FluxdoRender(cookedHtml: longCooked),
       );
       // ignore: avoid_print
-      print('--- FLUXDO long cold mean=${fluxdoCold.toStringAsFixed(2)}ms');
+      print('--- FLUXDO long cold mean=${cold.toStringAsFixed(2)}ms');
     });
 
-    testWidgets('cold build x 50 — Legacy', (tester) async {
-      final legacyCold = await _measureColdBuild(
-        tester,
-        runs: 50,
-        builder: () => ChunkedHtmlContent(html: longCooked),
-      );
-      // ignore: avoid_print
-      print('--- LEGACY long cold mean=${legacyCold.toStringAsFixed(2)}ms');
-    });
-
-    testWidgets('warm rebuild x 100 — 子包', (tester) async {
+    testWidgets('warm rebuild x 100 — medium', (tester) async {
       await _measureWarmRebuild(
         tester,
         runs: 100,
@@ -59,16 +45,7 @@ void main() {
       );
     });
 
-    testWidgets('warm rebuild x 100 — Legacy', (tester) async {
-      await _measureWarmRebuild(
-        tester,
-        runs: 100,
-        builder: () => ChunkedHtmlContent(html: mediumCooked),
-        label: 'LEGACY',
-      );
-    });
-
-    testWidgets('short post cold x 200 — 子包', (tester) async {
+    testWidgets('short post cold x 200', (tester) async {
       final t = await _measureColdBuild(
         tester,
         runs: 200,
@@ -76,16 +53,6 @@ void main() {
       );
       // ignore: avoid_print
       print('--- FLUXDO short cold mean=${t.toStringAsFixed(3)}ms');
-    });
-
-    testWidgets('short post cold x 200 — Legacy', (tester) async {
-      final t = await _measureColdBuild(
-        tester,
-        runs: 200,
-        builder: () => ChunkedHtmlContent(html: shortCooked),
-      );
-      // ignore: avoid_print
-      print('--- LEGACY short cold mean=${t.toStringAsFixed(3)}ms');
     });
   });
 }
