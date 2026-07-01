@@ -3,10 +3,10 @@ import 'package:app_icons/app_icons.dart';
 
 import '../../../../l10n/s.dart';
 import '../../../../models/topic.dart';
+import '../../../../utils/fluxdo_render_callbacks.dart';
 import '../../../../utils/time_utils.dart';
 import '../../../../utils/url_helper.dart';
 import '../../../common/smart_avatar.dart';
-import '../../../content/discourse_html_content/discourse_html_content.dart';
 
 /// 解决方案横幅(仅在主贴下方展示)
 ///
@@ -268,14 +268,18 @@ class _ExpandedExcerpt extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          DiscourseHtmlContent(
-            html: excerpt,
-            textStyle: theme.textTheme.bodyMedium?.copyWith(
+          // 解决方案摘要:改用自研 FluxdoRender 只读预览(非正文场景关闭选区)
+          FluxdoRenderCallbacks.generic(
+            heroTagNamespace: 'solution_excerpt_$postNumber',
+          ).render(
+            cookedHtml: excerpt,
+            baseTextStyle: theme.textTheme.bodyMedium?.copyWith(
               fontSize: 14,
               height: 1.5,
               color: theme.colorScheme.onSurface,
             ),
             compact: true,
+            selectionEnabled: false,
           ),
           const SizedBox(height: 6),
           InkWell(

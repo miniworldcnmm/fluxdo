@@ -20,7 +20,7 @@ import '../../utils/number_utils.dart';
 import '../common/emoji_text.dart';
 import '../common/smart_avatar.dart';
 import '../common/topic_badges.dart';
-import '../content/discourse_html_content/discourse_html_content.dart';
+import '../../utils/fluxdo_render_callbacks.dart';
 import '../../pages/category_topics_page.dart';
 import '../../pages/tag_topics_page.dart';
 import '../../../../../l10n/s.dart';
@@ -262,14 +262,9 @@ class _TopicPreviewDialogState extends ConsumerState<TopicPreviewDialog> {
         !_loadFailed) {
       // 加载成功：渲染主贴 HTML
       final contentFontScale = ref.watch(preferencesProvider).contentFontScale;
-      return DiscourseHtmlContent(
-        html: _firstPostCooked!,
-        compact: true,
-        textStyle: theme.textTheme.bodyMedium?.copyWith(
-          height: 1.5,
-          fontSize:
-              (theme.textTheme.bodyMedium?.fontSize ?? 14) * contentFontScale,
-        ),
+      return FluxdoRenderCallbacks.generic(
+        heroTagNamespace: 'topic_preview_${topic.id}',
+        topicId: topic.id,
         onInternalLinkTap: (topicId, topicSlug, postNumber) {
           Navigator.of(context).pop();
           Navigator.of(context).push(
@@ -282,6 +277,15 @@ class _TopicPreviewDialogState extends ConsumerState<TopicPreviewDialog> {
             ),
           );
         },
+      ).render(
+        cookedHtml: _firstPostCooked!,
+        baseTextStyle: theme.textTheme.bodyMedium?.copyWith(
+          height: 1.5,
+          fontSize:
+              (theme.textTheme.bodyMedium?.fontSize ?? 14) * contentFontScale,
+        ),
+        compact: true,
+        selectionEnabled: false,
       );
     }
 

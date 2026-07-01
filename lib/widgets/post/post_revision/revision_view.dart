@@ -10,12 +10,12 @@ import '../../../services/app_error_handler.dart';
 import '../../../services/discourse/discourse_service.dart';
 import '../../../services/toast_service.dart';
 import '../../../utils/dialog_utils.dart';
+import '../../../utils/fluxdo_render_callbacks.dart';
 import '../../../utils/responsive.dart';
 import '../../../utils/time_utils.dart';
 import '../../common/loading_spinner.dart';
 import 'package:common_ui/common_ui.dart';
 import '../../common/smart_avatar.dart';
-import '../../content/discourse_html_content/discourse_html_content.dart';
 
 /// 帖子编辑历史主视图(放入 modal/page 内)。
 ///
@@ -764,16 +764,18 @@ class _BodyDiff extends StatelessWidget {
       case _DiffMode.inline:
         final html = body.inline ?? body.sideBySide ?? body.sideBySideMarkdown;
         if (html == null || html.isEmpty) return const SizedBox.shrink();
-        return DiscourseHtmlContent(html: html, enableSelectionArea: false);
+        return FluxdoRenderCallbacks.generic(heroTagNamespace: 'revision_inline')
+            .render(cookedHtml: html, selectionEnabled: false);
 
       case _DiffMode.sideBySide:
         final raw = body.sideBySide ?? body.sideBySideMarkdown ?? body.inline;
         if (raw == null || raw.isEmpty) return const SizedBox.shrink();
         // 后端返回两个并排 div: `<div class="revision-content --previous">A</div><div class="revision-content --current">B</div>`
-        // flutter_widget_from_html 不识别 CSS grid,拆开用 Row 渲染。
+        // 拆开用 Row 渲染(单列 fallback 走新引擎 FluxdoRender)。
         final parts = _splitSideBySide(raw);
         if (parts == null) {
-          return DiscourseHtmlContent(html: raw, enableSelectionArea: false);
+          return FluxdoRenderCallbacks.generic(heroTagNamespace: 'revision_sbs')
+              .render(cookedHtml: raw, selectionEnabled: false);
         }
         return _TwoColumnDiff(
           previousHtml: parts.$1,
@@ -788,7 +790,8 @@ class _BodyDiff extends StatelessWidget {
         // 拆成左右两列原始 markdown 文本,各自渲染到 _TwoColumnDiff。
         final parts = _splitSideBySideMarkdown(raw);
         if (parts == null) {
-          return DiscourseHtmlContent(html: raw, enableSelectionArea: false);
+          return FluxdoRenderCallbacks.generic(heroTagNamespace: 'revision_sbsmd')
+              .render(cookedHtml: raw, selectionEnabled: false);
         }
         return _TwoColumnDiff(
           previousHtml: parts.$1,
@@ -887,7 +890,7 @@ class _DiffColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // markdown 模式:用等宽字体 + 保留换行;DiscourseHtmlContent 不识别 white-space:pre,
+    // markdown 模式:用等宽字体 + 保留换行;新引擎不识别 white-space:pre,
     // 直接把 raw 文本里的 \n 替换成 <br/> 让渲染保留行结构。
     final processed = preformatted ? html.replaceAll('\n', '<br/>') : html;
     return Container(
@@ -896,16 +899,19 @@ class _DiffColumn extends StatelessWidget {
         border: Border.all(color: borderColor),
         borderRadius: BorderRadius.circular(6),
       ),
-      child: DiscourseHtmlContent(
-        html: processed,
-        enableSelectionArea: false,
-        textStyle: preformatted
+      // 左右两列 processed 不同,用 hashCode 保证 heroTagNamespace 唯一。
+      child: FluxdoRenderCallbacks.generic(
+        heroTagNamespace: 'revision_col_${processed.hashCode}',
+      ).render(
+        cookedHtml: processed,
+        baseTextStyle: preformatted
             ? theme.textTheme.bodySmall?.copyWith(
                 fontFamily: 'monospace',
                 fontSize: 12,
                 height: 1.5,
               )
             : null,
+        selectionEnabled: false,
       ),
     );
   }

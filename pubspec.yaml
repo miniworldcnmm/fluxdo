@@ -12,6 +12,7 @@ workspace:
   - packages/common_ui
   - packages/enhanced_cookie_jar
   - packages/extended_image_lite
+  - packages/fluxdo_render
   - packages/pangutext
   - packages/paper_shaders
 
@@ -40,7 +41,6 @@ dependencies:
   # 源码:https://github.com/Lingyan000/native_animated_image
   native_animated_image: ^0.3.2
   flutter_riverpod: ^3.3.2
-  flutter_widget_from_html: ^0.17.2
   extended_image_lite:
     path: packages/extended_image_lite
   enhanced_cookie_jar:
@@ -77,6 +77,8 @@ dependencies:
     path: packages/common_ui
   paper_shaders:
     path: packages/paper_shaders
+  fluxdo_render:
+    path: packages/fluxdo_render
   flutter_local_notifications: ^21.0.0
   jovial_svg: ^1.1.29
   html: ^0.15.5
@@ -124,6 +126,7 @@ dependencies:
 
   chewie: any
   video_player: any
+  just_audio: ^0.10.6 # 原生上传音频播放(FluxdoRender audioBuilder)
   rhttp:
     git:
       url: https://github.com/Lingyan000/rhttp_plus.git
@@ -175,7 +178,6 @@ flutter:
         # Flutter 3.41+ FontWeight 会映射到 wght variation axis，因此即使
         # 不显式声明 weight，TextStyle(fontWeight: FontWeight.wXXX) 也能精准命中。
         - asset: assets/fonts/MiSansVF.ttf
-
 
 
 

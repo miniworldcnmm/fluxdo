@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import '../../../../l10n/s.dart';
 import '../../../../models/topic.dart';
+import '../../../../utils/fluxdo_render_callbacks.dart';
 import '../../../common/smart_avatar.dart';
-import '../../../content/discourse_html_content/discourse_html_content.dart';
 
 /// 回复历史预览组件
 class PostReplyHistory extends StatelessWidget {
@@ -146,14 +146,19 @@ class PostReplyHistory extends StatelessWidget {
                                 ),
                                 child: SingleChildScrollView(
                                   physics: const NeverScrollableScrollPhysics(),
-                                  child: DiscourseHtmlContent(
-                                    html: replyPost.cooked,
-                                    textStyle: theme.textTheme.bodySmall
+                                  // 回复历史预览:改用自研 FluxdoRender 只读渲染(关闭选区)
+                                  child: FluxdoRenderCallbacks.generic(
+                                    heroTagNamespace:
+                                        'reply_history_${replyPost.postNumber}',
+                                  ).render(
+                                    cookedHtml: replyPost.cooked,
+                                    baseTextStyle: theme.textTheme.bodySmall
                                         ?.copyWith(
                                           fontSize: 13 * contentFontScale,
                                           height: 1.4,
                                         ),
                                     compact: true,
+                                    selectionEnabled: false,
                                   ),
                                 ),
                               ),

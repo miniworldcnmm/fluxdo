@@ -4,9 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 
+import 'package:fluxdo_render/fluxdo_render.dart' show HtmlChunk, HtmlChunker;
 import '../utils/url_helper.dart';
-import '../widgets/content/discourse_html_content/chunked/html_chunk.dart';
-import '../widgets/content/discourse_html_content/chunked/html_chunker.dart';
 import '../widgets/content/discourse_html_content/image_utils.dart';
 
 /// 单份 HTML 的所有派生数据。
