@@ -240,6 +240,7 @@ class ShareImageWidget extends ConsumerWidget {
         cookedHtml: preprocessed,
         parsedNodes: parsedNodes,
         selectionEnabled: false,
+        screenshotMode: true,
         linkHandler: callbacks.linkHandler,
         emojiImageBuilder: callbacks.emojiImageBuilder,
         mentionTapHandler: callbacks.mentionTapHandler,

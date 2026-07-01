@@ -213,9 +213,8 @@ class AiShareImageWidget extends StatelessWidget {
         color: cardColor,
         borderRadius: BorderRadius.circular(8),
       ),
-      // TODO(fwfh下线): screenshotMode 暂无等价开关,含图片/mermaid 的 AI 消息截图可能不完整(AI 消息多为文本/代码,风险低)
       child: FluxdoRenderCallbacks.generic(heroTagNamespace: 'ai_share_${message.hashCode}')
-          .render(cookedHtml: html, baseTextStyle: TextStyle(fontSize: 14, height: 1.6, color: textColor.withValues(alpha: 0.85)), selectionEnabled: false),
+          .render(cookedHtml: html, baseTextStyle: TextStyle(fontSize: 14, height: 1.6, color: textColor.withValues(alpha: 0.85)), selectionEnabled: false, screenshotMode: true),
     );
   }
 

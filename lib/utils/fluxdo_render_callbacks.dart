@@ -133,6 +133,7 @@ class FluxdoRenderCallbacks {
     TextStyle? baseTextStyle,
     bool selectionEnabled = true,
     bool compact = false,
+    bool screenshotMode = false,
     List<BlockNode>? parsedNodes,
     String? footnotesHtml,
     int imageIndexOffset = 0,
@@ -151,6 +152,7 @@ class FluxdoRenderCallbacks {
       baseTextStyle: baseTextStyle,
       selectionEnabled: selectionEnabled,
       compact: compact,
+      screenshotMode: screenshotMode,
       footnotesHtml: footnotesHtml,
       imageIndexOffset: imageIndexOffset,
       selectionScopeId: selectionScopeId,
@@ -1298,7 +1300,10 @@ class _MermaidViewState extends State<_MermaidView>
     if (!_initialized) {
       _initialized = true;
       // 已在本页 LazyLoadScope 里加载过则直接出图、停掉 shimmer。
-      if (LazyLoadScope.isLoaded(context, _cacheKey)) {
+      // 截图模式(离屏渲染)下 VisibilityDetector 永不触发,读 ScreenshotMode
+      // 直接立即出图,避免分享成图截到 shimmer 占位。
+      if (LazyLoadScope.isLoaded(context, _cacheKey) ||
+          ScreenshotMode.of(context)) {
         _shouldLoad = true;
         _shimmerController?.stop();
       }
