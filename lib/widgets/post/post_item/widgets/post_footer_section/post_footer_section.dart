@@ -17,10 +17,12 @@ import '../../../../../services/discourse/discourse_service.dart';
 import '../../../../../services/log/bookmark_edit_trace.dart';
 import '../../../../../services/notion/notion_bookmark_auto_sync.dart';
 import '../../../../../services/toast_service.dart';
+import '../../../../../pages/user_profile_page.dart';
 import '../../../post_links.dart';
 import '../post_action_bar.dart';
 import '../../../../bookmark/bookmark_edit_sheet_launcher.dart';
 import '../../../../post/post_boost/boost_list.dart';
+import '../../../../post/post_boost/boost_author_popover.dart';
 import '../../../../post/post_boost/boost_input.dart';
 import '../boost_flag_sheet.dart';
 import '../post_flag_sheet.dart';
@@ -29,7 +31,6 @@ import '../post_replies_list.dart';
 import '../post_solution_banner.dart';
 import '../../../../post/post_replies_sheet.dart';
 import '../../../../user/user_card.dart';
-import '../../../../common/smart_avatar.dart';
 import '../../../../../utils/dialog_utils.dart';
 import '../../../../common/app_bottom_sheet.dart';
 
@@ -385,61 +386,31 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
       ToastService.showInfo(S.current.boost_flagAlreadyReported);
     }
 
-    if (canPreviewAuthor && !canFlag && !canDelete) {
-      _showBoostAuthorCard(resolvedBoost, anchorRect);
-      return;
-    }
-
-    AppBottomSheet.show(
+    final action = await showBoostAuthorPopover(
       context: context,
-      contentPadding: EdgeInsets.zero,
-      builder: (ctx) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (canPreviewAuthor) ...[
-              _BoostAuthorActionTile(
-                boost: resolvedBoost,
-                onTap: () {
-                  Navigator.pop(ctx);
-                  WidgetsBinding.instance.addPostFrameCallback((_) {
-                    if (!mounted) return;
-                    _showBoostAuthorCard(resolvedBoost, anchorRect);
-                  });
-                },
-              ),
-              if (canFlag || canDelete) const Divider(height: 1),
-            ],
-            if (canFlag)
-              ListTile(
-                leading: const Icon(Symbols.flag_rounded, color: Colors.red),
-                title: Text(
-                  S.current.common_report,
-                  style: const TextStyle(color: Colors.red),
-                ),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showBoostFlagSheet(resolvedBoost);
-                },
-              ),
-            if (canDelete)
-              ListTile(
-                leading: const Icon(Symbols.delete_rounded, color: Colors.red),
-                title: Text(S.current.common_delete),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _deleteBoost(resolvedBoost);
-                },
-              ),
-            ListTile(
-              leading: const Icon(Symbols.close_rounded),
-              title: Text(S.current.common_cancel),
-              onTap: () => Navigator.pop(ctx),
-            ),
-          ],
-        );
-      },
+      anchorRect: anchorRect ?? _fallbackBoostAuthorAnchorRect(),
+      boost: resolvedBoost,
+      canViewAuthor: canPreviewAuthor,
+      canFlag: canFlag,
+      canDelete: canDelete,
     );
+    if (!mounted || action == null) return;
+    switch (action) {
+      case BoostAuthorPopoverAction.authorCard:
+        _showBoostAuthorCard(resolvedBoost, anchorRect);
+      case BoostAuthorPopoverAction.profile:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                UserProfilePage(username: resolvedBoost.user.username),
+          ),
+        );
+      case BoostAuthorPopoverAction.flag:
+        _showBoostFlagSheet(resolvedBoost);
+      case BoostAuthorPopoverAction.delete:
+        _deleteBoost(resolvedBoost);
+    }
   }
 
   Rect _fallbackBoostAuthorAnchorRect() {
@@ -598,52 +569,6 @@ class _PostFooterSectionState extends ConsumerState<PostFooterSection> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _BoostAuthorActionTile extends StatelessWidget {
-  final Boost boost;
-  final VoidCallback onTap;
-
-  const _BoostAuthorActionTile({required this.boost, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final user = boost.user;
-    final displayName = (user.name?.trim().isNotEmpty ?? false)
-        ? user.name!.trim()
-        : user.username;
-    final avatarUrl = user.avatarTemplate.isEmpty
-        ? null
-        : user.getAvatarUrl(size: 96);
-
-    return ListTile(
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      leading: SmartAvatar(
-        imageUrl: avatarUrl,
-        radius: 22,
-        fallbackText: user.username,
-      ),
-      title: Text(
-        displayName,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: theme.textTheme.titleSmall?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      subtitle: Text(
-        '@${user.username}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: Icon(
-        Symbols.chevron_right_rounded,
-        color: theme.colorScheme.onSurfaceVariant,
-      ),
-      onTap: onTap,
     );
   }
 }
