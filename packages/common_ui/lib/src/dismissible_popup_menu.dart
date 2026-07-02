@@ -840,6 +840,7 @@ class _PopupMenuState<T> extends State<_PopupMenu<T>> {
     final bool hasHeader = headerActions != null && headerActions.isNotEmpty;
 
     final Widget body = Semantics(
+      role: SemanticsRole.menu,
       scopesRoute: true,
       namesRoute: true,
       explicitChildNodes: true,
@@ -1328,6 +1329,17 @@ Future<T?> showSwipeDismissibleMenu<T>({
   );
   final NavigatorState targetNavigator =
       navigator ?? Navigator.of(context, rootNavigator: useRootNavigator);
+  // 外部传入的 navigator 可能是按钮子树的**兄弟**(如用户卡片浮层里的迷你
+  // Navigator),不是 context 的祖先 —— InheritedTheme.capture 要求 `to` 必须
+  // 是 `from` 的祖先,否则 debug 断言直接失败、菜单打不开。不是祖先时捕获到根。
+  bool navigatorIsAncestor = false;
+  context.visitAncestorElements((element) {
+    if (element == targetNavigator.context) {
+      navigatorIsAncestor = true;
+      return false;
+    }
+    return true;
+  });
   return targetNavigator.push(
     _SwipeDismissiblePopupRoute<T>(
       position: position,
@@ -1345,7 +1357,7 @@ Future<T?> showSwipeDismissibleMenu<T>({
       color: color,
       capturedThemes: InheritedTheme.capture(
         from: context,
-        to: targetNavigator.context,
+        to: navigatorIsAncestor ? targetNavigator.context : null,
       ),
       constraints: constraints,
       clipBehavior: clipBehavior,
