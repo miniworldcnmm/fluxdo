@@ -208,6 +208,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   bool _isParentActive = true;
   bool _isScreenTrackRunning = false;
 
+  /// 初始定位期间被抑制的 eyeline 上报楼层（定位完成后回放）
+  int? _suppressedEyelinePostNumber;
+
   bool get _usesEmbeddedMobileWorkspaceChrome {
     return widget.embeddedMode &&
         PlatformUtils.isMobile &&
@@ -2023,6 +2026,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
           }
         });
       } else {
+        // 定位滚动前先按目标楼层预置进度条，避免数字从低楼层爬升
+        _primeStreamIndexForInitialTarget(detail, posts, dividerPostIndex);
         _scrollToInitialPosition(posts, dividerPostIndex);
       }
     }
