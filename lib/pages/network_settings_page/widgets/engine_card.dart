@@ -65,7 +65,7 @@ class _EngineCardState extends State<EngineCard> {
         return Card(
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

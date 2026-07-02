@@ -3,6 +3,7 @@ import 'package:app_icons/app_icons.dart';
 
 import '../../../l10n/s.dart';
 import '../../../services/network/vpn_auto_toggle_service.dart';
+import '../../../widgets/common/segmented_card_group.dart';
 
 /// VPN 自动切换设置卡片
 class VpnAutoToggleCard extends StatelessWidget {
@@ -25,81 +26,65 @@ class VpnAutoToggleCard extends StatelessWidget {
         final proxySuppressed = enabled && service.isProxySuppressed;
         final hasSuppressed = dohSuppressed || proxySuppressed;
 
-        return Card(
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            children: [
-              SwitchListTile(
-                title: Text(context.l10n.vpnToggle_title),
-                subtitle: Text(context.l10n.vpnToggle_subtitle),
-                secondary: Icon(Symbols.swap_horiz_rounded, fill: enabled ? 1 : 0,
-                  color: enabled ? theme.colorScheme.primary : null,
-                ),
-                value: enabled,
-                onChanged: (value) => service.setEnabled(value),
+        return SegmentedCardGroup(
+          children: [
+            SwitchListTile(
+              title: Text(context.l10n.vpnToggle_title),
+              subtitle: Text(context.l10n.vpnToggle_subtitle),
+              secondary: Icon(Symbols.swap_horiz_rounded, fill: enabled ? 1 : 0,
+                color: enabled ? theme.colorScheme.primary : null,
               ),
-              if (enabled) ...[
-                Divider(
-                  height: 1,
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  child: Row(
-                    children: [
-                      Icon(Symbols.vpn_lock_rounded, fill: vpnActive ? 1 : 0,
-                        size: 16,
+              value: enabled,
+              onChanged: (value) => service.setEnabled(value),
+            ),
+            if (enabled)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(Symbols.vpn_lock_rounded, fill: vpnActive ? 1 : 0,
+                      size: 16,
+                      color: vpnActive
+                          ? theme.colorScheme.tertiary
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      vpnActive ? context.l10n.vpnToggle_connected : context.l10n.vpnToggle_disconnected,
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color: vpnActive
                             ? theme.colorScheme.tertiary
                             : theme.colorScheme.onSurfaceVariant,
+                        fontWeight: vpnActive ? FontWeight.w500 : null,
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        vpnActive ? context.l10n.vpnToggle_connected : context.l10n.vpnToggle_disconnected,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: vpnActive
-                              ? theme.colorScheme.tertiary
-                              : theme.colorScheme.onSurfaceVariant,
-                          fontWeight: vpnActive ? FontWeight.w500 : null,
-                        ),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                if (hasSuppressed) ...[
-                  Divider(
-                    height: 1,
-                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(
-                          Symbols.info_rounded,
-                          size: 16,
+              ),
+            if (enabled && hasSuppressed)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Symbols.info_rounded,
+                      size: 16,
+                      color: theme.colorScheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _buildSuppressedText(dohSuppressed, proxySuppressed),
+                        style: theme.textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.primary,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _buildSuppressedText(dohSuppressed, proxySuppressed),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.primary,
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
-              ],
-            ],
-          ),
+                  ],
+                ),
+              ),
+          ],
         );
       },
     );

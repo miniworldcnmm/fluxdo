@@ -14,6 +14,8 @@ List<SettingsGroup> buildDataManagementGroups(BuildContext context) {
     SettingsGroup(
       title: l10n.dataManagement_cacheManagement,
       icon: Symbols.cleaning_services_rounded,
+      // 区块内部自带分段卡片
+      wrapInCard: false,
       items: [
         CustomModel(
           id: 'cacheManagement',
@@ -44,6 +46,8 @@ List<SettingsGroup> buildDataManagementGroups(BuildContext context) {
     SettingsGroup(
       title: l10n.dataManagement_dataBackup,
       icon: Symbols.backup_rounded,
+      // 区块内部自带分段卡片
+      wrapInCard: false,
       items: [
         CustomModel(
           id: 'dataBackup',

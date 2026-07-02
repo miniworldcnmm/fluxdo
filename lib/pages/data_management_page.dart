@@ -16,6 +16,7 @@ import '../services/data_management/data_backup_service.dart';
 import '../services/discourse_cache_manager.dart';
 import '../services/toast_service.dart';
 import '../settings/definitions/data_management_defs.dart';
+import '../widgets/common/segmented_card_group.dart';
 import '../widgets/settings/settings_group_page.dart';
 
 /// 数据管理页面（数据驱动版）
@@ -227,7 +228,7 @@ class _CacheManagementSectionState
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
+    return SegmentedCardGroup(
       children: [
         _buildCacheTile(
           theme: theme,
@@ -236,7 +237,6 @@ class _CacheManagementSectionState
           size: _imageCacheSize,
           onClear: _isClearing ? null : _clearImageCache,
         ),
-        _buildDivider(theme),
         _buildCacheTile(
           theme: theme,
           icon: Symbols.smart_toy_rounded,
@@ -244,7 +244,6 @@ class _CacheManagementSectionState
           size: _aiChatDataSize,
           onClear: _isClearing ? null : _clearAiChatData,
         ),
-        _buildDivider(theme),
         _buildCacheTile(
           theme: theme,
           icon: Symbols.cookie_rounded,
@@ -252,7 +251,6 @@ class _CacheManagementSectionState
           size: _cookieCacheSize,
           onClear: _isClearing ? null : _clearCookieCache,
         ),
-        _buildDivider(theme),
         ListTile(
           leading: Icon(
             Symbols.delete_sweep_rounded,
@@ -285,14 +283,6 @@ class _CacheManagementSectionState
         onPressed: size <= 0 ? null : onClear,
         child: Text(S.current.common_clear),
       ),
-    );
-  }
-
-  Widget _buildDivider(ThemeData theme) {
-    return Divider(
-      height: 1,
-      indent: 56,
-      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
     );
   }
 }
@@ -382,7 +372,7 @@ class DataBackupSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    return Column(
+    return SegmentedCardGroup(
       children: [
         ListTile(
           leading: const Icon(Symbols.upload_rounded),
@@ -394,11 +384,6 @@ class DataBackupSection extends ConsumerWidget {
             size: 20,
           ),
           onTap: () => _exportData(context, ref),
-        ),
-        Divider(
-          height: 1,
-          indent: 56,
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
         ),
         ListTile(
           leading: const Icon(Symbols.download_rounded),

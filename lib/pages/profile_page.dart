@@ -24,6 +24,7 @@ import '../widgets/common/loading_dialog.dart';
 import '../widgets/common/notification_icon_button.dart';
 import '../widgets/common/flair_badge.dart';
 import '../widgets/common/smart_avatar.dart';
+import '../widgets/common/segmented_card_group.dart';
 import '../providers/app_state_refresher.dart';
 import 'metaverse_page.dart';
 import 'package:ai_model_manager/ai_model_manager.dart';
@@ -588,26 +589,19 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
         return Column(
           children: [
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  if (ldcEnabled)
-                    LdcBalanceCard(
-                      inline: true,
-                      onReauthorize: () => _reauthorizeLdc(),
-                      showDivider: cdkEnabled,
-                    ),
-                  if (cdkEnabled)
-                    CdkBalanceCard(
-                      inline: true,
-                      onReauthorize: () => _reauthorizeCdk(),
-                    ),
-                ],
-              ),
+            SegmentedCardGroup(
+              children: [
+                if (ldcEnabled)
+                  LdcBalanceCard(
+                    inline: true,
+                    onReauthorize: () => _reauthorizeLdc(),
+                  ),
+                if (cdkEnabled)
+                  CdkBalanceCard(
+                    inline: true,
+                    onReauthorize: () => _reauthorizeCdk(),
+                  ),
+              ],
             ),
             const SizedBox(height: 24),
           ],
@@ -620,7 +614,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     return Card(
       color: theme.colorScheme.errorContainer.withValues(alpha:0.3),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -697,7 +691,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
     return Card(
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
       ),
       clipBehavior: Clip.antiAlias,
       child: Padding(
@@ -774,160 +768,129 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 
   Widget _buildCommunityCard(ThemeData theme, {required bool canAccessInviteLinks}) {
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
+    return SegmentedCardGroup(
+      children: [
+        _buildOptionTile(
+          icon: Symbols.mail_rounded,
+          iconColor: Colors.indigo,
+          title: context.l10n.profile_privateMessages,
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivateMessagesPage())),
+        ),
+        _buildOptionTile(
+          icon: Symbols.military_tech_rounded,
+          iconColor: Colors.amber[700]!,
+          title: context.l10n.profile_myBadges,
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyBadgesPage()))
+        ),
+        _buildOptionTile(
+          icon: Symbols.verified_user_rounded,
+          iconColor: Colors.green,
+          title: context.l10n.profile_trustRequirements,
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TrustLevelRequirementsPage()))
+        ),
+        if (canAccessInviteLinks)
           _buildOptionTile(
-            icon: Symbols.mail_rounded,
-            iconColor: Colors.indigo,
-            title: context.l10n.profile_privateMessages,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PrivateMessagesPage())),
-          ),
-          _buildOptionTile(
-            icon: Symbols.military_tech_rounded,
-            iconColor: Colors.amber[700]!,
-            title: context.l10n.profile_myBadges,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyBadgesPage()))
-          ),
-          _buildOptionTile(
-            icon: Symbols.verified_user_rounded, 
-            iconColor: Colors.green,
-            title: context.l10n.profile_trustRequirements,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TrustLevelRequirementsPage()))
-          ),
-          if (canAccessInviteLinks)
-            _buildOptionTile(
-              icon: Symbols.link_rounded,
-              iconColor: Colors.cyan,
-              title: context.l10n.profile_inviteLinks,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const InviteLinksPage()),
-              ),
-            ),
-          _buildOptionTile(
-            icon: Symbols.history_edu_rounded,
-            iconColor: Colors.pink,
-            title: context.l10n.exportHistory_title,
+            icon: Symbols.link_rounded,
+            iconColor: Colors.cyan,
+            title: context.l10n.profile_inviteLinks,
             onTap: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => const ExportHistoryPage()),
+              MaterialPageRoute(builder: (_) => const InviteLinksPage()),
             ),
           ),
-          _buildOptionTile(
-            icon: Symbols.explore_rounded,
-            iconColor: Colors.deepOrange,
-            title: context.l10n.profile_metaverse,
-            showDivider: false,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MetaversePage()))
+        _buildOptionTile(
+          icon: Symbols.history_edu_rounded,
+          iconColor: Colors.pink,
+          title: context.l10n.exportHistory_title,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ExportHistoryPage()),
           ),
-        ],
-      ),
+        ),
+        _buildOptionTile(
+          icon: Symbols.explore_rounded,
+          iconColor: Colors.deepOrange,
+          title: context.l10n.profile_metaverse,
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MetaversePage()))
+        ),
+      ],
     );
   }
 
   Widget _buildSystemAndToolsCard(ThemeData theme) {
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        children: [
-          _buildOptionTile(
-            icon: Symbols.language_rounded,
-            iconColor: Colors.blue,
-            title: context.l10n.profile_myBrowser,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyBrowserPage()))
-          ),
-          _buildOptionTile(
-            icon: Symbols.smart_toy_rounded,
-            iconColor: Colors.cyan,
-            title: context.l10n.profile_aiModelService,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AiProvidersPage(
-              onOpenSession: (ctx, topicId, sessionId) {
-                Navigator.push(ctx, MaterialPageRoute(
-                  builder: (_) => TopicDetailPage(
-                    topicId: topicId,
-                    autoOpenAiChat: true,
-                    initialSessionId: sessionId,
-                  ),
-                ));
-              },
-            ))),
-          ),
-          _buildOptionTile(
-            icon: Symbols.settings_rounded,
-            iconColor: Colors.blueGrey,
-            title: context.l10n.profile_settings,
-            showDivider: false,
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage())),
-          ),
-        ],
-      ),
+    return SegmentedCardGroup(
+      children: [
+        _buildOptionTile(
+          icon: Symbols.language_rounded,
+          iconColor: Colors.blue,
+          title: context.l10n.profile_myBrowser,
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const MyBrowserPage()))
+        ),
+        _buildOptionTile(
+          icon: Symbols.smart_toy_rounded,
+          iconColor: Colors.cyan,
+          title: context.l10n.profile_aiModelService,
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AiProvidersPage(
+            onOpenSession: (ctx, topicId, sessionId) {
+              Navigator.push(ctx, MaterialPageRoute(
+                builder: (_) => TopicDetailPage(
+                  topicId: topicId,
+                  autoOpenAiChat: true,
+                  initialSessionId: sessionId,
+                ),
+              ));
+            },
+          ))),
+        ),
+        _buildOptionTile(
+          icon: Symbols.settings_rounded,
+          iconColor: Colors.blueGrey,
+          title: context.l10n.profile_settings,
+          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage())),
+        ),
+      ],
     );
   }
-  
+
   Widget _buildOptionTile({
-    required IconData icon, 
+    required IconData icon,
     Color? iconColor,
-    required String title, 
+    required String title,
     required VoidCallback onTap,
-    bool showDivider = true,
   }) {
     final theme = Theme.of(context);
     final finalIconColor = iconColor ?? theme.colorScheme.primary;
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        child: Row(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: Row(
-                children: [
-                  // iOS 风格的图标容器保留，因为这不违和且好看
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: finalIconColor.withValues(alpha:0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Icon(icon, color: finalIconColor, size: 20),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      title, 
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500
-                      )
-                    )
-                  ),
-                  Icon(
-                    Symbols.chevron_right_rounded, 
-                    color: theme.colorScheme.outline.withValues(alpha:0.4), 
-                    size: 20
-                  ),
-                ],
+            // iOS 风格的图标容器保留，因为这不违和且好看
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: finalIconColor.withValues(alpha:0.1),
+                borderRadius: BorderRadius.circular(10),
               ),
+              child: Icon(icon, color: finalIconColor, size: 20),
             ),
-            if (showDivider)
-              Padding(
-                padding: const EdgeInsets.only(left: 60), // 对齐文字
-                child: Divider(
-                  height: 1, 
-                  thickness: 0.5,
-                  color: theme.colorScheme.outlineVariant.withValues(alpha:0.2)
-                ),
-              ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500
+                )
+              )
+            ),
+            Icon(
+              Symbols.chevron_right_rounded,
+              color: theme.colorScheme.outline.withValues(alpha:0.4),
+              size: 20
+            ),
           ],
         ),
       ),

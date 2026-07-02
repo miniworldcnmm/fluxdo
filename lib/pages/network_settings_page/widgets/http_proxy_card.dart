@@ -8,6 +8,7 @@ import '../../../services/network/proxy/proxy_settings_service.dart';
 import '../../../services/network/proxy/shadowsocks_uri_parser.dart';
 import '../../../services/network/vpn_auto_toggle_service.dart';
 import '../../../services/toast_service.dart';
+import '../../../widgets/common/segmented_card_group.dart';
 
 class HttpProxyCard extends StatelessWidget {
   const HttpProxyCard({super.key});
@@ -70,178 +71,158 @@ class _HttpProxyCardInner extends StatelessWidget {
         final vpnLocked = VpnAutoToggleService.instance.enabled &&
             VpnAutoToggleService.instance.vpnActive;
 
-        return Card(
-          clipBehavior: Clip.antiAlias,
+        return SegmentedCardGroup(
           color: proxySettings.enabled
               ? theme.colorScheme.tertiaryContainer.withValues(alpha: 0.3)
               : null,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: proxySettings.enabled
-                ? BorderSide(
-                    color: theme.colorScheme.tertiary.withValues(alpha: 0.3),
-                  )
-                : BorderSide.none,
-          ),
-          child: Column(
-            children: [
-              SwitchListTile(
-                title: Text(context.l10n.httpProxy_title),
-                subtitle: Text(
-                  vpnLocked
-                      ? (isSuppressedByVpn
-                          ? context.l10n.httpProxy_suppressedByVpn
-                          : context.l10n.vpnToggle_lockedHint)
-                      : proxySettings.enabled
-                          ? context.l10n.httpProxy_enabledDesc(proxySettings.protocol.displayName)
-                          : context.l10n.httpProxy_disabledDesc,
-                ),
-                secondary: Icon(
-                  (vpnLocked ? isSuppressedByVpn : proxySettings.enabled)
-                      ? Symbols.vpn_key_rounded
-                      : Symbols.vpn_key_rounded,
-                  color: (vpnLocked ? isSuppressedByVpn : proxySettings.enabled)
-                      ? theme.colorScheme.tertiary
-                      : null,
-                ),
-                // VPN 接管期间：开关照常可拨，但操作的是"VPN 断开后是否启用"的意图标记，
-                // 不立即生效（功能仍由自动切换接管）。
-                value: vpnLocked ? isSuppressedByVpn : proxySettings.enabled,
-                onChanged: vpnLocked
-                    ? (value) =>
-                        VpnAutoToggleService.instance.setProxySuppressed(value)
-                    : (value) async {
-                        if (value && !proxySettings.hasServer) {
-                          final saved = await _showProxyConfigDialog(
-                            context,
-                            proxySettings,
-                          );
-                          if (!saved) {
-                            return;
-                          }
-                        }
-
-                        await proxyService.setEnabled(value);
-                        if (!value) {
+          children: [
+            SwitchListTile(
+              title: Text(context.l10n.httpProxy_title),
+              subtitle: Text(
+                vpnLocked
+                    ? (isSuppressedByVpn
+                        ? context.l10n.httpProxy_suppressedByVpn
+                        : context.l10n.vpnToggle_lockedHint)
+                    : proxySettings.enabled
+                        ? context.l10n.httpProxy_enabledDesc(proxySettings.protocol.displayName)
+                        : context.l10n.httpProxy_disabledDesc,
+              ),
+              secondary: Icon(
+                (vpnLocked ? isSuppressedByVpn : proxySettings.enabled)
+                    ? Symbols.vpn_key_rounded
+                    : Symbols.vpn_key_rounded,
+                color: (vpnLocked ? isSuppressedByVpn : proxySettings.enabled)
+                    ? theme.colorScheme.tertiary
+                    : null,
+              ),
+              // VPN 接管期间：开关照常可拨，但操作的是"VPN 断开后是否启用"的意图标记，
+              // 不立即生效（功能仍由自动切换接管）。
+              value: vpnLocked ? isSuppressedByVpn : proxySettings.enabled,
+              onChanged: vpnLocked
+                  ? (value) =>
+                      VpnAutoToggleService.instance.setProxySuppressed(value)
+                  : (value) async {
+                      if (value && !proxySettings.hasServer) {
+                        final saved = await _showProxyConfigDialog(
+                          context,
+                          proxySettings,
+                        );
+                        if (!saved) {
                           return;
                         }
+                      }
 
-                        final previous = proxyService.testResultNotifier.value;
-                        final shouldRetest = previous == null ||
-                            !previous.success ||
-                            DateTime.now().difference(previous.testedAt) >
-                                const Duration(seconds: 30);
-                        if (shouldRetest) {
-                          await _runProxyTest(showToast: true);
-                        }
-                      },
+                      await proxyService.setEnabled(value);
+                      if (!value) {
+                        return;
+                      }
+
+                      final previous = proxyService.testResultNotifier.value;
+                      final shouldRetest = previous == null ||
+                          !previous.success ||
+                          DateTime.now().difference(previous.testedAt) >
+                              const Duration(seconds: 30);
+                      if (shouldRetest) {
+                        await _runProxyTest(showToast: true);
+                      }
+                    },
+            ),
+            if (proxySettings.hasServer || proxySettings.enabled) ...[
+              ListTile(
+                leading: const Icon(Symbols.dns_rounded),
+                title: Text(context.l10n.httpProxy_server),
+                subtitle: Text(
+                  proxySettings.host.isNotEmpty
+                      ? _buildProxySummary(proxySettings)
+                      : context.l10n.common_notConfigured,
+                ),
+                trailing: const Icon(Symbols.edit_rounded, size: 20),
+                onTap: () => _showProxyConfigDialog(context, proxySettings),
               ),
-              if (proxySettings.hasServer || proxySettings.enabled) ...[
-                Divider(
-                  height: 1,
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
-                ),
+              if (!proxySettings.isShadowsocks &&
+                  proxySettings.username != null &&
+                  proxySettings.username!.isNotEmpty)
                 ListTile(
-                  leading: const Icon(Symbols.dns_rounded),
-                  title: Text(context.l10n.httpProxy_server),
-                  subtitle: Text(
-                    proxySettings.host.isNotEmpty
-                        ? _buildProxySummary(proxySettings)
-                        : context.l10n.common_notConfigured,
-                  ),
-                  trailing: const Icon(Symbols.edit_rounded, size: 20),
-                  onTap: () => _showProxyConfigDialog(context, proxySettings),
+                  leading: const Icon(Symbols.person_rounded),
+                  title: Text(context.l10n.httpProxy_auth),
+                  subtitle: Text(context.l10n.httpProxy_username(proxySettings.username!)),
+                  dense: true,
                 ),
-                if (!proxySettings.isShadowsocks &&
-                    proxySettings.username != null &&
-                    proxySettings.username!.isNotEmpty) ...[
-                  Divider(
-                    height: 1,
-                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
-                  ),
+              Column(
+                children: [
                   ListTile(
-                    leading: const Icon(Symbols.person_rounded),
-                    title: Text(context.l10n.httpProxy_auth),
-                    subtitle: Text(context.l10n.httpProxy_username(proxySettings.username!)),
-                    dense: true,
-                  ),
-                ],
-                Divider(
-                  height: 1,
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
-                ),
-                ListTile(
-                  leading: Icon(
-                    _resolveTestIcon(isTesting, testResult),
-                    color: _resolveTestColor(theme, isTesting, testResult),
-                  ),
-                  title: Text(context.l10n.httpProxy_testAvailability),
-                  subtitle: Text(
-                    _buildTestSubtitle(
-                      isTesting: isTesting,
-                      testResult: testResult,
-                      protocol: proxySettings.protocol,
+                    leading: Icon(
+                      _resolveTestIcon(isTesting, testResult),
+                      color: _resolveTestColor(theme, isTesting, testResult),
                     ),
-                  ),
-                  trailing: isTesting
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : TextButton(
-                          onPressed: () => _runProxyTest(showToast: true),
-                          child: Text(context.l10n.common_test),
-                        ),
-                  onTap: isTesting ? null : () => _runProxyTest(showToast: true),
-                ),
-                if (proxySettings.enabled && dohEnabled)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Symbols.hub_rounded,
-                          size: 16,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            context.l10n.httpProxy_dohProxyHint,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-              if (!proxySettings.enabled)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Symbols.info_rounded,
-                        size: 16,
-                        color: theme.colorScheme.onSurfaceVariant,
+                    title: Text(context.l10n.httpProxy_testAvailability),
+                    subtitle: Text(
+                      _buildTestSubtitle(
+                        isTesting: isTesting,
+                        testResult: testResult,
+                        protocol: proxySettings.protocol,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          context.l10n.httpProxy_disabledHint,
-                          style: theme.textTheme.bodySmall?.copyWith(
+                    ),
+                    trailing: isTesting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : TextButton(
+                            onPressed: () => _runProxyTest(showToast: true),
+                            child: Text(context.l10n.common_test),
+                          ),
+                    onTap: isTesting ? null : () => _runProxyTest(showToast: true),
+                  ),
+                  if (proxySettings.enabled && dohEnabled)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Symbols.hub_rounded,
+                            size: 16,
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              context.l10n.httpProxy_dohProxyHint,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ],
+            if (!proxySettings.enabled)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(
+                      Symbols.info_rounded,
+                      size: 16,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        context.l10n.httpProxy_disabledHint,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-            ],
-          ),
+              ),
+          ],
         );
       },
     );

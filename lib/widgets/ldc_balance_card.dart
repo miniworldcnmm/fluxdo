@@ -14,7 +14,6 @@ class LdcBalanceCard extends ConsumerWidget {
 
   final bool compact;
   final bool inline;
-  final bool showDivider;
   final VoidCallback? onDisable;
   final VoidCallback? onReauthorize;
 
@@ -22,7 +21,6 @@ class LdcBalanceCard extends ConsumerWidget {
     super.key,
     this.compact = false,
     this.inline = false,
-    this.showDivider = false,
     this.onDisable,
     this.onReauthorize,
   });
@@ -151,17 +149,6 @@ class LdcBalanceCard extends ConsumerWidget {
                   ],
                 ),
               ),
-              if (showDivider)
-                Padding(
-                  padding: const EdgeInsets.only(left: 56),
-                  child: Divider(
-                    height: 1,
-                    thickness: 0.5,
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.2,
-                    ),
-                  ),
-                ),
             ],
           ),
         ),
@@ -466,17 +453,6 @@ class LdcBalanceCard extends ConsumerWidget {
                 ],
               ),
             ),
-            if (showDivider)
-              Padding(
-                padding: const EdgeInsets.only(left: 56),
-                child: Divider(
-                  height: 1,
-                  thickness: 0.5,
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.2,
-                  ),
-                ),
-              ),
           ],
         ),
       );
@@ -746,15 +722,6 @@ class LdcBalanceCard extends ConsumerWidget {
               ],
             ),
           ),
-          if (showDivider)
-            Padding(
-              padding: const EdgeInsets.only(left: 56),
-              child: Divider(
-                height: 1,
-                thickness: 0.5,
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
-              ),
-            ),
         ],
       );
     }

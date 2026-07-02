@@ -3,10 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../settings/settings_model.dart';
 import '../../settings/settings_renderer.dart';
+import '../common/segmented_card_group.dart';
 
 /// 通用数据驱动设置页
 ///
-/// 接收 [SettingsGroup] 列表，渲染为 section header + Card + SettingsRenderer 列表。
+/// 接收 [SettingsGroup] 列表，渲染为 section header + 分段卡片 + SettingsRenderer 列表。
 /// 支持通过 [highlightId] 滚动定位到指定设置项并高亮。
 class SettingsGroupPage extends ConsumerStatefulWidget {
   final String title;
@@ -74,16 +75,7 @@ class _SettingsGroupPageState extends ConsumerState<SettingsGroupPage> {
           if (_hasVisibleItems(group)) ...[
             _buildSectionHeader(theme, group.title, group.icon),
             const SizedBox(height: 12),
-            if (group.wrapInCard)
-              Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                clipBehavior: Clip.antiAlias,
-                child: _buildGroupItems(theme, group),
-              )
-            else
-              _buildGroupItems(theme, group),
+            _buildGroupItems(theme, group),
             const SizedBox(height: 24),
           ],
       ],
@@ -109,21 +101,21 @@ class _SettingsGroupPageState extends ConsumerState<SettingsGroupPage> {
       return true;
     }).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (int i = 0; i < effectiveItems.length; i++) ...[
-          _buildItem(theme, effectiveItems[i]),
-          if (i < effectiveItems.length - 1)
-            if (group.wrapInCard)
-              Divider(
-                height: 1,
-                indent: 56,
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.3),
-              )
-            else
-              const SizedBox(height: 12),
+    if (!group.wrapInCard) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (int i = 0; i < effectiveItems.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            _buildItem(theme, effectiveItems[i]),
+          ],
         ],
+      );
+    }
+
+    return SegmentedCardGroup(
+      children: [
+        for (final item in effectiveItems) _buildItem(theme, item),
       ],
     );
   }

@@ -7,6 +7,7 @@ import '../models/shortcut_binding.dart';
 import '../providers/shortcut_provider.dart';
 import '../settings/search/settings_search_index.dart';
 import '../utils/platform_utils.dart';
+import '../widgets/common/segmented_card_group.dart';
 import 'about_page.dart';
 import 'appearance_page.dart';
 import 'bottom_nav_settings_page.dart';
@@ -102,7 +103,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   alpha: 0.4,
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide.none,
                 ),
                 contentPadding: const EdgeInsets.symmetric(
@@ -156,14 +157,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return ListView.separated(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       itemCount: filtered.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 2),
+      separatorBuilder: (_, _) => const SizedBox(height: 3),
       itemBuilder: (context, index) {
         final result = filtered[index];
-        return Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          clipBehavior: Clip.antiAlias,
+        return SegmentedCardItem(
+          index: index,
+          count: filtered.length,
           child: ListTile(
             leading: Container(
               padding: const EdgeInsets.all(6),
@@ -214,130 +213,104 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       children: [
-        Card(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: Column(
-            children: [
-              _buildOptionTile(
-                icon: Symbols.color_lens_rounded,
-                iconColor: Colors.teal,
-                title: l10n.settings_appearance,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AppearancePage()),
+        SegmentedCardGroup(
+          children: [
+            _buildOptionTile(
+              icon: Symbols.color_lens_rounded,
+              iconColor: Colors.teal,
+              title: l10n.settings_appearance,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AppearancePage()),
+              ),
+            ),
+            _buildOptionTile(
+              icon: Symbols.auto_stories_rounded,
+              iconColor: Colors.deepOrange,
+              title: l10n.settings_reading,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ReadingSettingsPage(),
                 ),
               ),
-              _buildDivider(theme),
+            ),
+            _buildOptionTile(
+              icon: Symbols.network_check_rounded,
+              iconColor: Colors.blueGrey,
+              title: l10n.settings_network,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NetworkSettingsPage(),
+                ),
+              ),
+            ),
+            _buildOptionTile(
+              icon: Symbols.tune_rounded,
+              iconColor: Colors.deepPurple,
+              title: l10n.settings_preferences,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PreferencesPage()),
+              ),
+            ),
+            _buildOptionTile(
+              icon: Symbols.view_day_rounded,
+              iconColor: Colors.amber,
+              title: l10n.settings_bottomNav,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const BottomNavSettingsPage(),
+                ),
+              ),
+            ),
+            _buildOptionTile(
+              icon: Symbols.storage_rounded,
+              iconColor: Colors.brown,
+              title: l10n.settings_dataManagement,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const DataManagementPage()),
+              ),
+            ),
+            _buildOptionTile(
+              icon: Symbols.cloud_sync_rounded,
+              iconColor: Colors.deepPurple,
+              title: l10n.notion_title,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const NotionSettingsPage(),
+                ),
+              ),
+            ),
+            // 快捷键（仅桌面端）
+            if (PlatformUtils.isDesktop)
               _buildOptionTile(
-                icon: Symbols.auto_stories_rounded,
-                iconColor: Colors.deepOrange,
-                title: l10n.settings_reading,
+                icon: Symbols.keyboard_rounded,
+                iconColor: Colors.cyan,
+                title: l10n.settings_shortcuts,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const ReadingSettingsPage(),
+                    builder: (_) => const ShortcutSettingsPage(),
                   ),
                 ),
               ),
-              _buildDivider(theme),
-              _buildOptionTile(
-                icon: Symbols.network_check_rounded,
-                iconColor: Colors.blueGrey,
-                title: l10n.settings_network,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const NetworkSettingsPage(),
-                  ),
-                ),
+            _buildOptionTile(
+              icon: Symbols.info_rounded,
+              iconColor: Colors.indigo,
+              title: l10n.settings_about,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AboutPage()),
               ),
-              _buildDivider(theme),
-              _buildOptionTile(
-                icon: Symbols.tune_rounded,
-                iconColor: Colors.deepPurple,
-                title: l10n.settings_preferences,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PreferencesPage()),
-                ),
-              ),
-              _buildDivider(theme),
-              _buildOptionTile(
-                icon: Symbols.view_day_rounded,
-                iconColor: Colors.amber,
-                title: l10n.settings_bottomNav,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const BottomNavSettingsPage(),
-                  ),
-                ),
-              ),
-              _buildDivider(theme),
-              _buildOptionTile(
-                icon: Symbols.storage_rounded,
-                iconColor: Colors.brown,
-                title: l10n.settings_dataManagement,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const DataManagementPage()),
-                ),
-              ),
-              _buildDivider(theme),
-              _buildOptionTile(
-                icon: Symbols.cloud_sync_rounded,
-                iconColor: Colors.deepPurple,
-                title: l10n.notion_title,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const NotionSettingsPage(),
-                  ),
-                ),
-              ),
-              // 快捷键（仅桌面端）
-              if (PlatformUtils.isDesktop) ...[
-                _buildDivider(theme),
-                _buildOptionTile(
-                  icon: Symbols.keyboard_rounded,
-                  iconColor: Colors.cyan,
-                  title: l10n.settings_shortcuts,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const ShortcutSettingsPage(),
-                    ),
-                  ),
-                ),
-              ],
-              _buildDivider(theme),
-              _buildOptionTile(
-                icon: Symbols.info_rounded,
-                iconColor: Colors.indigo,
-                title: l10n.settings_about,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AboutPage()),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ],
-    );
-  }
-
-  Widget _buildDivider(ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 60),
-      child: Divider(
-        height: 1,
-        thickness: 0.5,
-        color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
-      ),
     );
   }
 

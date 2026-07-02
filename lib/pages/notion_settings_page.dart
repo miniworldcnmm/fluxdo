@@ -10,6 +10,7 @@ import '../services/notion/notion_client.dart';
 import '../services/notion/notion_config.dart';
 import '../services/notion/notion_sync_service.dart';
 import '../services/toast_service.dart';
+import '../widgets/common/segmented_card_group.dart';
 
 /// Notion 同步设置页：分步引导 + 配置编辑。
 class NotionSettingsPage extends ConsumerStatefulWidget {
@@ -378,76 +379,67 @@ class _NotionSettingsPageState extends ConsumerState<NotionSettingsPage> {
             const SizedBox(height: 24),
             _SectionTitle(context.l10n.notion_syncOptions),
             const SizedBox(height: 8),
-            Card(
-              margin: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SwitchListTile(
-                    title: Text(
-                      context.l10n.notion_autoSyncOnBookmark,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    subtitle: Text(
-                      context.l10n.notion_autoSyncDesc,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    value: cfg.autoSyncOnBookmark,
-                    onChanged: (v) {
-                      ref
-                          .read(notionConfigProvider.notifier)
-                          .update(cfg.copyWith(autoSyncOnBookmark: v));
-                    },
-                  ),
-                  const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          context.l10n.notion_syncScope,
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: SegmentedButton<NotionSyncScope>(
-                            segments: [
-                              ButtonSegment(
-                                value: NotionSyncScope.firstPostOnly,
-                                label: Text(
-                                  context.l10n.export_firstPostOnly,
-                                ),
-                              ),
-                              ButtonSegment(
-                                value: NotionSyncScope.allPosts,
-                                label: Text(context.l10n.common_all),
-                              ),
-                            ],
-                            selected: {cfg.syncScope},
-                            onSelectionChanged: (s) {
-                              ref
-                                  .read(notionConfigProvider.notifier)
-                                  .update(cfg.copyWith(syncScope: s.first));
-                            },
-                          ),
-                        ),
-                      ],
+            SegmentedCardGroup(
+              children: [
+                SwitchListTile(
+                  title: Text(
+                    context.l10n.notion_autoSyncOnBookmark,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                ],
-              ),
+                  subtitle: Text(
+                    context.l10n.notion_autoSyncDesc,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                  value: cfg.autoSyncOnBookmark,
+                  onChanged: (v) {
+                    ref
+                        .read(notionConfigProvider.notifier)
+                        .update(cfg.copyWith(autoSyncOnBookmark: v));
+                  },
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.l10n.notion_syncScope,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: SegmentedButton<NotionSyncScope>(
+                          segments: [
+                            ButtonSegment(
+                              value: NotionSyncScope.firstPostOnly,
+                              label: Text(
+                                context.l10n.export_firstPostOnly,
+                              ),
+                            ),
+                            ButtonSegment(
+                              value: NotionSyncScope.allPosts,
+                              label: Text(context.l10n.common_all),
+                            ),
+                          ],
+                          selected: {cfg.syncScope},
+                          onSelectionChanged: (s) {
+                            ref
+                                .read(notionConfigProvider.notifier)
+                                .update(cfg.copyWith(syncScope: s.first));
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ],
 

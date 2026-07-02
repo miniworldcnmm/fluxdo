@@ -10,6 +10,7 @@ import '../../../services/network/doh_proxy/cert_preference_service.dart';
 import '../../../services/network/doh_proxy/per_device_cert_service.dart';
 import '../../../services/network/vpn_auto_toggle_service.dart';
 import '../../../services/toast_service.dart';
+import '../../../widgets/common/segmented_card_group.dart';
 import '../doh_detail_settings_page.dart';
 import 'ios_cert_install_dialog.dart';
 
@@ -69,82 +70,73 @@ class _DohSettingsCardInner extends StatelessWidget {
     final vpnLocked = VpnAutoToggleService.instance.enabled &&
         VpnAutoToggleService.instance.vpnActive;
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
+    return SegmentedCardGroup(
       color: settings.dohEnabled
           ? theme.colorScheme.primaryContainer.withValues(alpha: 0.3)
           : null,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: settings.dohEnabled
-            ? BorderSide(color: theme.colorScheme.primary.withValues(alpha: 0.3))
-            : BorderSide.none,
-      ),
-      child: Column(
-        children: [
-          // DOH 开关
-          SwitchListTile(
-            title: const Text('DNS over HTTPS'),
-            subtitle: Text(
-              vpnLocked
-                  ? (isSuppressedByVpn
-                      ? context.l10n.dohSettings_suppressedByVpn
-                      : context.l10n.vpnToggle_lockedHint)
-                  : settings.dohEnabled
-                      ? context.l10n.dohSettings_enabledDesc
-                      : context.l10n.dohSettings_disabledDesc,
-            ),
-            secondary: Icon(
-              (vpnLocked ? isSuppressedByVpn : settings.dohEnabled)
-                  ? Symbols.shield_rounded
-                  : Symbols.shield_rounded,
-              color: (vpnLocked ? isSuppressedByVpn : settings.dohEnabled)
-                  ? theme.colorScheme.primary
-                  : null,
-            ),
-            // VPN 接管期间：开关照常可拨，但操作的是"VPN 断开后是否启用"的意图标记，
-            // 不立即生效（功能仍由自动切换接管，subtitle 说明当前状态）。
-            value: vpnLocked ? isSuppressedByVpn : settings.dohEnabled,
-            onChanged: vpnLocked
-                ? (value) =>
-                    VpnAutoToggleService.instance.setDohSuppressed(value)
-                : (value) async {
-                    await service.setDohEnabled(value);
-                  },
+      children: [
+        // DOH 开关
+        SwitchListTile(
+          title: const Text('DNS over HTTPS'),
+          subtitle: Text(
+            vpnLocked
+                ? (isSuppressedByVpn
+                    ? context.l10n.dohSettings_suppressedByVpn
+                    : context.l10n.vpnToggle_lockedHint)
+                : settings.dohEnabled
+                    ? context.l10n.dohSettings_enabledDesc
+                    : context.l10n.dohSettings_disabledDesc,
+          ),
+          secondary: Icon(
+            (vpnLocked ? isSuppressedByVpn : settings.dohEnabled)
+                ? Symbols.shield_rounded
+                : Symbols.shield_rounded,
+            color: (vpnLocked ? isSuppressedByVpn : settings.dohEnabled)
+                ? theme.colorScheme.primary
+                : null,
+          ),
+          // VPN 接管期间：开关照常可拨，但操作的是"VPN 断开后是否启用"的意图标记，
+          // 不立即生效（功能仍由自动切换接管，subtitle 说明当前状态）。
+          value: vpnLocked ? isSuppressedByVpn : settings.dohEnabled,
+          onChanged: vpnLocked
+              ? (value) =>
+                  VpnAutoToggleService.instance.setDohSuppressed(value)
+              : (value) async {
+                  await service.setDohEnabled(value);
+                },
+        ),
+
+        // 仅在开启 DOH 后显示以下内容
+        if (settings.dohEnabled) ...[
+          // 证书引导（iOS: 安装引导，其他平台: per-device 开关；macOS 钥匙串自动处理）
+          if (!Platform.isMacOS) _CertGuide(isApplying: isApplying),
+
+          // 状态区域（含启动失败提示）
+          Column(
+            children: [
+              _buildStatusArea(context, theme, service, proxyService, isRunning, port, showLoading),
+              if (!isRunning && !isApplying && service.lastStartFailed)
+                _buildFailureHint(context, theme, service, proxyService),
+            ],
           ),
 
-          // 仅在开启 DOH 后显示以下内容
-          if (settings.dohEnabled) ...[
-            // 证书引导（iOS: 安装引导，其他平台: per-device 开关）
-            _CertGuide(isApplying: isApplying),
-
-            // 状态区域
-            Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2)),
-            _buildStatusArea(context, theme, service, proxyService, isRunning, port, showLoading),
-
-            // 启动失败提示
-            if (!isRunning && !isApplying && service.lastStartFailed)
-              _buildFailureHint(context, theme, service, proxyService),
-
-            // 更多设置入口
-            Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2)),
-            ListTile(
-              leading: const Icon(Symbols.tune_rounded),
-              title: Text(context.l10n.dohSettings_moreSettings),
-              subtitle: Text(context.l10n.dohSettings_moreSettingsDesc),
-              trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const DohDetailSettingsPage(),
-                  ),
-                );
-              },
-            ),
-          ],
+          // 更多设置入口
+          ListTile(
+            leading: const Icon(Symbols.tune_rounded),
+            title: Text(context.l10n.dohSettings_moreSettings),
+            subtitle: Text(context.l10n.dohSettings_moreSettingsDesc),
+            trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const DohDetailSettingsPage(),
+                ),
+              );
+            },
+          ),
         ],
-      ),
+      ],
     );
   }
 
@@ -378,53 +370,43 @@ class _CertGuideState extends State<_CertGuide> {
 
     // iOS: 强制 per-device，显示安装引导
     if (Platform.isIOS) {
-      return Column(
-        children: [
-          Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2)),
-          ListTile(
-            leading: Icon(
-              _installed ? Symbols.verified_user_rounded : Symbols.security_rounded,
-              color: _installed ? Colors.green : theme.colorScheme.error,
-            ),
-            title: Text(_installed ? l10n.dohSettings_certInstalled : l10n.dohSettings_certRequired),
-            subtitle: Text(
-              _installed ? l10n.dohSettings_certReinstallHint : l10n.dohSettings_certInstallHint,
-              style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12),
-            ),
-            trailing: _installed
-                ? OutlinedButton(
-                    onPressed: _showIosDialog,
-                    child: Text(l10n.dohSettings_certReinstall),
-                  )
-                : FilledButton(
-                    onPressed: _showIosDialog,
-                    child: Text(l10n.dohSettings_certInstall),
-                  ),
-          ),
-        ],
+      return ListTile(
+        leading: Icon(
+          _installed ? Symbols.verified_user_rounded : Symbols.security_rounded,
+          color: _installed ? Colors.green : theme.colorScheme.error,
+        ),
+        title: Text(_installed ? l10n.dohSettings_certInstalled : l10n.dohSettings_certRequired),
+        subtitle: Text(
+          _installed ? l10n.dohSettings_certReinstallHint : l10n.dohSettings_certInstallHint,
+          style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12),
+        ),
+        trailing: _installed
+            ? OutlinedButton(
+                onPressed: _showIosDialog,
+                child: Text(l10n.dohSettings_certReinstall),
+              )
+            : FilledButton(
+                onPressed: _showIosDialog,
+                child: Text(l10n.dohSettings_certInstall),
+              ),
       );
     }
 
     // 其他平台: per-device 证书开关
-    return Column(
-      children: [
-        Divider(height: 1, color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2)),
-        SwitchListTile(
-          secondary: Icon(
-            _perDeviceEnabled ? Symbols.verified_user_rounded : Symbols.security_rounded,
-            color: _perDeviceEnabled ? Colors.green : null,
-          ),
-          title: Text(l10n.dohSettings_perDeviceCert),
-          subtitle: Text(
-            _perDeviceEnabled
-                ? l10n.dohSettings_perDeviceCertEnabledDesc
-                : l10n.dohSettings_perDeviceCertDisabledDesc,
-            style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12),
-          ),
-          value: _perDeviceEnabled,
-          onChanged: widget.isApplying ? null : _togglePerDevice,
-        ),
-      ],
+    return SwitchListTile(
+      secondary: Icon(
+        _perDeviceEnabled ? Symbols.verified_user_rounded : Symbols.security_rounded,
+        color: _perDeviceEnabled ? Colors.green : null,
+      ),
+      title: Text(l10n.dohSettings_perDeviceCert),
+      subtitle: Text(
+        _perDeviceEnabled
+            ? l10n.dohSettings_perDeviceCertEnabledDesc
+            : l10n.dohSettings_perDeviceCertDisabledDesc,
+        style: TextStyle(color: theme.colorScheme.onSurfaceVariant, fontSize: 12),
+      ),
+      value: _perDeviceEnabled,
+      onChanged: widget.isApplying ? null : _togglePerDevice,
     );
   }
 }

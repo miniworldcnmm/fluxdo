@@ -39,7 +39,7 @@ class _RateLimitCardState extends ConsumerState<RateLimitCard> {
 
     return Card(
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
