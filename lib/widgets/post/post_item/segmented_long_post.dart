@@ -14,26 +14,77 @@ import 'widgets/post_footer_section/post_footer_section.dart';
 import 'widgets/post_header_section.dart';
 import 'widgets/post_segment_frame.dart';
 
-/// 新引擎长帖分段数据(一次算好,所有 chunk 共享,避免每 chunk 重复重活)。
+/// 新引擎长帖分段数据(chunk 切分 eager,单 chunk 解析 lazy)。
 /// - [chunks]:对**预处理后** cooked 切的 chunk(含 emoji/click-count 注入)。
-/// - [imageOffsets]:每个 chunk 的图片 indexInPost 起始偏移(对齐整帖画廊/heroTag)。
+///   切分必须 eager —— segment 数量/scrollIndex 映射依赖 chunk 数。
+/// - 单 chunk 的 `ParagraphParser.parse` 推迟到该 chunk 首次进入
+///   sliver cacheExtent(itemBuilder 调 [parsedChunkAt])才执行并记忆化,
+///   避免进话题/分页落地帧把所有 chunk 一次性解析完(此前的集中卡顿点)。
+/// - [imageOffsetAt]:chunk 的图片 indexInPost 起始偏移(对齐整帖画廊/
+///   heroTag)。有前缀依赖 —— 取第 k 块会顺序补齐 0..k-1 的解析。
 /// - [footnotesHtml]:整帖脚注区源(正文 chunk 不含帖尾脚注区,需额外传)。
-/// - [callbacks]:整帖共享的 FluxdoRenderCallbacks(画廊算一次,避免每 chunk
-///   每帧 parse 整帖)。
+/// - [callbacks]:整帖共享的 FluxdoRenderCallbacks。画廊数据同样惰性:
+///   首次点图时经 lightboxImageRunsProvider 触发全 chunk 解析后收集。
 class NewEngineLongPostData {
   final List<HtmlChunk> chunks;
-  final List<List<BlockNode>> parsedChunks;
-  final List<int> imageOffsets;
   final String? footnotesHtml;
-  final FluxdoRenderCallbacks callbacks;
+  late final FluxdoRenderCallbacks callbacks;
 
-  const NewEngineLongPostData({
+  /// 懒解析状态:_parsed[i] 与 _offsets[i] 同步填充(前缀连续)。
+  final ParagraphParser _parser;
+  final List<List<BlockNode>?> _parsed;
+  final List<int?> _offsets;
+
+  NewEngineLongPostData._({
     required this.chunks,
-    required this.parsedChunks,
-    required this.imageOffsets,
     required this.footnotesHtml,
-    required this.callbacks,
-  });
+    required ParagraphParser parser,
+  })  : _parser = parser,
+        _parsed = List<List<BlockNode>?>.filled(chunks.length, null),
+        _offsets = List<int?>.filled(chunks.length, null);
+
+  /// 第 [index] 块的解析结果(未解析时顺序补齐前缀并缓存)。
+  List<BlockNode> parsedChunkAt(int index) {
+    _ensureParsedThrough(index);
+    return _parsed[index]!;
+  }
+
+  /// 第 [index] 块的图片 indexInPost 起始偏移。
+  int imageOffsetAt(int index) {
+    _ensureParsedThrough(index);
+    return _offsets[index]!;
+  }
+
+  /// 顺序解析 0..[index](offset 有前缀依赖)。已解析的块直接跳过,
+  /// 单块只解析一次。从帖尾进入时会一次补齐前面的块 —— 单帖范围内可接受。
+  void _ensureParsedThrough(int index) {
+    for (var i = 0; i <= index; i++) {
+      if (_parsed[i] != null) continue;
+      final prevOffset = i == 0 ? 0 : _offsets[i - 1]!;
+      final prevCount =
+          i == 0 ? 0 : countImageRuns(_parsed[i - 1]!);
+      final offset = prevOffset + prevCount;
+      final nodes = _parser.parse(
+        chunks[i].html,
+        imageIndexStart: offset,
+        footnotesHtml: footnotesHtml,
+      );
+      _parsed[i] = List.unmodifiable(nodes);
+      _offsets[i] = offset;
+    }
+  }
+
+  /// 全帖 lightbox 画廊项(触发全 chunk 解析)。仅在首次点图时被
+  /// callbacks 的惰性画廊 resolver 调用。
+  List<ImageRun> _collectAllLightboxImageRuns() {
+    if (chunks.isEmpty) return const [];
+    _ensureParsedThrough(chunks.length - 1);
+    final runs = <ImageRun>[];
+    for (final nodes in _parsed) {
+      runs.addAll(collectLightboxImageRuns(nodes!));
+    }
+    return runs;
+  }
 
   /// 长帖且可切多 chunk 时返回数据;否则 null(短帖走整段 PostItem)。
   static NewEngineLongPostData? tryBuild(
@@ -52,37 +103,20 @@ class NewEngineLongPostData {
     if (chunks.length <= 1) return null;
 
     final footnotesHtml = _extractFootnotesSection(preprocessed);
-    // 每 chunk 只 parse 一次:同一份节点同时用于 offset/gallery 计算和后续
-    // FluxdoRender 渲染,避免 build/mount 时重复解析 chunk html。
-    final parser = ParagraphParser();
-    final parsedChunks = <List<BlockNode>>[];
-    final lightboxImageRuns = <ImageRun>[];
-    final offsets = <int>[];
-    var acc = 0;
-    for (final c in chunks) {
-      offsets.add(acc);
-      final nodes = parser.parse(
-        c.html,
-        imageIndexStart: acc,
-        footnotesHtml: footnotesHtml,
-      );
-      parsedChunks.add(List.unmodifiable(nodes));
-      acc += countImageRuns(nodes);
-      lightboxImageRuns.addAll(collectLightboxImageRuns(nodes));
-    }
-    return NewEngineLongPostData(
+    final data = NewEngineLongPostData._(
       chunks: chunks,
-      parsedChunks: List.unmodifiable(parsedChunks),
-      imageOffsets: offsets,
       footnotesHtml: footnotesHtml,
-      callbacks: FluxdoRenderCallbacks.forPost(
-        post: post,
-        topicId: topicId,
-        onQuoteImage: onQuoteImage,
-        preprocessedCooked: preprocessed,
-        lightboxImageRuns: List.unmodifiable(lightboxImageRuns),
-      ),
+      parser: ParagraphParser(),
     );
+    data.callbacks = FluxdoRenderCallbacks.forPost(
+      post: post,
+      topicId: topicId,
+      onQuoteImage: onQuoteImage,
+      preprocessedCooked: preprocessed,
+      // 画廊惰性:首次点图才收集(触发剩余 chunk 解析),构建时零解析成本
+      lightboxImageRunsProvider: data._collectAllLightboxImageRuns,
+    );
+    return data;
   }
 
   // 大引用块拆分阈值:内部块数或字符数超过即拆(都不超 → 小引用块不拆,零开销)。

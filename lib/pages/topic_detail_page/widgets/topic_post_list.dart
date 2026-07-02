@@ -866,8 +866,10 @@ class _TopicPostListState extends State<TopicPostList> {
           highlight: highlight,
           chunk: segment.chunkData!,
           chunkIndex: ci,
-          imageIndexOffset: data.imageOffsets[ci],
-          parsedNodes: data.parsedChunks[ci],
+          // 懒解析:首次进入 cacheExtent 时才 parse 该 chunk(带前缀补齐),
+          // 避免进话题/分页落地帧一次性解析长帖所有 chunk
+          imageIndexOffset: data.imageOffsetAt(ci),
+          parsedNodes: data.parsedChunkAt(ci),
           footnotesHtml: data.footnotesHtml,
           callbacks: data.callbacks,
           onQuoteSelection: onQuoteSelection,

@@ -635,14 +635,13 @@ class FluxdoRenderCallbacks {
 
   /// 内容图片 builder(共享实现):算 heroTag + upload:// 解析 + 画廊/菜单上下文。
   ///
-  /// forPost 传全帖 lightbox 画廊 + Post(左右切 + 引用菜单);generic 传空画廊
-  /// + null Post(单图打开、菜单隐藏引用)。heroTag 统一 `${heroNamespace}_img_N`。
+  /// forPost 传全帖 lightbox 画廊 resolver + Post(左右切 + 引用菜单);generic
+  /// 不传 resolver(单图打开、菜单隐藏引用)。heroTag 统一 `${heroNamespace}_img_N`。
+  /// [galleryResolver] 惰性:仅在用户点图时调用(见 _buildImageWidget onTap),
+  /// build 阶段零解析成本。
   static ImageContentBuilder _imageContentBuilder({
     required String heroNamespace,
-    List<String> galleryUrls = const [],
-    List<String> galleryThumbs = const [],
-    List<String> galleryHeroTags = const [],
-    Map<int, int> galleryIndexByImageIndex = const {},
+    _GalleryData Function()? galleryResolver,
     Post? post,
     int? topicId,
     void Function(String quote, Post post)? onQuoteImage,
@@ -660,10 +659,7 @@ class FluxdoRenderCallbacks {
           originalUrl: image.src,
           heroTag: heroTag,
           image: image,
-          galleryUrls: galleryUrls,
-          galleryThumbs: galleryThumbs,
-          galleryHeroTags: galleryHeroTags,
-          galleryIndexByImageIndex: galleryIndexByImageIndex,
+          galleryResolver: galleryResolver,
           post: post,
           topicId: topicId,
           onQuoteImage: onQuoteImage,
@@ -677,10 +673,7 @@ class FluxdoRenderCallbacks {
           originalUrl: image.src,
           heroTag: heroTag,
           image: image,
-          galleryUrls: galleryUrls,
-          galleryThumbs: galleryThumbs,
-          galleryHeroTags: galleryHeroTags,
-          galleryIndexByImageIndex: galleryIndexByImageIndex,
+          galleryResolver: galleryResolver,
           post: post,
           topicId: topicId,
           onQuoteImage: onQuoteImage,
@@ -714,10 +707,7 @@ class FluxdoRenderCallbacks {
             originalUrl: image.src,
             heroTag: heroTag,
             image: image,
-            galleryUrls: galleryUrls,
-            galleryThumbs: galleryThumbs,
-            galleryHeroTags: galleryHeroTags,
-            galleryIndexByImageIndex: galleryIndexByImageIndex,
+            galleryResolver: galleryResolver,
             post: post,
             topicId: topicId,
             onQuoteImage: onQuoteImage,
@@ -776,39 +766,59 @@ class FluxdoRenderCallbacks {
     String? preprocessedCooked,
     List<BlockNode>? parsedNodes,
     List<ImageRun>? lightboxImageRuns,
+    // 惰性画廊源:首次点图才被调用(长帖懒解析场景由
+    // NewEngineLongPostData 注入,调用时触发全 chunk 解析)。
+    // 与 [lightboxImageRuns] 二选一,eager 列表优先。
+    List<ImageRun> Function()? lightboxImageRunsProvider,
   }) {
     final postId = post.id;
     final heroNamespace = 'post_$postId';
-    // 预解析 cooked 收集 Discourse lightbox 口径的画廊项。Web 版
-    // PhotoSwipe 的 dataSource 来自 `a.lightbox`,不是所有 <img>;裸图只能
-    // 单图打开,不参与左右切换。
-    final galleryImages = lightboxImageRuns ??
-        collectLightboxImageRuns(
-          parsedNodes ??
-              ParagraphParser().parse(
-                preprocessedCooked ?? preprocessCookedForRender(post),
-              ),
-        );
-    // 画廊原图 URL + heroTag 列表(顺序 = lightbox 出现顺序)。indexInPost 仍是
-    // 全帖所有内容图的编号,所以额外建 imageIndex→galleryIndex 映射,避免裸图
-    // 插在中间时 initialIndex 错位。
-    final galleryUrls = <String>[];
-    final galleryThumbs = <String>[];
-    final galleryHeroTags = <String>[];
-    final galleryIndexByImageIndex = <int, int>{};
-    for (var i = 0; i < galleryImages.length; i++) {
-      final img = galleryImages[i];
-      final full = img.lightboxUrl ?? img.src;
-      final resolvedFull = DiscourseImageUtils.isUploadUrl(full)
-          ? (DiscourseImageUtils.getCachedUploadUrl(full) ?? full)
-          : UrlHelper.resolveUrlWithCdn(full);
-      final resolvedThumb = DiscourseImageUtils.isUploadUrl(img.src)
-          ? (DiscourseImageUtils.getCachedUploadUrl(img.src) ?? img.src)
-          : UrlHelper.resolveUrlWithCdn(img.src);
-      galleryUrls.add(DiscourseImageUtils.getOriginalUrl(resolvedFull));
-      galleryThumbs.add(resolvedThumb);
-      galleryHeroTags.add('${heroNamespace}_img_${img.indexInPost}');
-      galleryIndexByImageIndex[img.indexInPost] = i;
+    // 画廊数据惰性构建:预解析 cooked 收集 Discourse lightbox 口径的画廊项
+    // (Web 版 PhotoSwipe 的 dataSource 来自 `a.lightbox`,不是所有 <img>;
+    // 裸图只能单图打开,不参与左右切换)。
+    //
+    // 收集 + URL 拼装推迟到首次点图/长按:构建 callbacks 时零解析成本
+    // (未传 parsedNodes 的场景此前会在这里同步 parse 整帖)。
+    // 点图是离散动作,一次性收集后缓存复用。
+    _GalleryData? galleryCache;
+    _GalleryData resolveGallery() {
+      final cached = galleryCache;
+      if (cached != null) return cached;
+      final galleryImages = lightboxImageRuns ??
+          lightboxImageRunsProvider?.call() ??
+          collectLightboxImageRuns(
+            parsedNodes ??
+                ParagraphParser().parse(
+                  preprocessedCooked ?? preprocessCookedForRender(post),
+                ),
+          );
+      // 画廊原图 URL + heroTag 列表(顺序 = lightbox 出现顺序)。indexInPost
+      // 仍是全帖所有内容图的编号,所以额外建 imageIndex→galleryIndex 映射,
+      // 避免裸图插在中间时 initialIndex 错位。
+      final galleryUrls = <String>[];
+      final galleryThumbs = <String>[];
+      final galleryHeroTags = <String>[];
+      final galleryIndexByImageIndex = <int, int>{};
+      for (var i = 0; i < galleryImages.length; i++) {
+        final img = galleryImages[i];
+        final full = img.lightboxUrl ?? img.src;
+        final resolvedFull = DiscourseImageUtils.isUploadUrl(full)
+            ? (DiscourseImageUtils.getCachedUploadUrl(full) ?? full)
+            : UrlHelper.resolveUrlWithCdn(full);
+        final resolvedThumb = DiscourseImageUtils.isUploadUrl(img.src)
+            ? (DiscourseImageUtils.getCachedUploadUrl(img.src) ?? img.src)
+            : UrlHelper.resolveUrlWithCdn(img.src);
+        galleryUrls.add(DiscourseImageUtils.getOriginalUrl(resolvedFull));
+        galleryThumbs.add(resolvedThumb);
+        galleryHeroTags.add('${heroNamespace}_img_${img.indexInPost}');
+        galleryIndexByImageIndex[img.indexInPost] = i;
+      }
+      return galleryCache = (
+        urls: galleryUrls,
+        thumbs: galleryThumbs,
+        heroTags: galleryHeroTags,
+        indexByImageIndex: galleryIndexByImageIndex,
+      );
     }
     return FluxdoRenderCallbacks(
       linkHandler: (ctx, href) {
@@ -828,10 +838,7 @@ class FluxdoRenderCallbacks {
       mentionTapHandler: _mentionTapHandler,
       imageContentBuilder: _imageContentBuilder(
         heroNamespace: heroNamespace,
-        galleryUrls: galleryUrls,
-        galleryThumbs: galleryThumbs,
-        galleryHeroTags: galleryHeroTags,
-        galleryIndexByImageIndex: galleryIndexByImageIndex,
+        galleryResolver: resolveGallery,
         post: post,
         topicId: topicId,
         onQuoteImage: onQuoteImage,
@@ -968,17 +975,14 @@ class FluxdoRenderCallbacks {
   /// 把已解析好的图片 URL 包装成 LazyImage + Hero + tap → openViewer。
   /// SVG 走 jovial_svg(ScalableImageWidget),非 SVG 走 LazyImage。
   ///
-  /// [galleryUrls] / [galleryThumbs] / [galleryHeroTags] 是 Discourse
-  /// lightbox 口径的全帖画廊列表,非空时点击走 gallery viewer 支持左右切。
+  /// [galleryResolver] 返回 Discourse lightbox 口径的全帖画廊数据,
+  /// 非空画廊时点击走 gallery viewer 支持左右切。惰性:只在 onTap 里调用。
   static Widget _buildImageWidget({
     required String resolvedUrl,
     required String originalUrl,
     required String heroTag,
     required ImageRun image,
-    List<String> galleryUrls = const [],
-    List<String> galleryThumbs = const [],
-    List<String> galleryHeroTags = const [],
-    Map<int, int> galleryIndexByImageIndex = const {},
+    _GalleryData Function()? galleryResolver,
     // 图片长按/右键菜单引用上下文(透传到 ImageContextMenu.show)。
     Post? post,
     int? topicId,
@@ -1075,20 +1079,25 @@ class FluxdoRenderCallbacks {
                         ? (DiscourseImageUtils.getCachedUploadUrl(fullUrl) ??
                             fullUrl)
                         : UrlHelper.resolveUrlWithCdn(fullUrl);
+                // 画廊数据在点击时才解析(长帖懒解析场景首次点图会触发
+                // 全 chunk parse,离散动作可接受;之后命中缓存)。
                 // 全帖画廊非空时走画廊 viewer(左右切同帖其他图);否则单图。
-                final galleryIndex = galleryIndexByImageIndex[image.indexInPost];
-                final hasGallery = galleryUrls.length > 1 &&
+                final gallery = galleryResolver?.call();
+                final galleryIndex =
+                    gallery?.indexByImageIndex[image.indexInPost];
+                final hasGallery = gallery != null &&
+                    gallery.urls.length > 1 &&
                     galleryIndex != null &&
                     galleryIndex >= 0 &&
-                    galleryIndex < galleryUrls.length;
+                    galleryIndex < gallery.urls.length;
                 DiscourseImageUtils.openViewer(
                   context: ctx,
                   imageUrl: DiscourseImageUtils.getOriginalUrl(resolvedFullUrl),
                   heroTag: heroTag,
                   thumbnailUrl: resolvedUrl,
-                  galleryImages: hasGallery ? galleryUrls : null,
-                  thumbnailUrls: hasGallery ? galleryThumbs : null,
-                  heroTags: hasGallery ? galleryHeroTags : null,
+                  galleryImages: hasGallery ? gallery.urls : null,
+                  thumbnailUrls: hasGallery ? gallery.thumbs : null,
+                  heroTags: hasGallery ? gallery.heroTags : null,
                   initialIndex: hasGallery ? galleryIndex : 0,
                 );
               },
@@ -1190,6 +1199,16 @@ class FluxdoRenderCallbacks {
     return uri.path.toLowerCase().endsWith('.svg');
   }
 }
+
+/// 全帖 lightbox 画廊数据(原图 URL / 缩略图 / heroTag 按 lightbox 出现顺序;
+/// indexByImageIndex 把 ImageRun.indexInPost 映射到画廊序号)。
+/// 由 forPost 的 resolveGallery 惰性构建,首次点图触发。
+typedef _GalleryData = ({
+  List<String> urls,
+  List<String> thumbs,
+  List<String> heroTags,
+  Map<int, int> indexByImageIndex,
+});
 
 /// 异步高亮 widget:HighlighterService.highlightAsync 是 Future,
 /// 期间用纯 monospace 占位,完成后用 RichText 渲染高亮 token。
