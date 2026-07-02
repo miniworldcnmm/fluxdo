@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../../services/app_error_handler.dart';
 import '../../services/notion/notion_bookmark_auto_sync.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart' show SchedulerBinding, Priority;
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
@@ -264,18 +265,22 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         debugPrint(
           '[TopicDetail] onTimingsSent callback triggered: topicId=$topicId, highestSeen=$highestSeen',
         );
-        // 遍历所有分类 tab，更新所有活跃的 provider 实例
-        final pinnedIds = ref.read(pinnedCategoriesProvider);
-        final categoryIds = [null, ...pinnedIds];
-        for (final categoryId in categoryIds) {
-          ref
-              .read(topicListProvider(categoryId).notifier)
-              .updateSeen(topicId, highestSeen);
-        }
         // 更新会话已读状态，触发 PostItem 消除未读圆点
         ref
             .read(topicSessionProvider(topicId).notifier)
             .markAsRead(postNumbers);
+        // 遍历所有分类 tab 更新列表页 lastReadPostNumber。会重建栈底的
+        // 列表页,推迟到 idle 执行,避免上报回调恰好落在滚动帧内造成掉帧
+        SchedulerBinding.instance.scheduleTask(() {
+          if (!mounted) return;
+          final pinnedIds = ref.read(pinnedCategoriesProvider);
+          final categoryIds = [null, ...pinnedIds];
+          for (final categoryId in categoryIds) {
+            ref
+                .read(topicListProvider(categoryId).notifier)
+                .updateSeen(topicId, highestSeen);
+          }
+        }, Priority.idle);
       },
     );
 
@@ -1471,6 +1476,20 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     final detail = detailAsync.value;
     final notifier = ref.read(topicDetailProvider(params).notifier);
 
+    // 会话已读集合变化(timings 上报成功后 markAsRead)只需推给 controller
+    // 供 screenTrack 计算 readOnscreen,不触发 rebuild —— 与
+    // _buildPostListContent 里的 ref.read 配对(那里承担 detail 变化时的重算)。
+    ref.listen(topicSessionProvider(widget.topicId), (_, next) {
+      final currentDetail = ref.read(topicDetailProvider(params)).value;
+      if (currentDetail == null) return;
+      final readPostNumbers = <int>{
+        for (final post in currentDetail.postStream.posts)
+          if (post.read) post.postNumber,
+        ...next.readPostNumbers,
+      };
+      _updateReadPostNumbers(readPostNumbers);
+    });
+
     _maybeSwitchToMasterDetail(canShowDetailPane, detail);
 
     // 监听 MessageBus 事件
@@ -1986,7 +2005,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   ) {
     final posts = detail.postStream.posts;
     final hasFirstPost = posts.isNotEmpty && posts.first.postNumber == 1;
-    final sessionState = ref.watch(topicSessionProvider(widget.topicId));
+    // read 而非 watch：sessionState 只用于合成 readPostNumbers 推给 controller,
+    // 不驱动任何 UI(未读圆点由 PostItem 内部细粒度 Consumer 自行监听)。
+    // watch 会让每次 timings 上报成功(markAsRead)都整页 rebuild;
+    // session 变化时的推送由 build() 里的 ref.listen 承担。
+    final sessionState = ref.read(topicSessionProvider(widget.topicId));
 
     if (posts.isNotEmpty) {
       final readPostNumbers = <int>{};
