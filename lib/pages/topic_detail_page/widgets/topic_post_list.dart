@@ -1,20 +1,18 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent, SelectedContent;
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import '../../../l10n/s.dart';
 import '../../../models/topic.dart';
 import '../../../providers/message_bus_providers.dart';
 import '../../../services/toast_service.dart';
-import '../../../utils/code_selection_context.dart';
 import '../../../utils/responsive.dart';
 import '../../../utils/time_utils.dart';
 import '../../../widgets/common/loading_spinner.dart';
 import 'package:fluxdo_render/fluxdo_render.dart' show HtmlChunk;
 import '../../../widgets/post/post_item/post_item.dart';
-import '../../../widgets/post/post_item/quote_selection_helper.dart';
 import '../../../widgets/post/post_item/segmented_long_post.dart';
 import 'topic_detail_header.dart';
 import 'shared_issue_button.dart';
@@ -150,9 +148,6 @@ class _TopicPostListState extends State<TopicPostList> {
   /// postNumber → postIndex 反查表（避免 indexWhere 线性查找）
   Map<int, int> _postNumberToIndex = const {};
   final Map<int, _LongPostRenderCacheEntry> _longPostRenderCache = {};
-  SelectedContent? _lastLongPostSelectedContent;
-  Post? _activeLongSelectionPost;
-  CodeSelectionContext? _lastLongCodeSelectionContext;
 
   @override
   void initState() {
@@ -553,11 +548,6 @@ class _TopicPostListState extends State<TopicPostList> {
     );
   }
 
-  void _rememberLongSelectionPost(Post post) {
-    _activeLongSelectionPost = post;
-    CodeSelectionContextTracker.instance.clear();
-  }
-
   @override
   Widget build(BuildContext context) {
     final posts = detail.postStream.posts;
@@ -565,53 +555,20 @@ class _TopicPostListState extends State<TopicPostList> {
     _buildRenderSegments(posts);
     final centerScrollIndex = _postIndexToScrollIndex[centerPostIndex] ?? 0;
 
-    return SelectionArea(
-      onSelectionChanged: (content) {
-        _lastLongPostSelectedContent = content;
-        _lastLongCodeSelectionContext =
-            CodeSelectionContextTracker.instance.current;
-        if (content == null) {
-          _activeLongSelectionPost = null;
-          _lastLongCodeSelectionContext = null;
-        }
-      },
-      contextMenuBuilder: (context, state) {
-        final plainText = _lastLongPostSelectedContent?.plainText;
-        final canQuote =
-            onQuoteSelection != null &&
-            _activeLongSelectionPost != null &&
-            plainText != null &&
-            plainText.isNotEmpty;
-        if (!canQuote) {
-          return AdaptiveTextSelectionToolbar.buttonItems(
-            anchors: state.contextMenuAnchors,
-            buttonItems: state.contextMenuButtonItems,
-          );
-        }
-        final items = QuoteSelectionHelper.buildMenuItems(
-          baseItems: state.contextMenuButtonItems,
-          plainText: _lastLongPostSelectedContent?.plainText,
-          post: _activeLongSelectionPost,
-          hideToolbar: state.hideToolbar,
-          topicId: detail.id,
-          onQuoteSelection: onQuoteSelection,
-          codeContext: _lastLongCodeSelectionContext,
-        );
-        return AdaptiveTextSelectionToolbar.buttonItems(
-          anchors: state.contextMenuAnchors,
-          buttonItems: items,
-        );
-      },
-      child: NotificationListener<ScrollNotification>(
-        onNotification: _handleScrollNotification,
-        child: Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerSignal: (event) {
-            if (event is PointerScrollEvent) {
-              widget.onPointerScroll?.call(event.scrollDelta.dy);
-            }
-          },
-          child: CustomScrollView(
+    // 不再包系统 SelectionArea:正文选区全部由 FluxdoRender 自研选区承担
+    // (含未登录场景 —— toolbar 降级只留「复制」),header/footer 等本就
+    // SelectionContainer.disabled。省掉整个滚动区的系统选区手势竞技场
+    // 竞争与 registrar 树维护。
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleScrollNotification,
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerSignal: (event) {
+          if (event is PointerScrollEvent) {
+            widget.onPointerScroll?.call(event.scrollDelta.dy);
+          }
+        },
+        child: CustomScrollView(
             controller: scrollController,
             center: centerKey,
             scrollCacheExtent: ScrollCacheExtent.pixels(500),
@@ -749,8 +706,7 @@ class _TopicPostListState extends State<TopicPostList> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   /// 判断是否需要显示日期分割线
@@ -934,13 +890,7 @@ class _TopicPostListState extends State<TopicPostList> {
         key: ValueKey(_segmentKey(segment)),
         controller: scrollController,
         index: segment.scrollIndex,
-        child: segment.type == _PostRenderSegmentType.shortPost
-            ? child
-            : Listener(
-                behavior: HitTestBehavior.translucent,
-                onPointerDown: (_) => _rememberLongSelectionPost(post),
-                child: child,
-              ),
+        child: child,
       ),
     );
 

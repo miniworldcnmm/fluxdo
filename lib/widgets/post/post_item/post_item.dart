@@ -244,7 +244,10 @@ class _PostItemState extends ConsumerState<PostItem> {
                                   (theme.textTheme.bodyMedium?.fontSize ?? 14) *
                                   ref.watch(preferencesProvider).contentFontScale,
                             ),
-                            selectionEnabled: widget.onQuoteSelection != null,
+                            // 自研选区恒开(外层系统 SelectionArea 已拆):
+                            // 未登录时 onQuoteRequest 为 null,toolbar 自动
+                            // 降级只留「复制/复制引用」。
+                            selectionEnabled: true,
                             onQuoteRequest: widget.onQuoteSelection == null
                                 ? null
                                 : (plainText) =>

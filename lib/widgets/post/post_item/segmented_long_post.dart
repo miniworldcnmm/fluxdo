@@ -303,7 +303,9 @@ class NewEngineChunkSegment extends StatelessWidget {
           videoBuilder: callbacks.videoBuilder,
           audioBuilder: callbacks.audioBuilder,
           onDownloadAttachment: callbacks.onDownloadAttachment,
-          selectionEnabled: onQuoteSelection != null,
+          // 自研选区恒开(外层系统 SelectionArea 已拆):未登录时
+          // onQuoteRequest 为 null,toolbar 自动降级只留「复制/复制引用」。
+          selectionEnabled: true,
           onQuoteRequest: onQuoteSelection == null
               ? null
               : (plainText) => onQuoteSelection!(plainText, post),
