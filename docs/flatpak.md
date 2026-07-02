@@ -46,6 +46,7 @@ CI 分成三部分：
    - 这里不再调用外层 `flutter build linux`，因为它在当前 Flutter 版本里仍会触发一条隐藏的 `pub get` 校验链，对 Flatpak sandbox 来说不可靠。
    - `flutter_inappwebview_linux` 继续使用真实 WPE 后端，但主应用 CI 不再自己源码编 `wpewebkit`。
    - Linux bundle 的 Dart/Flutter 资源仍然通过 CMake 自定义命令里的 `tool_backend.sh -> flutter assemble` 生成；前面已经对 staged SDK 的 `bin/flutter` 做了离线补丁，避免这条链回退到原始 wrapper。
+   - `flutter assemble` 会运行 Dart build hooks；`sqlite3` 包（经 `sqflite_common_ffi` 引入）的 hook 默认在构建期从 GitHub 下载预编译库，在离线沙箱内必然失败。根级 `pubspec.yaml` 通过 `hooks.user_defines.sqlite3` 把它切换为编译仓库内 vendored 的 `third_party/sqlite3/sqlite3.c`（amalgamation），保持全程离线，详见 `third_party/sqlite3/README.md`。
    - 最终把生成的 Linux bundle 安装到 `/app/fluxdo`，输出 `.flatpak`。
 
 ## 这样做解决了什么

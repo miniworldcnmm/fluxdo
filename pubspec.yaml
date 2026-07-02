@@ -6,6 +6,15 @@ version: 0.2.21+2026062320
 environment:
   sdk: ^3.10.4
 
+# sqlite3(经 sqflite_common_ffi 引入)的 build hook 默认在构建期从 GitHub
+# 下载预编译库,Flatpak 离线沙箱内必然失败;指向 vendored amalgamation
+# 改为源码编译,五端统一版本与编译选项。详见 third_party/sqlite3/README.md。
+hooks:
+  user_defines:
+    sqlite3:
+      source: source
+      path: third_party/sqlite3/sqlite3.c
+
 workspace:
   - packages/ai_model_manager
   - packages/app_icons
