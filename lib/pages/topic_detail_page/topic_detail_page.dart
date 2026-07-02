@@ -2072,77 +2072,67 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       return _wrapWithConstraint(nestedView);
     }
 
-    // 使用 Consumer + select 隔离 typingUsers 状态变化，避免整页重建
-    Widget scrollView = Consumer(
-      builder: (context, ref, _) {
-        final typingUsers = ref.watch(
-          topicChannelProvider(widget.topicId).select((s) => s.typingUsers),
-        );
+    // typingUsers 的监听已下沉到 TopicPostList 内部的打字指示器 sliver，
+    // presence 消息不再触发整个列表重建
+    Widget scrollView = ValueListenableBuilder<int?>(
+      valueListenable: _controller.selectedPostNumberNotifier,
+      builder: (context, selectedPostNumber, _) {
         return ValueListenableBuilder<int?>(
-          valueListenable: _controller.selectedPostNumberNotifier,
-          builder: (context, selectedPostNumber, _) {
-            return ValueListenableBuilder<int?>(
-              valueListenable: _controller.highlightNotifier,
-              builder: (context, highlightPostNumber, _) {
-                return TopicPostList(
-                  detail: detail,
-                  scrollController: _controller.scrollController,
-                  centerKey: _centerKey,
-                  headerKey: _headerKey,
-                  hideHeaderTitle: widget.hideInlineHeaderTitle,
-                  selectedPostNumber: selectedPostNumber,
-                  highlightPostNumber: highlightPostNumber,
-                  highlightBoostUsername: widget.highlightBoostUsername,
-                  typingUsers: typingUsers,
-                  isLoggedIn: isLoggedIn,
-                  hasMoreBefore: notifier.hasMoreBefore,
-                  hasMoreAfter: notifier.hasMoreAfter,
-                  isLoadingPrevious: notifier.isLoadingPrevious,
-                  isLoadingMore: notifier.isLoadingMore,
-                  isLoadMoreFailed: notifier.isLoadMoreFailed,
-                  isLoadPreviousFailed: notifier.isLoadPreviousFailed,
-                  onRetryLoadMore: () => notifier.retryLoadMore(),
-                  onRetryLoadPrevious: () => notifier.retryLoadPrevious(),
-                  centerPostIndex: centerPostIndex,
-                  dividerPostIndex: dividerPostIndex,
-                  onFirstVisiblePostChanged: _updateStreamIndexForPostNumber,
-                  onVisiblePostsChanged: _updateVisiblePosts,
-                  onScrollIndexMappingChanged:
-                      _controller.updateScrollIndexMapping,
-                  onScrollIndexToPostNumberChanged:
-                      _controller.updateScrollIndexToPostNumber,
-                  onPostSegmentRangesChanged:
-                      _controller.updatePostSegmentRanges,
-                  onJumpToPost: _scrollToPost,
-                  onReply: _handleReply,
-                  onEdit: _handleEdit,
-                  onShareAsImage: _sharePostAsImage,
-                  onRefreshPost: _handleRefreshPost,
-                  onVoteChanged: _handleVoteChanged,
-                  onSharedIssueChanged: _handleSharedIssueChanged,
-                  onNotificationLevelChanged: (level) =>
-                      _handleNotificationLevelChanged(notifier, level),
-                  onSolutionChanged: _handleSolutionChanged,
-                  onQuoteSelection: isLoggedIn ? _handleQuoteSelection : null,
-                  onQuoteImage: isLoggedIn ? _handleImageQuote : null,
-                  onScrollNotification: _controller.handleScrollNotification,
-                  onPointerScroll: _controller.handlePointerScroll,
-                  onFillGapBefore: (postId) => notifier.fillGapBefore(postId),
-                  onFillGapAfter: (postId) => notifier.fillGapAfter(postId),
-                  onExpandHiddenPost: (postId) =>
-                      notifier.expandHiddenPost(postId),
-                  useReplyDialog: notifier.isTopLevelMode,
-                  onShowPostDetail: (post) => showPostRepliesSheet(
-                    context: context,
-                    post: post,
-                    topicId: widget.topicId,
-                    topicTitle: detail.title,
-                    isPrivateMessageTopic: detail.isPrivateMessage,
-                    isPmWithNonHumanUser: detail.pmWithNonHumanUser,
-                    onJumpToPost: _scrollToPost,
-                  ),
-                );
-              },
+          valueListenable: _controller.highlightNotifier,
+          builder: (context, highlightPostNumber, _) {
+            return TopicPostList(
+              detail: detail,
+              scrollController: _controller.scrollController,
+              centerKey: _centerKey,
+              headerKey: _headerKey,
+              hideHeaderTitle: widget.hideInlineHeaderTitle,
+              selectedPostNumber: selectedPostNumber,
+              highlightPostNumber: highlightPostNumber,
+              highlightBoostUsername: widget.highlightBoostUsername,
+              isLoggedIn: isLoggedIn,
+              hasMoreBefore: notifier.hasMoreBefore,
+              hasMoreAfter: notifier.hasMoreAfter,
+              isLoadingPrevious: notifier.isLoadingPrevious,
+              isLoadingMore: notifier.isLoadingMore,
+              isLoadMoreFailed: notifier.isLoadMoreFailed,
+              isLoadPreviousFailed: notifier.isLoadPreviousFailed,
+              onRetryLoadMore: () => notifier.retryLoadMore(),
+              onRetryLoadPrevious: () => notifier.retryLoadPrevious(),
+              centerPostIndex: centerPostIndex,
+              dividerPostIndex: dividerPostIndex,
+              onFirstVisiblePostChanged: _updateStreamIndexForPostNumber,
+              onVisiblePostsChanged: _updateVisiblePosts,
+              onScrollIndexMappingChanged: _controller.updateScrollIndexMapping,
+              onScrollIndexToPostNumberChanged:
+                  _controller.updateScrollIndexToPostNumber,
+              onPostSegmentRangesChanged: _controller.updatePostSegmentRanges,
+              onJumpToPost: _scrollToPost,
+              onReply: _handleReply,
+              onEdit: _handleEdit,
+              onShareAsImage: _sharePostAsImage,
+              onRefreshPost: _handleRefreshPost,
+              onVoteChanged: _handleVoteChanged,
+              onSharedIssueChanged: _handleSharedIssueChanged,
+              onNotificationLevelChanged: (level) =>
+                  _handleNotificationLevelChanged(notifier, level),
+              onSolutionChanged: _handleSolutionChanged,
+              onQuoteSelection: isLoggedIn ? _handleQuoteSelection : null,
+              onQuoteImage: isLoggedIn ? _handleImageQuote : null,
+              onScrollNotification: _controller.handleScrollNotification,
+              onPointerScroll: _controller.handlePointerScroll,
+              onFillGapBefore: (postId) => notifier.fillGapBefore(postId),
+              onFillGapAfter: (postId) => notifier.fillGapAfter(postId),
+              onExpandHiddenPost: (postId) => notifier.expandHiddenPost(postId),
+              useReplyDialog: notifier.isTopLevelMode,
+              onShowPostDetail: (post) => showPostRepliesSheet(
+                context: context,
+                post: post,
+                topicId: widget.topicId,
+                topicTitle: detail.title,
+                isPrivateMessageTopic: detail.isPrivateMessage,
+                isPmWithNonHumanUser: detail.pmWithNonHumanUser,
+                onJumpToPost: _scrollToPost,
+              ),
             );
           },
         );

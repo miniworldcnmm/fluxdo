@@ -2,6 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent, SelectedContent;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import '../../../l10n/s.dart';
 import '../../../models/topic.dart';
@@ -34,7 +35,6 @@ class TopicPostList extends StatefulWidget {
   final GlobalKey headerKey;
   final int? selectedPostNumber;
   final int? highlightPostNumber;
-  final List<TypingUser> typingUsers;
   final bool isLoggedIn;
   final bool hasMoreBefore;
   final bool hasMoreAfter;
@@ -95,7 +95,6 @@ class TopicPostList extends StatefulWidget {
     required this.highlightPostNumber,
     this.highlightBoostUsername,
     this.hideHeaderTitle = false,
-    required this.typingUsers,
     required this.isLoggedIn,
     required this.hasMoreBefore,
     required this.hasMoreAfter,
@@ -168,7 +167,6 @@ class _TopicPostListState extends State<TopicPostList> {
   GlobalKey get headerKey => widget.headerKey;
   int? get selectedPostNumber => widget.selectedPostNumber;
   int? get highlightPostNumber => widget.highlightPostNumber;
-  List<TypingUser> get typingUsers => widget.typingUsers;
   bool get isLoggedIn => widget.isLoggedIn;
   bool get hasMoreBefore => widget.hasMoreBefore;
   bool get hasMoreAfter => widget.hasMoreAfter;
@@ -695,6 +693,8 @@ class _TopicPostListState extends State<TopicPostList> {
                 ),
 
               // 正在输入指示器（始终占位，通过 AnimatedSize 平滑过渡避免列表抖动）
+              // Consumer 放在 sliver 内部：typingUsers 变化只重建这一行头像，
+              // 不连累整个列表（此前 watch 在页面层，presence 消息 = 整列表 rebuild）
               if (!hasMoreAfter)
                 SliverToBoxAdapter(
                   child: _wrapContent(
@@ -703,7 +703,16 @@ class _TopicPostListState extends State<TopicPostList> {
                       child: AnimatedSize(
                         duration: const Duration(milliseconds: 200),
                         alignment: Alignment.topCenter,
-                        child: TypingAvatars(users: typingUsers),
+                        child: Consumer(
+                          builder: (context, ref, _) {
+                            final typingUsers = ref.watch(
+                              topicChannelProvider(
+                                detail.id,
+                              ).select((s) => s.typingUsers),
+                            );
+                            return TypingAvatars(users: typingUsers);
+                          },
+                        ),
                       ),
                     ),
                   ),
