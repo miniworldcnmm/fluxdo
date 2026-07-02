@@ -142,6 +142,11 @@ class _TopicPostListState extends State<TopicPostList> {
   Map<int, int> _postIndexToScrollIndex = const {};
   Map<int, int> _scrollIndexToPostNumber = const {};
 
+  /// segments 记忆化依据：posts / gaps 均为不可变数据(riverpod 状态更新
+  /// 总是换新实例)，身份不变即内容不变，build 时可跳过整个重建
+  List<Post>? _segmentsSourcePosts;
+  PostStreamGaps? _segmentsSourceGaps;
+
   /// postNumber → postIndex 反查表（避免 indexWhere 线性查找）
   Map<int, int> _postNumberToIndex = const {};
   final Map<int, _LongPostRenderCacheEntry> _longPostRenderCache = {};
@@ -372,13 +377,22 @@ class _TopicPostListState extends State<TopicPostList> {
   }
 
   void _buildRenderSegments(List<Post> posts) {
+    // posts 与 gaps 身份都没变 → segments/映射表必然一致，直接复用。
+    // 高亮/选中/typing 等高频 rebuild 不再重付 O(N) 的分段与建表成本
+    final gaps = detail.postStream.gaps;
+    if (identical(_segmentsSourcePosts, posts) &&
+        identical(_segmentsSourceGaps, gaps)) {
+      return;
+    }
+    _segmentsSourcePosts = posts;
+    _segmentsSourceGaps = gaps;
+
     final segments = <_PostRenderSegment>[];
     final postIndexToScrollIndex = <int, int>{};
     final scrollIndexToPostNumber = <int, int>{};
     final postNumberToIndex = <int, int>{};
     final postSegmentRanges =
         <int, ({int firstScrollIndex, int lastScrollIndex})>{};
-    final gaps = detail.postStream.gaps;
     final activePostIds = <int>{};
 
     for (int postIndex = 0; postIndex < posts.length; postIndex++) {
