@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants.dart';
+import 'discourse_cache_manager.dart';
 import 'network/cookie/cookie_jar_service.dart';
 
 /// 迁移项定义
@@ -216,6 +217,50 @@ class MigrationService {
             debugPrint('[Migration v6] 删除旧 Hive 图片索引: ${p.basename(e.path)}');
           } catch (err) {
             debugPrint('[Migration v6] 删除失败 ${p.basename(e.path)}: $err');
+          }
+        }
+      },
+    ),
+    // v7: 清空图片缓存目录。
+    // v6 删除旧 Hive 索引后,已下载的图片文件仍留在 Temporary/{cacheKey}/ 下,
+    // 但新索引不再引用它们 —— emptyCache / LRU 清理都只认索引内条目,这批
+    // 文件会永久占据磁盘(可达数百 MB)。目录里绝大多数文件都是这种孤儿,
+    // 不值得为少数已重新入索引的文件做逐文件比对 —— 整目录删除,连同刚起步
+    // 的 sqlite 索引 db 一起删,全部从零重建(纯缓存,按需重新下载)。
+    // 运行时机在 runApp 之前,CacheManager 尚未 open,无并发读写。
+    Migration(
+      key: 'image_cache_orphan_purge_v7',
+      name: 'Purge image cache directories',
+      shouldRun: (prefs) async {
+        try {
+          final tempDir = await getTemporaryDirectory();
+          for (final key in kImageCacheKeys) {
+            if (await io.Directory(p.join(tempDir.path, key)).exists()) {
+              return true;
+            }
+          }
+          return false;
+        } catch (_) {
+          return false;
+        }
+      },
+      run: () async {
+        final tempDir = await getTemporaryDirectory();
+        final supportDir = await getApplicationSupportDirectory();
+        for (final key in kImageCacheKeys) {
+          try {
+            final cacheDir = io.Directory(p.join(tempDir.path, key));
+            if (await cacheDir.exists()) {
+              await cacheDir.delete(recursive: true);
+            }
+            // sqlite 索引一并删除,避免残留指向已删文件的 dangling 条目。
+            for (final suffix in const ['.db', '.db-wal', '.db-shm']) {
+              final f = io.File(p.join(supportDir.path, '$key$suffix'));
+              if (await f.exists()) await f.delete();
+            }
+            debugPrint('[Migration v7] 已清空缓存: $key');
+          } catch (e) {
+            debugPrint('[Migration v7] 清理 $key 失败 (忽略): $e');
           }
         }
       },

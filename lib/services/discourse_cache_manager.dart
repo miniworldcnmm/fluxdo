@@ -8,6 +8,19 @@ import 'package:native_animated_image/native_animated_image.dart'
 import 'avif_image_provider.dart';
 export 'avif_image_provider.dart' show AvifImageProvider;
 import 'dio_http_client.dart';
+import 'throttled_cache_object_provider.dart';
+
+/// 全部图片缓存 manager 的 cacheKey。
+///
+/// 同时是 sqlite 索引库文件名（ApplicationSupport/{key}.db）与缓存文件
+/// 目录名（Temporary/{key}/）。migration v7 依赖此列表清理孤儿文件，
+/// 新增 manager 时必须同步追加。
+const List<String> kImageCacheKeys = [
+  DiscourseCacheManager.key,
+  EmojiCacheManager.key,
+  ExternalImageCacheManager.key,
+  StickerCacheManager.key,
+];
 
 /// Discourse 图片缓存管理器
 ///
@@ -27,7 +40,7 @@ class DiscourseCacheManager extends CacheManager with ImageCacheManager {
       key,
       stalePeriod: const Duration(days: 7),
       maxNrOfCacheObjects: 500,
-      repo: CacheObjectProvider(databaseName: key),
+      repo: ThrottledCacheObjectProvider(databaseName: key),
       fileService: HttpFileService(httpClient: DioHttpClient()),
     ),
   );
@@ -139,7 +152,7 @@ class EmojiCacheManager extends CacheManager with ImageCacheManager {
       // 自定义 emoji,5000 太紧 → 滚回前面的 emoji 频繁 LRU evict。
       stalePeriod: const Duration(days: 90),
       maxNrOfCacheObjects: 15000,
-      repo: CacheObjectProvider(databaseName: key),
+      repo: ThrottledCacheObjectProvider(databaseName: key),
       fileService: HttpFileService(httpClient: DioHttpClient()),
     ),
   );
@@ -163,7 +176,7 @@ class ExternalImageCacheManager extends CacheManager with ImageCacheManager {
       key,
       stalePeriod: const Duration(days: 30),
       maxNrOfCacheObjects: 200,
-      repo: CacheObjectProvider(databaseName: key),
+      repo: ThrottledCacheObjectProvider(databaseName: key),
     ),
   );
 }
@@ -189,7 +202,7 @@ class StickerCacheManager extends CacheManager with ImageCacheManager {
       // 90 天 + 20000 容量,基本覆盖订阅多 group 的实际用量。
       stalePeriod: const Duration(days: 90),
       maxNrOfCacheObjects: 20000,
-      repo: CacheObjectProvider(databaseName: key),
+      repo: ThrottledCacheObjectProvider(databaseName: key),
       fileService: HttpFileService(httpClient: DioHttpClient()),
     ),
   );
