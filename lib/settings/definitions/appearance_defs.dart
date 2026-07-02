@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -161,38 +162,56 @@ List<SettingsGroup> buildAppearanceGroups(BuildContext context) {
               final iconState = ref.watch(appIconProvider);
               final theme = Theme.of(context);
               final isDark = theme.brightness == Brightness.dark;
+              final l10n = context.l10n;
 
-              return Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    _buildIconOption(
-                      context,
-                      ref,
-                      style: AppIconStyle.classic,
-                      label: context.l10n.appearance_iconClassic,
-                      assetPath: isDark
-                          ? 'assets/images/icon_default_dark_preview.png'
-                          : 'assets/images/icon_default_preview.png',
-                      isSelected:
-                          iconState.currentStyle == AppIconStyle.classic,
-                      isChanging: iconState.isChanging,
-                      theme: theme,
-                    ),
-                    const SizedBox(width: 20),
-                    _buildIconOption(
-                      context,
-                      ref,
-                      style: AppIconStyle.modern,
-                      label: context.l10n.appearance_iconModern,
-                      assetPath: isDark
-                          ? 'assets/images/icon_modern_preview.png'
-                          : 'assets/images/icon_modern_light_preview.png',
-                      isSelected: iconState.currentStyle == AppIconStyle.modern,
-                      isChanging: iconState.isChanging,
-                      theme: theme,
-                    ),
-                  ],
+              final options = [
+                (
+                  AppIconStyle.classic,
+                  l10n.appearance_iconClassic,
+                  isDark
+                      ? 'assets/images/icon_default_dark_preview.png'
+                      : 'assets/images/icon_default_preview.png',
+                ),
+                (
+                  AppIconStyle.modern,
+                  l10n.appearance_iconModern,
+                  isDark
+                      ? 'assets/images/icon_modern_preview.png'
+                      : 'assets/images/icon_modern_light_preview.png',
+                ),
+              ];
+
+              // 与主题模式卡片同宽（400 宽放 3 张 → 2 张为 264）
+              return Align(
+                alignment: Alignment.centerLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 264),
+                  child: Row(
+                    children: [
+                      for (int i = 0; i < options.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 12),
+                        Expanded(
+                          child: _AppIconCard(
+                            label: options[i].$2,
+                            assetPath: options[i].$3,
+                            isSelected:
+                                iconState.currentStyle == options[i].$1,
+                            isChanging: iconState.isChanging,
+                            onTap: () async {
+                              final success = await ref
+                                  .read(appIconProvider.notifier)
+                                  .setIconStyle(options[i].$1);
+                              if (!success) {
+                                ToastService.showError(
+                                  l10n.appearance_switchIconFailed,
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               );
             },
@@ -527,97 +546,225 @@ String _localeKey(Locale? locale) {
       : locale.languageCode;
 }
 
-// ── 应用图标辅助函数 ──────────────────────────────────────────────
+// ── 应用图标选择卡片 ─────────────────────────────────────────────
 
-Widget _buildIconOption(
-  BuildContext context,
-  WidgetRef ref, {
-  required AppIconStyle style,
-  required String label,
-  required String assetPath,
-  required bool isSelected,
-  required bool isChanging,
-  required ThemeData theme,
-}) {
-  return GestureDetector(
-    onTap: isChanging
-        ? null
-        : () async {
-            final l10n = context.l10n;
-            final success = await ref
-                .read(appIconProvider.notifier)
-                .setIconStyle(style);
-            if (!success) {
-              ToastService.showError(l10n.appearance_switchIconFailed);
-            }
-          },
-    child: Column(
-      children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          width: 72,
-          height: 72,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: isSelected
-                  ? theme.colorScheme.primary
-                  : Colors.transparent,
-              width: 2.5,
-            ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      spreadRadius: 1,
-                    ),
-                  ]
-                : null,
+/// 图标设计稿背景：细网格 + 中心十字线 + keyline 参考形状（圆 / 圆角方），
+/// 模拟 icon 设计工具的规格线稿。
+class _IconKeylinePainter extends CustomPainter {
+  final Color backgroundColor;
+  final Color gridColor;
+  final Color accentColor;
+
+  _IconKeylinePainter({
+    required this.backgroundColor,
+    required this.gridColor,
+    required this.accentColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+
+    // 底色
+    paint.color = backgroundColor;
+    canvas.drawRect(Offset.zero & size, paint);
+
+    final center = Offset(size.width / 2, size.height / 2);
+
+    // ── 细网格 ──
+    paint
+      ..color = gridColor.withValues(alpha: 0.08)
+      ..strokeWidth = 0.5
+      ..style = PaintingStyle.stroke;
+    const step = 8.0;
+    // 以中心为基准向两侧铺开，保证十字线落在网格上
+    for (double x = center.dx % step; x < size.width; x += step) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
+    }
+    for (double y = center.dy % step; y < size.height; y += step) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+    }
+
+    // ── 中心十字线 ──
+    paint.color = accentColor.withValues(alpha: 0.25);
+    canvas.drawLine(
+      Offset(center.dx, 0),
+      Offset(center.dx, size.height),
+      paint,
+    );
+    canvas.drawLine(Offset(0, center.dy), Offset(size.width, center.dy), paint);
+
+    // ── keyline 参考形状（略大于图标，露出图标四周）──
+    paint
+      ..color = accentColor.withValues(alpha: 0.35)
+      ..strokeWidth = 1;
+    // 外接圆
+    canvas.drawCircle(center, 27, paint);
+    // 圆角方形
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(center: center, width: 54, height: 54),
+        const Radius.circular(12),
+      ),
+      paint,
+    );
+
+    // ── 四角对角短线（斜向 keyline 的示意）──
+    paint.color = accentColor.withValues(alpha: 0.2);
+    const d = 19.0; // 45° 方向上的偏移
+    const len = 6.0;
+    for (final (sx, sy) in [(-1, -1), (1, -1), (-1, 1), (1, 1)]) {
+      final from = center + Offset(sx * d, sy * d);
+      final to = center + Offset(sx * (d + len), sy * (d + len));
+      canvas.drawLine(from, to, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _IconKeylinePainter oldDelegate) {
+    return oldDelegate.backgroundColor != backgroundColor ||
+        oldDelegate.gridColor != gridColor ||
+        oldDelegate.accentColor != accentColor;
+  }
+}
+
+/// 应用图标选择卡片，样式与 [_ThemeModeCard] 保持一致：
+/// 顶部为迷你"设计稿"预览（keyline 网格线稿 + 悬浮应用图标），
+/// 底部显示勾选 + 文字，选中态高亮边框 + 容器底色。
+class _AppIconCard extends StatelessWidget {
+  final String label;
+  final String assetPath;
+  final bool isSelected;
+  final bool isChanging;
+  final VoidCallback onTap;
+
+  const _AppIconCard({
+    required this.label,
+    required this.assetPath,
+    required this.isSelected,
+    required this.isChanging,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return GestureDetector(
+      onTap: isChanging ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          color: isSelected
+              ? cs.secondaryContainer.withValues(alpha: 0.5)
+              : cs.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? cs.primary
+                : cs.outlineVariant.withValues(alpha: 0.3),
+            width: isSelected ? 2 : 1,
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Stack(
-              children: [
-                Image.asset(
-                  assetPath,
-                  width: 72,
-                  height: 72,
-                  fit: BoxFit.cover,
-                ),
-                if (isChanging && isSelected)
-                  Container(
-                    width: 72,
-                    height: 72,
-                    color: Colors.black26,
-                    child: const Center(
-                      child: SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
+        ),
+        child: Column(
+          children: [
+            // 迷你设计稿：keyline 网格背景 + 悬浮图标
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: SizedBox(
+                  height: 64,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      CustomPaint(
+                        painter: _IconKeylinePainter(
+                          backgroundColor: cs.surfaceContainerHighest
+                              .withValues(alpha: 0.35),
+                          gridColor: cs.outline,
+                          accentColor: isSelected ? cs.primary : cs.outline,
                         ),
                       ),
+                      Center(
+                        child: AnimatedScale(
+                          scale: isSelected ? 1.0 : 0.88,
+                          duration: const Duration(milliseconds: 250),
+                          curve: Curves.easeOutBack,
+                          child: Container(
+                            width: 44,
+                            height: 44,
+                            clipBehavior: Clip.antiAlias,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(
+                                    alpha: isSelected ? 0.25 : 0.15,
+                                  ),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Image.asset(assetPath, fit: BoxFit.cover),
+                          ),
+                        ),
+                      ),
+                      if (isChanging && isSelected)
+                        Container(
+                          color: Colors.black26,
+                          child: const Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            // 勾选 + 文字（与主题模式卡片同款底部行）
+            Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (isSelected) ...[
+                    Icon(
+                      Symbols.check_circle_rounded,
+                      size: 14,
+                      fill: 1,
+                      color: cs.primary,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    label,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: isSelected ? cs.primary : cs.onSurfaceVariant,
+                      fontWeight: isSelected
+                          ? FontWeight.w500
+                          : FontWeight.normal,
                     ),
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
+          ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: isSelected
-                ? theme.colorScheme.primary
-                : theme.colorScheme.onSurfaceVariant,
-            fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal,
-          ),
-        ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 /// 主题模式选择卡片
@@ -1039,7 +1186,8 @@ class _ThemeColorSectionState extends ConsumerState<_ThemeColorSection> {
         LayoutBuilder(
           builder: (context, constraints) {
             final maxWidth = constraints.maxWidth;
-            final columns = (maxWidth / 88).floor().clamp(3, 6);
+            // 列数随宽度增长，保持色卡尺寸基本恒定，避免大屏上被拉得过大
+            final columns = math.max(3, (maxWidth / 88).floor());
             const spacing = 14.0;
             final itemWidth = (maxWidth - (columns - 1) * spacing) / columns;
 
