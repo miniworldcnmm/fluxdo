@@ -134,20 +134,6 @@ class IframeAttributes {
   String get fullUrl => UrlHelper.resolveUrl(src);
 }
 
-/// 构建 iframe Widget
-Widget? buildIframe({required BuildContext context, required dynamic element}) {
-  // Web 平台不处理，让 flutter_widget_from_html 处理
-  if (kIsWeb) return null;
-
-  final attrs = IframeAttributes.fromElement(element);
-
-  if (attrs.src.isEmpty) {
-    return const SizedBox.shrink();
-  }
-
-  return IframeWidget(attributes: attrs);
-}
-
 /// iframe Widget
 class IframeWidget extends StatefulWidget {
   final IframeAttributes attributes;

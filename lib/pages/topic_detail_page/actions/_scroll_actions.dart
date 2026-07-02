@@ -33,6 +33,17 @@ extension _ScrollActions on _TopicDetailPageState {
   }
 
   void _updateStreamIndexForPostNumber(int postNumber) {
+    // 初始定位完成前，eyeline 上报的是定位滚动途中经过的楼层，
+    // 会让进度条数字从低楼层爬升、污染视口位置记录。
+    // 暂存最后一次上报（TopicPostList 有去重，定位后同楼层不会重发），
+    // 待定位完成由 _doInitialScroll 收尾处回放；定位期间的展示值
+    // 由 _primeStreamIndexForInitialTarget 预置为目标楼层。
+    if (!_controller.isPositioned) {
+      _suppressedEyelinePostNumber = postNumber;
+      return;
+    }
+    _suppressedEyelinePostNumber = null;
+
     // 记录当前浏览位置，用于布局切换时恢复
     _controller.updateViewportPostNumber(postNumber);
     ref.read(detailScrollPositionProvider(widget.topicId).notifier).state =
@@ -54,6 +65,55 @@ extension _ScrollActions on _TopicDetailPageState {
     if (streamIndex != -1) {
       final newIndex = streamIndex + 1;
       _controller.updateStreamIndex(newIndex);
+    }
+  }
+
+  /// 初始定位前预置进度条楼层
+  ///
+  /// 目标楼层在数据到达时即可确定，不必等定位滚动结束后由 eyeline 上报，
+  /// 否则进度条会先显示低楼层再跳到目标楼层。
+  /// 目标选择逻辑与 [_doInitialScroll] 保持一致。
+  void _primeStreamIndexForInitialTarget(
+    TopicDetail detail,
+    List<Post> posts,
+    int? dividerPostIndex,
+  ) {
+    final jumpTarget = _controller.jumpTargetPostNumber;
+    final initialPostNumber = _resolvedViewportPostNumber;
+
+    Post? targetPost;
+    if (jumpTarget != null) {
+      for (final post in posts) {
+        if (post.postNumber >= jumpTarget) {
+          targetPost = post;
+          break;
+        }
+      }
+    } else if (dividerPostIndex != null && dividerPostIndex < posts.length) {
+      targetPost = posts[dividerPostIndex];
+    } else if (initialPostNumber != null && initialPostNumber > 0) {
+      for (final post in posts) {
+        if (post.postNumber >= initialPostNumber) {
+          targetPost = post;
+          break;
+        }
+      }
+    }
+    if (targetPost == null) return;
+    final targetPostNumber = targetPost.postNumber;
+
+    // 预置视口位置，避免定位期间读取到空值
+    _controller.updateViewportPostNumber(targetPostNumber);
+    // 本方法在 build 期间调用，provider 写入需推迟到帧后
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(detailScrollPositionProvider(widget.topicId).notifier).state =
+          targetPostNumber;
+    });
+
+    final streamIndex = detail.postStream.stream.indexOf(targetPost.id);
+    if (streamIndex != -1) {
+      _controller.updateStreamIndex(streamIndex + 1);
     }
   }
 
@@ -548,6 +608,16 @@ extension _ScrollActions on _TopicDetailPageState {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 _controller.consumePendingHighlight();
+              }
+            });
+          }
+          // 回放定位期间被抑制的最后一次 eyeline 上报
+          // （定位滚动结束帧的上报被 TopicPostList 去重，不会重发）
+          final suppressed = _suppressedEyelinePostNumber;
+          if (suppressed != null) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted && _suppressedEyelinePostNumber == suppressed) {
+                _updateStreamIndexForPostNumber(suppressed);
               }
             });
           }

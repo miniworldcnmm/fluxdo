@@ -94,9 +94,7 @@ class AppDatabase {
     if (cached != null && cached.isOpen) return cached;
     final pending = _openingBoxes[name];
     if (pending != null) return pending;
-    final opening = compactionStrategy == null
-        ? Hive.openBox<Map>(name)
-        : Hive.openBox<Map>(name, compactionStrategy: compactionStrategy);
+    final opening = _openBoxWithRecovery(name, compactionStrategy);
     _openingBoxes[name] = opening;
     try {
       final box = await opening;
@@ -104,6 +102,28 @@ class AppDatabase {
       return box;
     } finally {
       _openingBoxes.remove(name);
+    }
+  }
+
+  /// 打开 box；若因文件损坏（append-only 日志被写坏、`unknown typeId` 等）
+  /// 打开失败，删除损坏文件后重开一次。
+  ///
+  /// 这些 box 全是可重建的本地缓存（书签 / 导出历史 / 图片索引 / 草稿），
+  /// Hive 对中段损坏「无法自动恢复」，删库重建是唯一可行且语义安全的兜底：
+  /// 最坏只是丢一次缓存、重新拉取，远好于整个功能崩溃甚至弹全局报错。
+  static Future<Box<Map>> _openBoxWithRecovery(
+    String name,
+    CompactionStrategy? compactionStrategy,
+  ) async {
+    Future<Box<Map>> open() => compactionStrategy == null
+        ? Hive.openBox<Map>(name)
+        : Hive.openBox<Map>(name, compactionStrategy: compactionStrategy);
+    try {
+      return await open();
+    } catch (e) {
+      debugPrint('[AppDatabase] box "$name" 打开失败，判定为损坏，删库重建: $e');
+      await Hive.deleteBoxFromDisk(name);
+      return open();
     }
   }
 

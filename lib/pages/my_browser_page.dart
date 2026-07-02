@@ -10,6 +10,7 @@ import '../providers/web_history_provider.dart';
 import '../utils/time_utils.dart';
 import '../l10n/s.dart';
 import '../utils/dialog_utils.dart';
+import '../widgets/common/segmented_card_group.dart';
 import 'webview_page.dart';
 import 'download_list_page.dart';
 
@@ -22,7 +23,6 @@ class MyBrowserPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final bookmarkCount = ref.watch(
       webBookmarkProvider.select((list) => list.length),
     );
@@ -40,65 +40,42 @@ class MyBrowserPage extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
           // 功能入口
-          Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                _EntryTile(
-                  icon: Symbols.star_rounded,
-                  iconColor: Colors.amber,
-                  title: context.l10n.myBrowser_bookmarks,
-                  subtitle: context.l10n.myBrowser_bookmarkCount(bookmarkCount),
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const _BookmarkListPage()),
-                  ),
+          SegmentedCardGroup(
+            children: [
+              _EntryTile(
+                icon: Symbols.star_rounded,
+                iconColor: Colors.amber,
+                title: context.l10n.myBrowser_bookmarks,
+                subtitle: context.l10n.myBrowser_bookmarkCount(bookmarkCount),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const _BookmarkListPage()),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 60),
-                  child: Divider(
-                    height: 1,
-                    thickness: 0.5,
-                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
-                  ),
+              ),
+              _EntryTile(
+                icon: Symbols.history_rounded,
+                iconColor: Colors.purple,
+                title: context.l10n.myBrowser_history,
+                subtitle: context.l10n.myBrowser_historyDesc,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const _WebHistoryPage()),
                 ),
-                _EntryTile(
-                  icon: Symbols.history_rounded,
-                  iconColor: Colors.purple,
-                  title: context.l10n.myBrowser_history,
-                  subtitle: context.l10n.myBrowser_historyDesc,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const _WebHistoryPage()),
-                  ),
+              ),
+              _EntryTile(
+                icon: Symbols.download_rounded,
+                iconColor: Colors.teal,
+                title: context.l10n.myBrowser_downloads,
+                subtitle: context.l10n.myBrowser_downloadsDesc,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const DownloadListPage()),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 60),
-                  child: Divider(
-                    height: 1,
-                    thickness: 0.5,
-                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
-                  ),
-                ),
-                _EntryTile(
-                  icon: Symbols.download_rounded,
-                  iconColor: Colors.teal,
-                  title: context.l10n.myBrowser_downloads,
-                  subtitle: context.l10n.myBrowser_downloadsDesc,
-                  showDivider: false,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const DownloadListPage()),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -175,7 +152,6 @@ class _EntryTile extends StatelessWidget {
   final String title;
   final String subtitle;
   final VoidCallback onTap;
-  final bool showDivider;
 
   const _EntryTile({
     required this.icon,
@@ -183,7 +159,6 @@ class _EntryTile extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.onTap,
-    this.showDivider = true,
   });
 
   @override

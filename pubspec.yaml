@@ -1,10 +1,19 @@
 name: fluxdo
 description: "A new Flutter project."
 publish_to: 'none'
-version: 0.2.20+2026061917
+version: 0.2.21+2026062320
 
 environment:
   sdk: ^3.10.4
+
+# sqlite3(经 sqflite_common_ffi 引入)的 build hook 默认在构建期从 GitHub
+# 下载预编译库,Flatpak 离线沙箱内必然失败;指向 vendored amalgamation
+# 改为源码编译,五端统一版本与编译选项。详见 third_party/sqlite3/README.md。
+hooks:
+  user_defines:
+    sqlite3:
+      source: source
+      path: third_party/sqlite3/sqlite3.c
 
 workspace:
   - packages/ai_model_manager
@@ -12,6 +21,7 @@ workspace:
   - packages/common_ui
   - packages/enhanced_cookie_jar
   - packages/extended_image_lite
+  - packages/fluxdo_render
   - packages/pangutext
   - packages/paper_shaders
 
@@ -35,12 +45,14 @@ dependencies:
   cached_network_image: ^3.4.1
   octo_image: ^2.1.0
   flutter_cache_manager: ^3.4.1
+  # 桌面(Windows/Linux)图片缓存索引走 sqlite 的 FFI 后端。dart≥3.9 + ffi≥2.4.0
+  # 由 build_hooks 自动打包 sqlite3,无需 sqlite3_flutter_libs;移动 / macOS 用原生 sqflite。
+  sqflite_common_ffi: ^2.4.2
   # 自研:native Rust 解码动图(GIF/APNG/动画 WebP),绕开 Flutter Skia
   # multi_frame_codec 在 disposal=2 等场景下的 #85831 bug。
   # 源码:https://github.com/Lingyan000/native_animated_image
   native_animated_image: ^0.3.2
   flutter_riverpod: ^3.3.2
-  flutter_widget_from_html: ^0.17.2
   extended_image_lite:
     path: packages/extended_image_lite
   enhanced_cookie_jar:
@@ -77,6 +89,8 @@ dependencies:
     path: packages/common_ui
   paper_shaders:
     path: packages/paper_shaders
+  fluxdo_render:
+    path: packages/fluxdo_render
   flutter_local_notifications: ^21.0.0
   jovial_svg: ^1.1.29
   html: ^0.15.5
@@ -124,6 +138,7 @@ dependencies:
 
   chewie: any
   video_player: any
+  just_audio: ^0.10.6 # 原生上传音频播放(FluxdoRender audioBuilder)
   rhttp:
     git:
       url: https://github.com/Lingyan000/rhttp_plus.git
@@ -175,7 +190,6 @@ flutter:
         # Flutter 3.41+ FontWeight 会映射到 wght variation axis，因此即使
         # 不显式声明 weight，TextStyle(fontWeight: FontWeight.wXXX) 也能精准命中。
         - asset: assets/fonts/MiSansVF.ttf
-
 
 
 

@@ -32,6 +32,8 @@ class PreloadedDataService {
   Completer<TopicListResponse?>? _topicListResponseCompleter;
   List<Map<String, dynamic>>? _customEmoji; // 自定义 emoji
   List<Map<String, dynamic>>? _topicTrackingStates; // 话题追踪状态
+  String? _topicTrackingStatesRawJson;
+  Completer<List<Map<String, dynamic>>?>? _topicTrackingStatesCompleter;
   List<String>? _enabledReactions;
   String? _sharedSessionKey; // MessageBus 跨域认证 key
   String? _longPollingBaseUrl; // MessageBus 独立域名
@@ -296,6 +298,12 @@ class PreloadedDataService {
   /// 用于初始化侧边栏的未读计数
   Future<List<Map<String, dynamic>>?> getTopicTrackingStates() async {
     await _ensureLoaded();
+    if (_topicTrackingStates != null) return _topicTrackingStates;
+    if (_topicTrackingStatesRawJson == null &&
+        _topicTrackingStatesCompleter == null) {
+      return null;
+    }
+    await _decodeTopicTrackingStatesAsync();
     return _topicTrackingStates;
   }
 
@@ -407,6 +415,8 @@ class PreloadedDataService {
     _topicListResponseCompleter = null;
     _customEmoji = null;
     _topicTrackingStates = null;
+    _topicTrackingStatesRawJson = null;
+    _topicTrackingStatesCompleter = null;
     _enabledReactions = null;
     _topicTrackingStateMeta = null;
     _hasDiscourseSetup = false;
@@ -690,11 +700,18 @@ class PreloadedDataService {
 
       // 解析 topicTrackingStates（话题追踪状态）
       if (preloaded.containsKey('topicTrackingStates')) {
-        _topicTrackingStates = (preloaded['topicTrackingStates'] as List)
-            .cast<Map<String, dynamic>>();
-        debugPrint(
-          '[PreloadedData] topicTrackingStates: ${_topicTrackingStates?.length ?? 0} items',
-        );
+        final value = preloaded['topicTrackingStates'];
+        if (value is List) {
+          _topicTrackingStates = value.cast<Map<String, dynamic>>();
+          _topicTrackingStatesRawJson = null;
+          debugPrint(
+            '[PreloadedData] topicTrackingStates: ${_topicTrackingStates?.length ?? 0} items',
+          );
+        } else if (value is String && value.isNotEmpty) {
+          _topicTrackingStatesRawJson = value;
+          _topicTrackingStates = null;
+          debugPrint('[PreloadedData] topicTrackingStates 延迟解析');
+        }
       }
 
       // 解析 customEmoji（自定义 emoji）
@@ -787,6 +804,37 @@ class PreloadedDataService {
           _topicListResponseCompleter?.complete(null);
         });
   }
+
+  Future<void> _decodeTopicTrackingStatesAsync() async {
+    if (_topicTrackingStates != null) return;
+    final pending = _topicTrackingStatesCompleter;
+    if (pending != null) {
+      await pending.future;
+      return;
+    }
+
+    final rawJson = _topicTrackingStatesRawJson;
+    if (rawJson == null || rawJson.isEmpty) return;
+
+    final completer = Completer<List<Map<String, dynamic>>?>();
+    _topicTrackingStatesCompleter = completer;
+    try {
+      final decoded = await compute(_decodeTopicTrackingStatesInIsolate, rawJson);
+      _topicTrackingStates = decoded;
+      _topicTrackingStatesRawJson = null;
+      debugPrint(
+        '[PreloadedData] topicTrackingStates 异步解析成功: ${decoded?.length ?? 0} items',
+      );
+      completer.complete(decoded);
+    } catch (e) {
+      debugPrint('[PreloadedData] 异步解析 topicTrackingStates 失败: $e');
+      completer.complete(null);
+    } finally {
+      if (identical(_topicTrackingStatesCompleter, completer)) {
+        _topicTrackingStatesCompleter = null;
+      }
+    }
+  }
 }
 
 Map<String, dynamic>? _decodeTopicListInIsolate(String rawJson) {
@@ -798,6 +846,14 @@ Map<String, dynamic>? _decodeTopicListInIsolate(String rawJson) {
     return decoded.cast<String, dynamic>();
   }
   return null;
+}
+
+List<Map<String, dynamic>>? _decodeTopicTrackingStatesInIsolate(
+  String rawJson,
+) {
+  final decoded = jsonDecode(rawJson);
+  if (decoded is! List) return null;
+  return decoded.cast<Map<String, dynamic>>();
 }
 
 Map<String, dynamic>? _decodePreloadedJsonInIsolate(String rawJson) {
@@ -819,9 +875,18 @@ Map<String, dynamic>? _decodePreloadedJsonInIsolate(String rawJson) {
     return null;
   }
 
-  // 内层 value 也是 JSON 字符串，一并在 Isolate 中解码
-  // 避免回到主线程后多次 jsonDecode 阻塞 UI
+  // 内层 value 也是 JSON 字符串；这里只解启动首屏必须同步可用的 key。
+  // 大体积但非首屏硬依赖的数据（topicTrackingStates / topic_list）保持 raw
+  // 字符串，后续按需异步解码，避免卡住 ensureLoaded 的关键路径。
+  const eagerKeys = {
+    'currentUser',
+    'siteSettings',
+    'site',
+    'topicTrackingStateMeta',
+    'customEmoji',
+  };
   for (final key in result.keys.toList()) {
+    if (!eagerKeys.contains(key)) continue;
     final value = result[key];
     if (value is String) {
       try {
@@ -838,14 +903,17 @@ Map<String, dynamic>? _decodePreloadedJsonInIsolate(String rawJson) {
 List<String> _extractPluginCandidatesInIsolate(List<String> input) {
   final html = input[0];
   final baseUrl = input[1];
-  final pattern = RegExp(
-    r'''(https?://[^"'\s<>]+/assets/[^"'\s<>]*plugins/[^"'\s<>]+?\.js(?:\?[^"'\s<>]*)?|/assets/[^"'\s<>]*plugins/[^"'\s<>]+?\.js(?:\?[^"'\s<>]*)?)''',
-  );
   final seen = <String>{};
   final ordered = <String>[];
-  for (final match in pattern.allMatches(html)) {
-    final raw = match.group(1);
-    if (raw == null || raw.isEmpty) continue;
+  var index = 0;
+  while (true) {
+    final pluginIndex = html.indexOf('/plugins/', index);
+    if (pluginIndex < 0) break;
+
+    final raw = _extractPluginCandidateAround(html, pluginIndex);
+    index = pluginIndex + '/plugins/'.length;
+    if (raw == null) continue;
+
     final normalized = _normalizePluginCandidateUrl(raw, baseUrl);
     if (normalized == null) continue;
     if (seen.add(normalized)) {
@@ -853,6 +921,46 @@ List<String> _extractPluginCandidatesInIsolate(List<String> input) {
     }
   }
   return ordered;
+}
+
+String? _extractPluginCandidateAround(String html, int pluginIndex) {
+  var start = pluginIndex;
+  while (start > 0 && !_isPluginCandidateBoundary(html.codeUnitAt(start - 1))) {
+    start--;
+  }
+
+  var end = pluginIndex + '/plugins/'.length;
+  while (end < html.length && !_isPluginCandidateBoundary(html.codeUnitAt(end))) {
+    end++;
+  }
+
+  var raw = html.substring(start, end);
+  if (!raw.contains('/assets/')) return null;
+  if (!raw.startsWith('http://') &&
+      !raw.startsWith('https://') &&
+      !raw.startsWith('/assets/')) {
+    return null;
+  }
+
+  final jsIndex = raw.indexOf('.js', raw.indexOf('/plugins/'));
+  if (jsIndex < 0) return null;
+  final afterJs = jsIndex + '.js'.length;
+  if (afterJs >= raw.length || raw.codeUnitAt(afterJs) != 0x3f) {
+    raw = raw.substring(0, afterJs);
+  }
+  if (raw.isEmpty) return null;
+  return raw;
+}
+
+bool _isPluginCandidateBoundary(int codeUnit) {
+  return codeUnit == 0x22 || // "
+      codeUnit == 0x27 || // '
+      codeUnit == 0x3c || // <
+      codeUnit == 0x3e || // >
+      codeUnit == 0x20 ||
+      codeUnit == 0x09 ||
+      codeUnit == 0x0a ||
+      codeUnit == 0x0d;
 }
 
 String? _normalizePluginCandidateUrl(String raw, String baseUrl) {

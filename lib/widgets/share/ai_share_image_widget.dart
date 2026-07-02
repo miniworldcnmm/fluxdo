@@ -7,10 +7,10 @@ import 'package:markdown/markdown.dart' as md;
 import '../../constants.dart';
 import '../../l10n/s.dart';
 import '../../services/emoji_handler.dart';
+import '../../utils/fluxdo_render_callbacks.dart';
 import '../../utils/url_helper.dart';
 import '../../utils/time_utils.dart';
 import '../common/emoji_text.dart';
-import '../content/discourse_html_content/discourse_html_content_widget.dart';
 import 'share_image_preview.dart';
 
 /// AI 分享图片 Widget
@@ -213,18 +213,8 @@ class AiShareImageWidget extends StatelessWidget {
         color: cardColor,
         borderRadius: BorderRadius.circular(8),
       ),
-      child: DiscourseHtmlContent(
-        html: html,
-        textStyle: TextStyle(
-          fontSize: 14,
-          height: 1.6,
-          color: textColor.withValues(alpha: 0.85),
-        ),
-        compact: false,
-        enableSelectionArea: false,
-        enablePanguSpacing: false,
-        screenshotMode: true,
-      ),
+      child: FluxdoRenderCallbacks.generic(heroTagNamespace: 'ai_share_${message.hashCode}')
+          .render(cookedHtml: html, baseTextStyle: TextStyle(fontSize: 14, height: 1.6, color: textColor.withValues(alpha: 0.85)), selectionEnabled: false, screenshotMode: true),
     );
   }
 

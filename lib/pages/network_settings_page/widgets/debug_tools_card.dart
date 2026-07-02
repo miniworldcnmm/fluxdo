@@ -3,6 +3,7 @@ import 'package:app_icons/app_icons.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../l10n/s.dart';
+import '../../../widgets/common/segmented_card_group.dart';
 import '../../app_logs_page.dart';
 
 /// 调试工具卡片
@@ -43,46 +44,31 @@ class _DebugToolsCardState extends State<DebugToolsCard> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final divider = Divider(
-      height: 1,
-      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
-    );
-
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
+    return SegmentedCardGroup(
+      children: [
+        ListTile(
+          leading: const Icon(Symbols.article_rounded),
+          title: Text(context.l10n.appLogs_title),
+          trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
+          onTap: () => _openLogs(LogTypeFilter.all),
+        ),
+        ListTile(
+          leading: const Icon(Symbols.dns_rounded),
+          title: Text(context.l10n.debugTools_networkLogs),
+          subtitle: Text(context.l10n.debugTools_networkLogsDesc),
+          trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
+          onTap: () => _openLogs(LogTypeFilter.network),
+        ),
+        // CF 验证日志（开发者模式）
+        if (_isDeveloperMode)
           ListTile(
-            leading: const Icon(Symbols.article_rounded),
-            title: Text(context.l10n.appLogs_title),
+            leading: const Icon(Symbols.shield_rounded),
+            title: Text(context.l10n.debugTools_cfLogs),
+            subtitle: Text(context.l10n.debugTools_cfLogsDesc),
             trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
-            onTap: () => _openLogs(LogTypeFilter.all),
+            onTap: () => _openLogs(LogTypeFilter.cfChallenge),
           ),
-          divider,
-          ListTile(
-            leading: const Icon(Symbols.dns_rounded),
-            title: Text(context.l10n.debugTools_networkLogs),
-            subtitle: Text(context.l10n.debugTools_networkLogsDesc),
-            trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
-            onTap: () => _openLogs(LogTypeFilter.network),
-          ),
-          // CF 验证日志（开发者模式）
-          if (_isDeveloperMode) ...[
-            divider,
-            ListTile(
-              leading: const Icon(Symbols.shield_rounded),
-              title: Text(context.l10n.debugTools_cfLogs),
-              subtitle: Text(context.l10n.debugTools_cfLogsDesc),
-              trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
-              onTap: () => _openLogs(LogTypeFilter.cfChallenge),
-            ),
-          ],
-        ],
-      ),
+      ],
     );
   }
 }

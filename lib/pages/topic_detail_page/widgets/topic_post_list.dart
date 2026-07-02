@@ -1,19 +1,18 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent, SelectedContent;
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import '../../../l10n/s.dart';
 import '../../../models/topic.dart';
 import '../../../providers/message_bus_providers.dart';
 import '../../../services/toast_service.dart';
-import '../../../utils/code_selection_context.dart';
 import '../../../utils/responsive.dart';
 import '../../../utils/time_utils.dart';
 import '../../../widgets/common/loading_spinner.dart';
-import '../../../widgets/content/discourse_html_content/chunked/html_chunk.dart';
+import 'package:fluxdo_render/fluxdo_render.dart' show HtmlChunk;
 import '../../../widgets/post/post_item/post_item.dart';
-import '../../../widgets/post/post_item/quote_selection_helper.dart';
 import '../../../widgets/post/post_item/segmented_long_post.dart';
 import 'topic_detail_header.dart';
 import 'shared_issue_button.dart';
@@ -34,7 +33,6 @@ class TopicPostList extends StatefulWidget {
   final GlobalKey headerKey;
   final int? selectedPostNumber;
   final int? highlightPostNumber;
-  final List<TypingUser> typingUsers;
   final bool isLoggedIn;
   final bool hasMoreBefore;
   final bool hasMoreAfter;
@@ -95,7 +93,6 @@ class TopicPostList extends StatefulWidget {
     required this.highlightPostNumber,
     this.highlightBoostUsername,
     this.hideHeaderTitle = false,
-    required this.typingUsers,
     required this.isLoggedIn,
     required this.hasMoreBefore,
     required this.hasMoreAfter,
@@ -143,11 +140,14 @@ class _TopicPostListState extends State<TopicPostList> {
   Map<int, int> _postIndexToScrollIndex = const {};
   Map<int, int> _scrollIndexToPostNumber = const {};
 
+  /// segments 记忆化依据：posts / gaps 均为不可变数据(riverpod 状态更新
+  /// 总是换新实例)，身份不变即内容不变，build 时可跳过整个重建
+  List<Post>? _segmentsSourcePosts;
+  PostStreamGaps? _segmentsSourceGaps;
+
   /// postNumber → postIndex 反查表（避免 indexWhere 线性查找）
   Map<int, int> _postNumberToIndex = const {};
-  SelectedContent? _lastLongPostSelectedContent;
-  Post? _activeLongSelectionPost;
-  CodeSelectionContext? _lastLongCodeSelectionContext;
+  final Map<int, _LongPostRenderCacheEntry> _longPostRenderCache = {};
 
   @override
   void initState() {
@@ -167,7 +167,6 @@ class _TopicPostListState extends State<TopicPostList> {
   GlobalKey get headerKey => widget.headerKey;
   int? get selectedPostNumber => widget.selectedPostNumber;
   int? get highlightPostNumber => widget.highlightPostNumber;
-  List<TypingUser> get typingUsers => widget.typingUsers;
   bool get isLoggedIn => widget.isLoggedIn;
   bool get hasMoreBefore => widget.hasMoreBefore;
   bool get hasMoreAfter => widget.hasMoreAfter;
@@ -373,16 +372,27 @@ class _TopicPostListState extends State<TopicPostList> {
   }
 
   void _buildRenderSegments(List<Post> posts) {
+    // posts 与 gaps 身份都没变 → segments/映射表必然一致，直接复用。
+    // 高亮/选中/typing 等高频 rebuild 不再重付 O(N) 的分段与建表成本
+    final gaps = detail.postStream.gaps;
+    if (identical(_segmentsSourcePosts, posts) &&
+        identical(_segmentsSourceGaps, gaps)) {
+      return;
+    }
+    _segmentsSourcePosts = posts;
+    _segmentsSourceGaps = gaps;
+
     final segments = <_PostRenderSegment>[];
     final postIndexToScrollIndex = <int, int>{};
     final scrollIndexToPostNumber = <int, int>{};
     final postNumberToIndex = <int, int>{};
     final postSegmentRanges =
         <int, ({int firstScrollIndex, int lastScrollIndex})>{};
-    final gaps = detail.postStream.gaps;
+    final activePostIds = <int>{};
 
     for (int postIndex = 0; postIndex < posts.length; postIndex++) {
       final post = posts[postIndex];
+      activePostIds.add(post.id);
       final firstScrollIndex = segments.length;
 
       // 检查此帖子前面是否有 gap
@@ -401,8 +411,14 @@ class _TopicPostListState extends State<TopicPostList> {
         }
       }
 
-      final renderData = LongPostRenderData.fromHtml(post.cooked);
-      final useLongSegments = renderData.chunks.isNotEmpty;
+      // 长帖分段:新引擎用 NewEngineLongPostData(切预处理后 cooked,每 chunk 一个
+      // FluxdoRender,sliver 虚拟化 → 不卡 + 滚动锚定原生)。
+      final NewEngineLongPostData? newEngineData;
+      final List<HtmlChunk> longChunks;
+      final longPostCache = _longPostDataFor(post);
+      newEngineData = longPostCache.newEngineData;
+      longChunks = longPostCache.chunks;
+      final useLongSegments = longChunks.isNotEmpty;
 
       postIndexToScrollIndex[postIndex] = segments.length;
       postNumberToIndex[post.postNumber] = postIndex;
@@ -426,16 +442,16 @@ class _TopicPostListState extends State<TopicPostList> {
           ),
         );
 
-        for (final chunk in renderData.chunks) {
+        for (var ci = 0; ci < longChunks.length; ci++) {
           scrollIndexToPostNumber[segments.length] = post.postNumber;
           segments.add(
             _PostRenderSegment.chunk(
               scrollIndex: segments.length,
               postIndex: postIndex,
               post: post,
-              chunkIndex: chunk.index,
-              chunkData: chunk,
-              renderData: renderData,
+              chunkIndex: ci,
+              chunkData: longChunks[ci],
+              newEngineData: newEngineData,
             ),
           );
         }
@@ -472,6 +488,9 @@ class _TopicPostListState extends State<TopicPostList> {
       );
     }
 
+    _longPostRenderCache.removeWhere(
+      (postId, _) => !activePostIds.contains(postId),
+    );
     _renderSegments = segments;
     _postIndexToScrollIndex = postIndexToScrollIndex;
     _scrollIndexToPostNumber = scrollIndexToPostNumber;
@@ -481,9 +500,52 @@ class _TopicPostListState extends State<TopicPostList> {
     widget.onPostSegmentRangesChanged?.call(postSegmentRanges);
   }
 
-  void _rememberLongSelectionPost(Post post) {
-    _activeLongSelectionPost = post;
-    CodeSelectionContextTracker.instance.clear();
+  _LongPostRenderCacheEntry _longPostDataFor(Post post) {
+    final signature = _longPostRenderSignature(post);
+    final cached = _longPostRenderCache[post.id];
+    if (cached != null &&
+        identical(cached.post, post) &&
+        cached.signature == signature) {
+      return cached;
+    }
+
+    final entry = _LongPostRenderCacheEntry(
+      post: post,
+      signature: signature,
+      newEngineData: NewEngineLongPostData.tryBuild(
+        post,
+        topicId: detail.id,
+        onQuoteImage: onQuoteImage,
+      ),
+    );
+    _longPostRenderCache[post.id] = entry;
+    return entry;
+  }
+
+  int _longPostRenderSignature(Post post) {
+    final mentionedUsers = post.mentionedUsers;
+    final linkCounts = post.linkCounts;
+    return Object.hash(
+      post.cooked.length,
+      post.cooked.hashCode,
+      mentionedUsers == null
+          ? 0
+          : Object.hashAll(mentionedUsers.map((u) => Object.hash(
+                u.id,
+                u.username,
+                u.statusEmoji,
+                u.statusDescription,
+              ))),
+      linkCounts == null
+          ? 0
+          : Object.hashAll(linkCounts.map((l) => Object.hash(
+                l.url,
+                l.clicks,
+                l.title,
+                l.internal,
+                l.reflection,
+              ))),
+    );
   }
 
   @override
@@ -493,53 +555,20 @@ class _TopicPostListState extends State<TopicPostList> {
     _buildRenderSegments(posts);
     final centerScrollIndex = _postIndexToScrollIndex[centerPostIndex] ?? 0;
 
-    return SelectionArea(
-      onSelectionChanged: (content) {
-        _lastLongPostSelectedContent = content;
-        _lastLongCodeSelectionContext =
-            CodeSelectionContextTracker.instance.current;
-        if (content == null) {
-          _activeLongSelectionPost = null;
-          _lastLongCodeSelectionContext = null;
-        }
-      },
-      contextMenuBuilder: (context, state) {
-        final plainText = _lastLongPostSelectedContent?.plainText;
-        final canQuote =
-            onQuoteSelection != null &&
-            _activeLongSelectionPost != null &&
-            plainText != null &&
-            plainText.isNotEmpty;
-        if (!canQuote) {
-          return AdaptiveTextSelectionToolbar.buttonItems(
-            anchors: state.contextMenuAnchors,
-            buttonItems: state.contextMenuButtonItems,
-          );
-        }
-        final items = QuoteSelectionHelper.buildMenuItems(
-          baseItems: state.contextMenuButtonItems,
-          plainText: _lastLongPostSelectedContent?.plainText,
-          post: _activeLongSelectionPost,
-          hideToolbar: state.hideToolbar,
-          topicId: detail.id,
-          onQuoteSelection: onQuoteSelection,
-          codeContext: _lastLongCodeSelectionContext,
-        );
-        return AdaptiveTextSelectionToolbar.buttonItems(
-          anchors: state.contextMenuAnchors,
-          buttonItems: items,
-        );
-      },
-      child: NotificationListener<ScrollNotification>(
-        onNotification: _handleScrollNotification,
-        child: Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerSignal: (event) {
-            if (event is PointerScrollEvent) {
-              widget.onPointerScroll?.call(event.scrollDelta.dy);
-            }
-          },
-          child: CustomScrollView(
+    // 不再包系统 SelectionArea:正文选区全部由 FluxdoRender 自研选区承担
+    // (含未登录场景 —— toolbar 降级只留「复制」),header/footer 等本就
+    // SelectionContainer.disabled。省掉整个滚动区的系统选区手势竞技场
+    // 竞争与 registrar 树维护。
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleScrollNotification,
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerSignal: (event) {
+          if (event is PointerScrollEvent) {
+            widget.onPointerScroll?.call(event.scrollDelta.dy);
+          }
+        },
+        child: CustomScrollView(
             controller: scrollController,
             center: centerKey,
             scrollCacheExtent: ScrollCacheExtent.pixels(500),
@@ -635,6 +664,8 @@ class _TopicPostListState extends State<TopicPostList> {
                 ),
 
               // 正在输入指示器（始终占位，通过 AnimatedSize 平滑过渡避免列表抖动）
+              // Consumer 放在 sliver 内部：typingUsers 变化只重建这一行头像，
+              // 不连累整个列表（此前 watch 在页面层，presence 消息 = 整列表 rebuild）
               if (!hasMoreAfter)
                 SliverToBoxAdapter(
                   child: _wrapContent(
@@ -643,7 +674,16 @@ class _TopicPostListState extends State<TopicPostList> {
                       child: AnimatedSize(
                         duration: const Duration(milliseconds: 200),
                         alignment: Alignment.topCenter,
-                        child: TypingAvatars(users: typingUsers),
+                        child: Consumer(
+                          builder: (context, ref, _) {
+                            final typingUsers = ref.watch(
+                              topicChannelProvider(
+                                detail.id,
+                              ).select((s) => s.typingUsers),
+                            );
+                            return TypingAvatars(users: typingUsers);
+                          },
+                        ),
                       ),
                     ),
                   ),
@@ -666,8 +706,7 @@ class _TopicPostListState extends State<TopicPostList> {
             ],
           ),
         ),
-      ),
-    );
+      );
   }
 
   /// 判断是否需要显示日期分割线
@@ -774,14 +813,22 @@ class _TopicPostListState extends State<TopicPostList> {
         );
         break;
       case _PostRenderSegmentType.longChunk:
-        child = LongPostChunkSegment(
+        final data = segment.newEngineData!;
+        final ci = segment.chunkIndex!;
+        child = NewEngineChunkSegment(
           post: post,
           topicId: detail.id,
           selected: isSelectedPost,
           highlight: highlight,
           chunk: segment.chunkData!,
-          renderData: segment.renderData!,
-          onQuoteImage: onQuoteImage,
+          chunkIndex: ci,
+          // 懒解析:首次进入 cacheExtent 时才 parse 该 chunk(带前缀补齐),
+          // 避免进话题/分页落地帧一次性解析长帖所有 chunk
+          imageIndexOffset: data.imageOffsetAt(ci),
+          parsedNodes: data.parsedChunkAt(ci),
+          footnotesHtml: data.footnotesHtml,
+          callbacks: data.callbacks,
+          onQuoteSelection: onQuoteSelection,
         );
         break;
       case _PostRenderSegmentType.longFooter:
@@ -843,13 +890,7 @@ class _TopicPostListState extends State<TopicPostList> {
         key: ValueKey(_segmentKey(segment)),
         controller: scrollController,
         index: segment.scrollIndex,
-        child: segment.type == _PostRenderSegmentType.shortPost
-            ? child
-            : Listener(
-                behavior: HitTestBehavior.translucent,
-                onPointerDown: (_) => _rememberLongSelectionPost(post),
-                child: child,
-              ),
+        child: child,
       ),
     );
 
@@ -866,6 +907,21 @@ enum _PostRenderSegmentType {
   gapAfter,
 }
 
+class _LongPostRenderCacheEntry {
+  final Post post;
+  final int signature;
+  final NewEngineLongPostData? newEngineData;
+
+  const _LongPostRenderCacheEntry({
+    required this.post,
+    required this.signature,
+    this.newEngineData,
+  });
+
+  List<HtmlChunk> get chunks =>
+      newEngineData?.chunks ?? const <HtmlChunk>[];
+}
+
 class _PostRenderSegment {
   final _PostRenderSegmentType type;
   final int scrollIndex;
@@ -873,7 +929,7 @@ class _PostRenderSegment {
   final Post post;
   final int? chunkIndex;
   final HtmlChunk? chunkData;
-  final LongPostRenderData? renderData;
+  final NewEngineLongPostData? newEngineData;
   final int gapCount; // gap 段中隐藏帖子的数量
 
   const _PostRenderSegment._({
@@ -883,7 +939,7 @@ class _PostRenderSegment {
     required this.post,
     this.chunkIndex,
     this.chunkData,
-    this.renderData,
+    this.newEngineData,
     this.gapCount = 0,
   });
   factory _PostRenderSegment.shortPost({
@@ -918,7 +974,7 @@ class _PostRenderSegment {
     required Post post,
     required int chunkIndex,
     required HtmlChunk chunkData,
-    required LongPostRenderData renderData,
+    NewEngineLongPostData? newEngineData,
   }) {
     return _PostRenderSegment._(
       type: _PostRenderSegmentType.longChunk,
@@ -927,7 +983,7 @@ class _PostRenderSegment {
       post: post,
       chunkIndex: chunkIndex,
       chunkData: chunkData,
-      renderData: renderData,
+      newEngineData: newEngineData,
     );
   }
 

@@ -14,6 +14,7 @@ import '../settings/definitions/bottom_nav_defs.dart';
 import '../settings/settings_model.dart';
 import '../settings/settings_renderer.dart';
 import '../utils/dialog_utils.dart';
+import '../widgets/common/segmented_card_group.dart';
 
 /// 底栏设置页
 ///
@@ -222,31 +223,20 @@ class _BottomNavSettingsPageState
           else
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Card(
-                child: Column(
-                  children: [
-                    for (int i = 0; i < available.length; i++) ...[
-                      _AvailableTile(
-                        entry: available[i],
-                        canAdd: NavEntryRegistry.isAvailable(
-                              available[i],
-                              user,
-                            ) &&
-                            enabled.length < _maxCount,
-                        needsLogin:
-                            available[i].requiresLogin && user == null,
-                        onAdd: () => _addEntry(available[i]),
-                      ),
-                      if (i < available.length - 1)
-                        Divider(
-                          height: 1,
-                          indent: 56,
-                          color: theme.colorScheme.outlineVariant
-                              .withValues(alpha: 0.3),
-                        ),
-                    ],
-                  ],
-                ),
+              child: SegmentedCardGroup(
+                children: [
+                  for (final entry in available)
+                    _AvailableTile(
+                      entry: entry,
+                      canAdd: NavEntryRegistry.isAvailable(
+                            entry,
+                            user,
+                          ) &&
+                          enabled.length < _maxCount,
+                      needsLogin: entry.requiresLogin && user == null,
+                      onAdd: () => _addEntry(entry),
+                    ),
+                ],
               ),
             ),
           const SizedBox(height: 20),
@@ -543,25 +533,10 @@ class _GestureGroup extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                for (int i = 0; i < group.items.length; i++) ...[
-                  SettingsRenderer(model: group.items[i]),
-                  if (i < group.items.length - 1)
-                    Divider(
-                      height: 1,
-                      indent: 56,
-                      color: theme.colorScheme.outlineVariant
-                          .withValues(alpha: 0.3),
-                    ),
-                ],
-              ],
-            ),
+          child: SegmentedCardGroup(
+            children: [
+              for (final item in group.items) SettingsRenderer(model: item),
+            ],
           ),
         ),
         const SizedBox(height: 20),

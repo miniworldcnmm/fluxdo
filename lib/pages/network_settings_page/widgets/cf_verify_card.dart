@@ -6,6 +6,7 @@ import '../../../l10n/s.dart';
 import '../../../providers/preferences_provider.dart';
 import '../../../services/cf_challenge_service.dart';
 import '../../../services/toast_service.dart';
+import '../../../widgets/common/segmented_card_group.dart';
 
 /// Cloudflare 验证独立卡片：自动验证开关 + 立即验证入口
 class CfVerifyCard extends ConsumerWidget {
@@ -13,38 +14,29 @@ class CfVerifyCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final autoEnabled = ref.watch(
       preferencesProvider.select((p) => p.autoCfChallenge),
     );
 
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Column(
-        children: [
-          SwitchListTile(
-            secondary: const Icon(Symbols.shield_rounded),
-            title: Text(context.l10n.cfVerify_autoTitle),
-            subtitle: Text(context.l10n.cfVerify_autoDesc),
-            value: autoEnabled,
-            onChanged: (value) => ref
-                .read(preferencesProvider.notifier)
-                .setAutoCfChallenge(value),
-          ),
-          Divider(
-            height: 1,
-            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
-          ),
-          ListTile(
-            leading: const Icon(Symbols.security_rounded),
-            title: Text(context.l10n.cf_securityVerifyTitle),
-            subtitle: Text(context.l10n.error_securityChallenge),
-            trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
-            onTap: () => _showManualVerify(context),
-          ),
-        ],
-      ),
+    return SegmentedCardGroup(
+      children: [
+        SwitchListTile(
+          secondary: const Icon(Symbols.shield_rounded),
+          title: Text(context.l10n.cfVerify_autoTitle),
+          subtitle: Text(context.l10n.cfVerify_autoDesc),
+          value: autoEnabled,
+          onChanged: (value) => ref
+              .read(preferencesProvider.notifier)
+              .setAutoCfChallenge(value),
+        ),
+        ListTile(
+          leading: const Icon(Symbols.security_rounded),
+          title: Text(context.l10n.cf_securityVerifyTitle),
+          subtitle: Text(context.l10n.error_securityChallenge),
+          trailing: const Icon(Symbols.chevron_right_rounded, size: 20),
+          onTap: () => _showManualVerify(context),
+        ),
+      ],
     );
   }
 

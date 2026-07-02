@@ -12,6 +12,7 @@ import '../../services/network/doh/network_settings_service.dart';
 import '../../services/network/doh_proxy/doh_proxy_ffi.dart';
 import '../../services/toast_service.dart';
 import '../../widgets/common/app_bottom_sheet.dart';
+import '../../widgets/common/segmented_card_group.dart';
 import 'package:common_ui/common_ui.dart';
 
 /// DOH 详细设置页面（服务器列表、IPv6、服务端 IP、ECH）
@@ -53,158 +54,76 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             children: [
               // IPv6 开关
-              Card(
-                clipBehavior: Clip.antiAlias,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  children: [
-                    SwitchListTile(
-                      title: Text(context.l10n.dohDetail_gatewayMode),
-                      subtitle: Text(
-                        settings.gatewayEnabled
-                            ? context.l10n.dohDetail_gatewayEnabledDesc
-                            : context.l10n.dohDetail_gatewayDisabledDesc,
-                      ),
-                      secondary: const Icon(Symbols.swap_horiz_rounded),
-                      value: settings.gatewayEnabled,
-                      onChanged: (value) => _service.setGatewayEnabled(value),
+              SegmentedCardGroup(
+                children: [
+                  SwitchListTile(
+                    title: Text(context.l10n.dohDetail_gatewayMode),
+                    subtitle: Text(
+                      settings.gatewayEnabled
+                          ? context.l10n.dohDetail_gatewayEnabledDesc
+                          : context.l10n.dohDetail_gatewayDisabledDesc,
                     ),
-                    Divider(
-                      height: 1,
-                      color: theme.colorScheme.outlineVariant.withValues(
-                        alpha: 0.2,
-                      ),
+                    secondary: const Icon(Symbols.swap_horiz_rounded),
+                    value: settings.gatewayEnabled,
+                    onChanged: (value) => _service.setGatewayEnabled(value),
+                  ),
+                  SwitchListTile(
+                    title: Text(context.l10n.dohDetail_h2Mitm),
+                    subtitle: Text(
+                      settings.h2Mitm
+                          ? context.l10n.dohDetail_h2MitmEnabledDesc
+                          : context.l10n.dohDetail_h2MitmDisabledDesc,
                     ),
-                    SwitchListTile(
-                      title: Text(context.l10n.dohDetail_h2Mitm),
-                      subtitle: Text(
-                        settings.h2Mitm
-                            ? context.l10n.dohDetail_h2MitmEnabledDesc
-                            : context.l10n.dohDetail_h2MitmDisabledDesc,
-                      ),
-                      secondary: const Icon(Symbols.bolt_rounded),
-                      value: settings.h2Mitm,
-                      onChanged: (value) => _service.setH2Mitm(value),
-                    ),
-                    Divider(
-                      height: 1,
-                      color: theme.colorScheme.outlineVariant.withValues(
-                        alpha: 0.2,
-                      ),
-                    ),
-                    SwitchListTile(
-                      title: Text(context.l10n.dohDetail_ipv6Prefer),
-                      subtitle: Text(context.l10n.dohDetail_ipv6PreferDesc),
-                      secondary: const Icon(Symbols.language_rounded),
-                      value: settings.preferIPv6,
-                      onChanged: (value) => _service.setPreferIPv6(value),
-                    ),
-                    Divider(
-                      height: 1,
-                      color: theme.colorScheme.outlineVariant.withValues(
-                        alpha: 0.2,
-                      ),
-                    ),
-                    // Server IP
-                    ListTile(
-                      leading: const Icon(Symbols.dns_rounded),
-                      title: Text(context.l10n.dohDetail_serverIp),
-                      subtitle: Text(
-                        settings.serverIp != null &&
-                                settings.serverIp!.isNotEmpty
-                            ? settings.serverIp!
-                            : context.l10n.common_notSet,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                      trailing:
-                          settings.serverIp != null &&
+                    secondary: const Icon(Symbols.bolt_rounded),
+                    value: settings.h2Mitm,
+                    onChanged: (value) => _service.setH2Mitm(value),
+                  ),
+                  SwitchListTile(
+                    title: Text(context.l10n.dohDetail_ipv6Prefer),
+                    subtitle: Text(context.l10n.dohDetail_ipv6PreferDesc),
+                    secondary: const Icon(Symbols.language_rounded),
+                    value: settings.preferIPv6,
+                    onChanged: (value) => _service.setPreferIPv6(value),
+                  ),
+                  // Server IP
+                  ListTile(
+                    leading: const Icon(Symbols.dns_rounded),
+                    title: Text(context.l10n.dohDetail_serverIp),
+                    subtitle: Text(
+                      settings.serverIp != null &&
                               settings.serverIp!.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Symbols.clear_rounded, size: 20),
-                              tooltip: context.l10n.common_clear,
-                              onPressed: () => _service.setServerIp(null),
-                            )
-                          : null,
-                      onTap: () => _showServerIpDialog(),
+                          ? settings.serverIp!
+                          : context.l10n.common_notSet,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ],
-                ),
+                    trailing:
+                        settings.serverIp != null &&
+                            settings.serverIp!.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Symbols.clear_rounded, size: 20),
+                            tooltip: context.l10n.common_clear,
+                            onPressed: () => _service.setServerIp(null),
+                          )
+                        : null,
+                    onTap: () => _showServerIpDialog(),
+                  ),
+                ],
               ),
               const SizedBox(height: 24),
 
               // 服务器列表
               _buildSectionHeader(theme, context.l10n.dohDetail_servers),
               const SizedBox(height: 12),
-              Card(
-                clipBehavior: Clip.antiAlias,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  children: [
-                    // 工具栏
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 8, 0),
-                      child: Row(
-                        children: [
-                          const Spacer(),
-                          TextButton.icon(
-                            onPressed: _testingAll ? null : _testAllServers,
-                            icon: _testingAll
-                                ? const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                    ),
-                                  )
-                                : const Icon(Symbols.speed_rounded, size: 16),
-                            label: Text(
-                              _testingAll
-                                  ? context.l10n.dohDetail_testingSpeed
-                                  : context.l10n.dohDetail_testAllSpeed,
-                            ),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                              ),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: _showAddServerDialog,
-                            icon: const Icon(Symbols.add_rounded, size: 16),
-                            label: Text(context.l10n.common_add),
-                            style: TextButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                              ),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // 服务器列表
-                    _buildServerList(theme, settings),
-                  ],
-                ),
-              ),
+              _buildServerList(theme, settings),
               const SizedBox(height: 24),
 
               // ECH 服务器选择
               _buildSectionHeader(theme, 'ECH'),
               const SizedBox(height: 12),
-              Card(
-                clipBehavior: Clip.antiAlias,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: _buildEchServerSelector(theme, settings),
+              SegmentedCardGroup(
+                children: [_buildEchServerSelector(theme, settings)],
               ),
               const SizedBox(height: 24),
 
@@ -213,13 +132,7 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
                 context.l10n.dohDetail_dnsCacheSection,
               ),
               const SizedBox(height: 12),
-              Card(
-                clipBehavior: Clip.antiAlias,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: _buildDnsCacheCard(theme),
-              ),
+              _buildDnsCacheCard(theme),
               const SizedBox(height: 32),
             ],
           ),
@@ -243,17 +156,53 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
       onChanged: (value) {
         if (value != null) _service.setSelectedServer(value);
       },
-      child: Column(
+      child: SegmentedCardGroup(
         children: [
-          for (int i = 0; i < servers.length; i++) ...[
-            _buildServerTile(theme, servers[i], settings),
-            if (i != servers.length - 1)
-              Divider(
-                height: 1,
-                indent: 56,
-                color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
-              ),
-          ],
+          // 工具栏
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 4, 8, 4),
+            child: Row(
+              children: [
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _testingAll ? null : _testAllServers,
+                  icon: _testingAll
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Icon(Symbols.speed_rounded, size: 16),
+                  label: Text(
+                    _testingAll
+                        ? context.l10n.dohDetail_testingSpeed
+                        : context.l10n.dohDetail_testAllSpeed,
+                  ),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: _showAddServerDialog,
+                  icon: const Icon(Symbols.add_rounded, size: 16),
+                  label: Text(context.l10n.common_add),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          for (final server in servers)
+            _buildServerTile(theme, server, settings),
           if (servers.isEmpty)
             Padding(
               padding: const EdgeInsets.all(24),
@@ -482,7 +431,7 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
 
   Widget _buildDnsCacheCard(ThemeData theme) {
     final cacheCount = _service.dnsCacheEntryCount;
-    return Column(
+    return SegmentedCardGroup(
       children: [
         ListTile(
           leading: const Icon(Symbols.storage_rounded),
@@ -498,10 +447,6 @@ class _DohDetailSettingsPageState extends State<DohDetailSettingsPage> {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-        ),
-        Divider(
-          height: 1,
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2),
         ),
         Padding(
           padding: const EdgeInsets.all(16),

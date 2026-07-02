@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:app_icons/app_icons.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,6 +51,9 @@ Future<ProviderContainer> _createContainer({
 }) async {
   SharedPreferences.setMockInitialValues({
     'pref_bookmarks_open_mode': 'tabbedWorkspace',
+    'bookmark_last_full_sync_test_user': DateTime.now()
+        .toUtc()
+        .toIso8601String(),
   });
   final prefs = await SharedPreferences.getInstance();
 
@@ -138,6 +142,34 @@ Future<ProviderContainer> _createContainer({
   );
 }
 
+Future<ProviderContainer> _createContainerForWidgetTest(
+  WidgetTester tester, {
+  List<String>? suggestionRequests,
+}) async {
+  final container = (await tester.runAsync(
+    () => _createContainer(suggestionRequests: suggestionRequests),
+  ))!;
+  ProviderSubscription<AsyncValue<List<Topic>>>? sub;
+  await tester.runAsync(() async {
+    sub = container.listen<AsyncValue<List<Topic>>>(
+      bookmarksProvider,
+      (_, _) {},
+    );
+    await container.read(bookmarksProvider.future);
+    await container
+        .read(bookmarkNameSuggestionsProvider.notifier)
+        .ensureLoaded();
+  });
+  addTearDown(() => sub?.close());
+  return container;
+}
+
+Future<void> _pumpPage(WidgetTester tester) async {
+  for (var i = 0; i < 6; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
 Finder _findBookmarkInList(String title) {
   return find.descendant(
     of: find.byType(BookmarksListContent),
@@ -158,7 +190,8 @@ void main() {
     addTearDown(() => PlatformUtils.debugDesktopOverride = null);
 
     final suggestionRequests = <String>[];
-    final container = await _createContainer(
+    final container = await _createContainerForWidgetTest(
+      tester,
       suggestionRequests: suggestionRequests,
     );
     addTearDown(container.dispose);
@@ -169,7 +202,7 @@ void main() {
         child: const _BookmarksPageTestApp(),
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     final loaded = await container
         .read(bookmarkNameSuggestionsProvider.notifier)
@@ -178,26 +211,26 @@ void main() {
     expect(suggestionRequests, isEmpty);
 
     await tester.tap(_findBookmarkInList('Alpha'));
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(find.text('detail:1 active:true'), findsOneWidget);
     expect(_findWorkspaceTab('Alpha'), findsOneWidget);
 
     await tester.tap(_findWorkspaceTab('我的书签'));
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(find.text('detail:1 active:true'), findsNothing);
     expect(find.text('Alpha'), findsNWidgets(2));
 
     await tester.tap(_findBookmarkInList('Alpha'));
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(find.text('detail:1 active:true'), findsOneWidget);
     expect(_findWorkspaceTab('Alpha'), findsOneWidget);
     expect(find.text('Alpha'), findsOneWidget);
 
-    await tester.tap(find.byIcon(Icons.close_rounded));
-    await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Symbols.close_rounded));
+    await _pumpPage(tester);
 
     expect(find.text('detail:1 active:true'), findsNothing);
     expect(_findWorkspaceTab('Alpha'), findsNothing);
@@ -211,7 +244,7 @@ void main() {
     PlatformUtils.debugDesktopOverride = true;
     addTearDown(() => PlatformUtils.debugDesktopOverride = null);
 
-    final container = await _createContainer();
+    final container = await _createContainerForWidgetTest(tester);
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
@@ -220,38 +253,38 @@ void main() {
         child: const _BookmarksPageLifecycleHost(),
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     final hostState = tester.state<_BookmarksPageLifecycleHostState>(
       find.byType(_BookmarksPageLifecycleHost),
     );
 
     await tester.tap(_findBookmarkInList('Alpha'));
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(_findWorkspaceTab('Alpha'), findsOneWidget);
     expect(find.text('detail:1 active:true'), findsOneWidget);
 
     hostState.setActive(false);
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     hostState.setActive(true);
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(_findWorkspaceTab('Alpha'), findsNothing);
     expect(find.text('detail:1 active:true'), findsNothing);
     expect(find.text('Alpha'), findsOneWidget);
 
     await tester.tap(_findBookmarkInList('Alpha'));
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(_findWorkspaceTab('Alpha'), findsOneWidget);
 
     hostState.setVisible(false);
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     hostState.setVisible(true);
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(_findWorkspaceTab('Alpha'), findsNothing);
     expect(find.text('detail:1 active:true'), findsNothing);
@@ -262,7 +295,7 @@ void main() {
     PlatformUtils.debugDesktopOverride = true;
     addTearDown(() => PlatformUtils.debugDesktopOverride = null);
 
-    final container = await _createContainer();
+    final container = await _createContainerForWidgetTest(tester);
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
@@ -293,10 +326,10 @@ void main() {
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     await tester.tap(_findBookmarkInList('Alpha'));
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(find.text('detail:1 bookmark:101 type:Post'), findsOneWidget);
   });
@@ -307,7 +340,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(390, 844));
 
-    final container = await _createContainer();
+    final container = await _createContainerForWidgetTest(tester);
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
@@ -316,12 +349,12 @@ void main() {
         child: const _BookmarksPageTestApp(),
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(find.byType(BookmarksWorkspaceTabBar), findsNothing);
 
     await tester.tap(_findBookmarkInList('Alpha'));
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(find.text('detail:1 active:true'), findsOneWidget);
     expect(container.read(barVisibilityProvider), 0);
@@ -366,7 +399,7 @@ void main() {
     await tester.tap(
       find.byKey(const ValueKey('bookmark-workspace-mobile-count-button')),
     );
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(
       find.byKey(const ValueKey('bookmark-workspace-switcher-sheet')),
@@ -379,12 +412,12 @@ void main() {
         find.byKey(const ValueKey('bookmark-workspace-switcher-sheet')),
       ),
     ).pop();
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     await tester.tap(
       find.byKey(const ValueKey('bookmark-workspace-mobile-back')),
     );
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(container.read(barVisibilityProvider), 1);
     expect(
@@ -400,7 +433,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(390, 844));
 
-    final container = await _createContainer();
+    final container = await _createContainerForWidgetTest(tester);
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
@@ -409,17 +442,17 @@ void main() {
         child: const _BookmarksPageTestApp(),
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     await tester.tap(_findBookmarkInList('Alpha'));
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(find.text('detail:1 active:true'), findsOneWidget);
 
     await tester.tap(
       find.byKey(const ValueKey('bookmark-workspace-mobile-back')),
     );
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(container.read(barVisibilityProvider), 1);
     expect(find.text('detail:1 active:true'), findsNothing);
@@ -436,7 +469,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(390, 844));
 
-    final container = await _createContainer();
+    final container = await _createContainerForWidgetTest(tester);
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
@@ -445,15 +478,15 @@ void main() {
         child: const _BookmarksPageTestApp(),
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     await tester.tap(_findBookmarkInList('Alpha'));
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     await tester.tap(
       find.byKey(const ValueKey('bookmark-workspace-mobile-close')),
     );
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(container.read(barVisibilityProvider), 1);
     expect(find.text('detail:1 active:true'), findsNothing);
@@ -466,7 +499,7 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.binding.setSurfaceSize(const Size(390, 844));
 
-    final container = await _createContainer();
+    final container = await _createContainerForWidgetTest(tester);
     addTearDown(container.dispose);
 
     await tester.pumpWidget(
@@ -475,17 +508,17 @@ void main() {
         child: const _BookmarksPageTestApp(),
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     await tester.tap(_findBookmarkInList('Alpha'));
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     container.read(navActionBusProvider.notifier).state = const NavActionEvent(
       targetId: NavEntryIds.bookmarks,
       action: NavAction.scrollToTop,
       nonce: 1,
     );
-    await tester.pumpAndSettle();
+    await _pumpPage(tester);
 
     expect(find.text('detail:1 active:true'), findsNothing);
     expect(_findBookmarkInList('Alpha'), findsOneWidget);

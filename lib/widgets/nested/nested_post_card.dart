@@ -8,10 +8,10 @@ import '../../providers/nested_topic_provider.dart';
 import '../../providers/preferences_provider.dart';
 import '../../providers/topic_session_provider.dart';
 import '../../pages/user_profile_page.dart';
+import '../../utils/fluxdo_render_callbacks.dart';
 import '../../utils/responsive.dart';
 import '../../utils/time_utils.dart';
 import '../content/collapsed_html_content.dart';
-import '../content/discourse_html_content/chunked/chunked_html_content.dart';
 import '../post/post_item/widgets/post_footer_section/post_footer_section.dart';
 import '../common/smart_avatar.dart';
 import 'nested_collapsed_bar.dart';
@@ -507,16 +507,18 @@ class _NestedPostCardState extends ConsumerState<NestedPostCard> {
         _buildHeader(theme, post, isOp, isMobile: isMobile),
         const SizedBox(height: 4),
         // Content
-        ChunkedHtmlContent(
-          html: post.cooked,
-          textStyle: theme.textTheme.bodyMedium?.copyWith(
+        FluxdoRenderCallbacks.forPost(
+          post: post,
+          topicId: widget.topicId,
+        ).render(
+          cookedHtml: post.cooked,
+          baseTextStyle: theme.textTheme.bodyMedium?.copyWith(
             height: 1.5,
             fontSize:
                 (theme.textTheme.bodyMedium?.fontSize ?? 14) *
                 ref.watch(preferencesProvider).contentFontScale,
           ),
-          post: post,
-          topicId: widget.topicId,
+          selectionEnabled: false,
         ),
         // 用户签名
         if (ref.watch(preferencesProvider).showSignatures &&

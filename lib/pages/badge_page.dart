@@ -11,7 +11,7 @@ import '../widgets/common/error_view.dart';
 import '../widgets/common/loading_spinner.dart';
 import '../widgets/common/smart_avatar.dart';
 import '../widgets/badge/badge_ui_utils.dart';
-import '../widgets/content/discourse_html_content/discourse_html_content_widget.dart';
+import '../utils/fluxdo_render_callbacks.dart';
 import '../services/emoji_handler.dart';
 import 'topic_detail_page/topic_detail_page.dart';
 import 'user_profile_page.dart';
@@ -322,12 +322,17 @@ class _BadgeInfoCard extends StatelessWidget {
           const SizedBox(height: 24),
 
           // Descriptions
-          DiscourseHtmlContent(
-            html: EmojiHandler().replaceEmojis(badge.description),
-            textStyle: theme.textTheme.bodyMedium?.copyWith(
+          // 徽章描述属只读展示：走新引擎 FluxdoRender，关闭划词选区；
+          // 仍保留 EmojiHandler().replaceEmojis 预处理表情。
+          FluxdoRenderCallbacks.generic(
+            heroTagNamespace: 'badge_${badge.id}_desc',
+          ).render(
+            cookedHtml: EmojiHandler().replaceEmojis(badge.description),
+            baseTextStyle: theme.textTheme.bodyMedium?.copyWith(
               height: 1.6,
               fontSize: 16,
             ),
+            selectionEnabled: false,
           ),
 
           if (badge.longDescription != null &&
@@ -341,12 +346,15 @@ class _BadgeInfoCard extends StatelessWidget {
                 ),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: DiscourseHtmlContent(
-                html: EmojiHandler().replaceEmojis(badge.longDescription!),
-                textStyle: theme.textTheme.bodySmall?.copyWith(
+              child: FluxdoRenderCallbacks.generic(
+                heroTagNamespace: 'badge_${badge.id}_longdesc',
+              ).render(
+                cookedHtml: EmojiHandler().replaceEmojis(badge.longDescription!),
+                baseTextStyle: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                   height: 1.5,
                 ),
+                selectionEnabled: false,
               ),
             ),
           ],

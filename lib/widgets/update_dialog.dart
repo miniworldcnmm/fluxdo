@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
-import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:markdown/markdown.dart' as md;
-import 'package:url_launcher/url_launcher.dart';
 import '../l10n/s.dart';
 import '../services/update_service.dart';
+import '../utils/fluxdo_render_callbacks.dart';
 
 class UpdateDialog extends StatelessWidget {
   final UpdateInfo updateInfo;
@@ -134,24 +133,17 @@ class UpdateDialog extends StatelessWidget {
                     constraints: BoxConstraints(maxHeight: maxContentHeight),
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-                      child: HtmlWidget(
-                        md.markdownToHtml(updateInfo.releaseNotes),
-                        textStyle: theme.textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          height: 1.5,
-                          fontSize: 14,
-                        ),
-                        customStylesBuilder: (element) {
-                          if (element.localName == 'ul' ||
-                              element.localName == 'ol') {
-                            return {'padding-left': '20px'};
-                          }
-                          return null;
-                        },
-                        onTapUrl: (url) async {
-                           return await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-                        },
+                    child: FluxdoRenderCallbacks.generic(
+                      heroTagNamespace: 'update_notes',
+                    ).render(
+                      cookedHtml: md.markdownToHtml(updateInfo.releaseNotes),
+                      baseTextStyle: theme.textTheme.bodyMedium?.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                        height: 1.5,
+                        fontSize: 14,
                       ),
+                      selectionEnabled: false,
+                    ),
                     ),
                   ),
 

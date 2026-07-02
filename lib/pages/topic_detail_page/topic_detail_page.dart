@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../../services/app_error_handler.dart';
 import '../../services/notion/notion_bookmark_auto_sync.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart' show SchedulerBinding, Priority;
 import 'package:app_icons/app_icons.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
@@ -45,8 +46,6 @@ import '../../widgets/topic/topic_notification_button.dart';
 import 'package:common_ui/common_ui.dart';
 import '../../widgets/common/emoji_text.dart';
 import '../../widgets/common/error_view.dart';
-import '../../widgets/content/discourse_html_content/chunked/chunked_html_content.dart';
-import '../../widgets/content/discourse_html_content/discourse_html_content_widget.dart';
 import '../../providers/nested_topic_provider.dart';
 import 'controllers/topic_detail_controller.dart';
 import 'widgets/nested_post_list.dart';
@@ -210,6 +209,9 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   bool _isParentActive = true;
   bool _isScreenTrackRunning = false;
 
+  /// 初始定位期间被抑制的 eyeline 上报楼层（定位完成后回放）
+  int? _suppressedEyelinePostNumber;
+
   bool get _usesEmbeddedMobileWorkspaceChrome {
     return widget.embeddedMode &&
         PlatformUtils.isMobile &&
@@ -263,18 +265,22 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
         debugPrint(
           '[TopicDetail] onTimingsSent callback triggered: topicId=$topicId, highestSeen=$highestSeen',
         );
-        // 遍历所有分类 tab，更新所有活跃的 provider 实例
-        final pinnedIds = ref.read(pinnedCategoriesProvider);
-        final categoryIds = [null, ...pinnedIds];
-        for (final categoryId in categoryIds) {
-          ref
-              .read(topicListProvider(categoryId).notifier)
-              .updateSeen(topicId, highestSeen);
-        }
         // 更新会话已读状态，触发 PostItem 消除未读圆点
         ref
             .read(topicSessionProvider(topicId).notifier)
             .markAsRead(postNumbers);
+        // 遍历所有分类 tab 更新列表页 lastReadPostNumber。会重建栈底的
+        // 列表页,推迟到 idle 执行,避免上报回调恰好落在滚动帧内造成掉帧
+        SchedulerBinding.instance.scheduleTask(() {
+          if (!mounted) return;
+          final pinnedIds = ref.read(pinnedCategoriesProvider);
+          final categoryIds = [null, ...pinnedIds];
+          for (final categoryId in categoryIds) {
+            ref
+                .read(topicListProvider(categoryId).notifier)
+                .updateSeen(topicId, highestSeen);
+          }
+        }, Priority.idle);
       },
     );
 
@@ -1470,6 +1476,20 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
     final detail = detailAsync.value;
     final notifier = ref.read(topicDetailProvider(params).notifier);
 
+    // 会话已读集合变化(timings 上报成功后 markAsRead)只需推给 controller
+    // 供 screenTrack 计算 readOnscreen,不触发 rebuild —— 与
+    // _buildPostListContent 里的 ref.read 配对(那里承担 detail 变化时的重算)。
+    ref.listen(topicSessionProvider(widget.topicId), (_, next) {
+      final currentDetail = ref.read(topicDetailProvider(params)).value;
+      if (currentDetail == null) return;
+      final readPostNumbers = <int>{
+        for (final post in currentDetail.postStream.posts)
+          if (post.read) post.postNumber,
+        ...next.readPostNumbers,
+      };
+      _updateReadPostNumbers(readPostNumbers);
+    });
+
     _maybeSwitchToMasterDetail(canShowDetailPane, detail);
 
     // 监听 MessageBus 事件
@@ -1560,14 +1580,6 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       }
       final posts = detail?.postStream.posts;
       if (posts != null && posts.isNotEmpty) {
-        final htmlList = posts.map((p) => p.cooked).toList();
-        ChunkedHtmlContent.preloadAll(htmlList);
-
-        // 预热 Pangu 混排处理（在 isolate 中执行）
-        if (ref.read(preferencesProvider).displayPanguSpacing) {
-          DiscourseHtmlContent.preloadPangu(htmlList);
-        }
-
         final hasFirstPost = posts.first.postNumber == 1;
         if (_hasFirstPost != hasFirstPost) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1993,7 +2005,11 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
   ) {
     final posts = detail.postStream.posts;
     final hasFirstPost = posts.isNotEmpty && posts.first.postNumber == 1;
-    final sessionState = ref.watch(topicSessionProvider(widget.topicId));
+    // read 而非 watch：sessionState 只用于合成 readPostNumbers 推给 controller,
+    // 不驱动任何 UI(未读圆点由 PostItem 内部细粒度 Consumer 自行监听)。
+    // watch 会让每次 timings 上报成功(markAsRead)都整页 rebuild;
+    // session 变化时的推送由 build() 里的 ref.listen 承担。
+    final sessionState = ref.read(topicSessionProvider(widget.topicId));
 
     if (posts.isNotEmpty) {
       final readPostNumbers = <int>{};
@@ -2033,6 +2049,8 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
           }
         });
       } else {
+        // 定位滚动前先按目标楼层预置进度条，避免数字从低楼层爬升
+        _primeStreamIndexForInitialTarget(detail, posts, dividerPostIndex);
         _scrollToInitialPosition(posts, dividerPostIndex);
       }
     }
@@ -2077,77 +2095,67 @@ class _TopicDetailPageState extends ConsumerState<TopicDetailPage>
       return _wrapWithConstraint(nestedView);
     }
 
-    // 使用 Consumer + select 隔离 typingUsers 状态变化，避免整页重建
-    Widget scrollView = Consumer(
-      builder: (context, ref, _) {
-        final typingUsers = ref.watch(
-          topicChannelProvider(widget.topicId).select((s) => s.typingUsers),
-        );
+    // typingUsers 的监听已下沉到 TopicPostList 内部的打字指示器 sliver，
+    // presence 消息不再触发整个列表重建
+    Widget scrollView = ValueListenableBuilder<int?>(
+      valueListenable: _controller.selectedPostNumberNotifier,
+      builder: (context, selectedPostNumber, _) {
         return ValueListenableBuilder<int?>(
-          valueListenable: _controller.selectedPostNumberNotifier,
-          builder: (context, selectedPostNumber, _) {
-            return ValueListenableBuilder<int?>(
-              valueListenable: _controller.highlightNotifier,
-              builder: (context, highlightPostNumber, _) {
-                return TopicPostList(
-                  detail: detail,
-                  scrollController: _controller.scrollController,
-                  centerKey: _centerKey,
-                  headerKey: _headerKey,
-                  hideHeaderTitle: widget.hideInlineHeaderTitle,
-                  selectedPostNumber: selectedPostNumber,
-                  highlightPostNumber: highlightPostNumber,
-                  highlightBoostUsername: widget.highlightBoostUsername,
-                  typingUsers: typingUsers,
-                  isLoggedIn: isLoggedIn,
-                  hasMoreBefore: notifier.hasMoreBefore,
-                  hasMoreAfter: notifier.hasMoreAfter,
-                  isLoadingPrevious: notifier.isLoadingPrevious,
-                  isLoadingMore: notifier.isLoadingMore,
-                  isLoadMoreFailed: notifier.isLoadMoreFailed,
-                  isLoadPreviousFailed: notifier.isLoadPreviousFailed,
-                  onRetryLoadMore: () => notifier.retryLoadMore(),
-                  onRetryLoadPrevious: () => notifier.retryLoadPrevious(),
-                  centerPostIndex: centerPostIndex,
-                  dividerPostIndex: dividerPostIndex,
-                  onFirstVisiblePostChanged: _updateStreamIndexForPostNumber,
-                  onVisiblePostsChanged: _updateVisiblePosts,
-                  onScrollIndexMappingChanged:
-                      _controller.updateScrollIndexMapping,
-                  onScrollIndexToPostNumberChanged:
-                      _controller.updateScrollIndexToPostNumber,
-                  onPostSegmentRangesChanged:
-                      _controller.updatePostSegmentRanges,
-                  onJumpToPost: _scrollToPost,
-                  onReply: _handleReply,
-                  onEdit: _handleEdit,
-                  onShareAsImage: _sharePostAsImage,
-                  onRefreshPost: _handleRefreshPost,
-                  onVoteChanged: _handleVoteChanged,
-                  onSharedIssueChanged: _handleSharedIssueChanged,
-                  onNotificationLevelChanged: (level) =>
-                      _handleNotificationLevelChanged(notifier, level),
-                  onSolutionChanged: _handleSolutionChanged,
-                  onQuoteSelection: isLoggedIn ? _handleQuoteSelection : null,
-                  onQuoteImage: isLoggedIn ? _handleImageQuote : null,
-                  onScrollNotification: _controller.handleScrollNotification,
-                  onPointerScroll: _controller.handlePointerScroll,
-                  onFillGapBefore: (postId) => notifier.fillGapBefore(postId),
-                  onFillGapAfter: (postId) => notifier.fillGapAfter(postId),
-                  onExpandHiddenPost: (postId) =>
-                      notifier.expandHiddenPost(postId),
-                  useReplyDialog: notifier.isTopLevelMode,
-                  onShowPostDetail: (post) => showPostRepliesSheet(
-                    context: context,
-                    post: post,
-                    topicId: widget.topicId,
-                    topicTitle: detail.title,
-                    isPrivateMessageTopic: detail.isPrivateMessage,
-                    isPmWithNonHumanUser: detail.pmWithNonHumanUser,
-                    onJumpToPost: _scrollToPost,
-                  ),
-                );
-              },
+          valueListenable: _controller.highlightNotifier,
+          builder: (context, highlightPostNumber, _) {
+            return TopicPostList(
+              detail: detail,
+              scrollController: _controller.scrollController,
+              centerKey: _centerKey,
+              headerKey: _headerKey,
+              hideHeaderTitle: widget.hideInlineHeaderTitle,
+              selectedPostNumber: selectedPostNumber,
+              highlightPostNumber: highlightPostNumber,
+              highlightBoostUsername: widget.highlightBoostUsername,
+              isLoggedIn: isLoggedIn,
+              hasMoreBefore: notifier.hasMoreBefore,
+              hasMoreAfter: notifier.hasMoreAfter,
+              isLoadingPrevious: notifier.isLoadingPrevious,
+              isLoadingMore: notifier.isLoadingMore,
+              isLoadMoreFailed: notifier.isLoadMoreFailed,
+              isLoadPreviousFailed: notifier.isLoadPreviousFailed,
+              onRetryLoadMore: () => notifier.retryLoadMore(),
+              onRetryLoadPrevious: () => notifier.retryLoadPrevious(),
+              centerPostIndex: centerPostIndex,
+              dividerPostIndex: dividerPostIndex,
+              onFirstVisiblePostChanged: _updateStreamIndexForPostNumber,
+              onVisiblePostsChanged: _updateVisiblePosts,
+              onScrollIndexMappingChanged: _controller.updateScrollIndexMapping,
+              onScrollIndexToPostNumberChanged:
+                  _controller.updateScrollIndexToPostNumber,
+              onPostSegmentRangesChanged: _controller.updatePostSegmentRanges,
+              onJumpToPost: _scrollToPost,
+              onReply: _handleReply,
+              onEdit: _handleEdit,
+              onShareAsImage: _sharePostAsImage,
+              onRefreshPost: _handleRefreshPost,
+              onVoteChanged: _handleVoteChanged,
+              onSharedIssueChanged: _handleSharedIssueChanged,
+              onNotificationLevelChanged: (level) =>
+                  _handleNotificationLevelChanged(notifier, level),
+              onSolutionChanged: _handleSolutionChanged,
+              onQuoteSelection: isLoggedIn ? _handleQuoteSelection : null,
+              onQuoteImage: isLoggedIn ? _handleImageQuote : null,
+              onScrollNotification: _controller.handleScrollNotification,
+              onPointerScroll: _controller.handlePointerScroll,
+              onFillGapBefore: (postId) => notifier.fillGapBefore(postId),
+              onFillGapAfter: (postId) => notifier.fillGapAfter(postId),
+              onExpandHiddenPost: (postId) => notifier.expandHiddenPost(postId),
+              useReplyDialog: notifier.isTopLevelMode,
+              onShowPostDetail: (post) => showPostRepliesSheet(
+                context: context,
+                post: post,
+                topicId: widget.topicId,
+                topicTitle: detail.title,
+                isPrivateMessageTopic: detail.isPrivateMessage,
+                isPmWithNonHumanUser: detail.pmWithNonHumanUser,
+                onJumpToPost: _scrollToPost,
+              ),
             );
           },
         );

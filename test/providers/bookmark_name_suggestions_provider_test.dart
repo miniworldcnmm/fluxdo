@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:fluxdo/providers/bookmark_name_suggestions_provider.dart';
 import 'package:fluxdo/providers/bookmarks_repository.dart';
+import 'package:fluxdo/providers/user_content_providers.dart';
 import 'package:fluxdo/storage/bookmark_cache_dao.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -21,7 +22,10 @@ Future<ProviderContainer> _createContainer(
     BookmarkCacheDao(boxFactory: storage.openBox),
   );
   final container = ProviderContainer(
-    overrides: [bookmarksRepositoryProvider.overrideWithValue(repo)],
+    overrides: [
+      bookmarksRepositoryProvider.overrideWithValue(repo),
+      currentUsernameProvider.overrideWith((ref) async => null),
+    ],
   );
   addTearDown(() async {
     container.dispose();

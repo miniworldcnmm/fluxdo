@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../constants.dart';
+import 'discourse_cache_manager.dart';
 import 'network/cookie/cookie_jar_service.dart';
 
 /// 迁移项定义
@@ -175,6 +176,92 @@ class MigrationService {
           debugPrint('[Migration v5] 已清理 RawSetCookieQueue 持久化文件');
         } catch (e) {
           debugPrint('[Migration v5] 失败 (忽略): $e');
+        }
+      },
+    ),
+    // v6: 图片缓存索引从自研 Hive repo 迁回 flutter_cache_manager 默认后端
+    // (移动端 / macOS = sqlite 事务安全; Windows / Linux = Json 纯 Dart)。
+    // 旧的 image_cache_meta_* Hive box 不再使用,其中损坏的 box 正是
+    // "unknown typeId" 崩溃源,一次性删除。图片文件本身仍在,索引重建 =
+    // 首次访问按需重新下载,无数据损失。
+    Migration(
+      key: 'image_cache_meta_hive_purge_v6',
+      name: 'Purge legacy Hive image cache index',
+      shouldRun: (prefs) async {
+        try {
+          final dir = await getApplicationDocumentsDirectory();
+          final hiveDir = io.Directory(p.join(dir.path, 'hive'));
+          if (!await hiveDir.exists()) return false;
+          await for (final e in hiveDir.list()) {
+            if (e is io.File &&
+                p.basename(e.path).startsWith('image_cache_meta_')) {
+              return true;
+            }
+          }
+          return false;
+        } catch (_) {
+          return false;
+        }
+      },
+      run: () async {
+        final dir = await getApplicationDocumentsDirectory();
+        final hiveDir = io.Directory(p.join(dir.path, 'hive'));
+        if (!await hiveDir.exists()) return;
+        await for (final e in hiveDir.list()) {
+          if (e is! io.File ||
+              !p.basename(e.path).startsWith('image_cache_meta_')) {
+            continue;
+          }
+          try {
+            await e.delete();
+            debugPrint('[Migration v6] 删除旧 Hive 图片索引: ${p.basename(e.path)}');
+          } catch (err) {
+            debugPrint('[Migration v6] 删除失败 ${p.basename(e.path)}: $err');
+          }
+        }
+      },
+    ),
+    // v7: 清空图片缓存目录。
+    // v6 删除旧 Hive 索引后,已下载的图片文件仍留在 Temporary/{cacheKey}/ 下,
+    // 但新索引不再引用它们 —— emptyCache / LRU 清理都只认索引内条目,这批
+    // 文件会永久占据磁盘(可达数百 MB)。目录里绝大多数文件都是这种孤儿,
+    // 不值得为少数已重新入索引的文件做逐文件比对 —— 整目录删除,连同刚起步
+    // 的 sqlite 索引 db 一起删,全部从零重建(纯缓存,按需重新下载)。
+    // 运行时机在 runApp 之前,CacheManager 尚未 open,无并发读写。
+    Migration(
+      key: 'image_cache_orphan_purge_v7',
+      name: 'Purge image cache directories',
+      shouldRun: (prefs) async {
+        try {
+          final tempDir = await getTemporaryDirectory();
+          for (final key in kImageCacheKeys) {
+            if (await io.Directory(p.join(tempDir.path, key)).exists()) {
+              return true;
+            }
+          }
+          return false;
+        } catch (_) {
+          return false;
+        }
+      },
+      run: () async {
+        final tempDir = await getTemporaryDirectory();
+        final supportDir = await getApplicationSupportDirectory();
+        for (final key in kImageCacheKeys) {
+          try {
+            final cacheDir = io.Directory(p.join(tempDir.path, key));
+            if (await cacheDir.exists()) {
+              await cacheDir.delete(recursive: true);
+            }
+            // sqlite 索引一并删除,避免残留指向已删文件的 dangling 条目。
+            for (final suffix in const ['.db', '.db-wal', '.db-shm']) {
+              final f = io.File(p.join(supportDir.path, '$key$suffix'));
+              if (await f.exists()) await f.delete();
+            }
+            debugPrint('[Migration v7] 已清空缓存: $key');
+          } catch (e) {
+            debugPrint('[Migration v7] 清理 $key 失败 (忽略): $e');
+          }
         }
       },
     ),

@@ -23,7 +23,7 @@ import '../common/flair_badge.dart';
 import 'package:common_ui/common_ui.dart';
 import '../common/skeleton.dart';
 import '../common/smart_avatar.dart';
-import '../content/discourse_html_content/discourse_html_content_widget.dart';
+import '../../utils/fluxdo_render_callbacks.dart';
 import '../post/reply_sheet.dart';
 import 'ignore_duration_picker.dart';
 
@@ -833,10 +833,14 @@ class _UserCardContentState extends ConsumerState<UserCardContent> {
         constraints: const BoxConstraints(maxHeight: 66),
         child: SingleChildScrollView(
           physics: const NeverScrollableScrollPhysics(),
-          child: DiscourseHtmlContent(
-            html: user.bio!,
+          // 用户卡 bio 属只读预览：走新引擎 FluxdoRender，关闭划词选区。
+          child: FluxdoRenderCallbacks.generic(
+            heroTagNamespace: 'user_card_bio_${user.username}',
+          ).render(
+            cookedHtml: user.bio!,
+            baseTextStyle: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
             compact: true,
-            textStyle: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+            selectionEnabled: false,
           ),
         ),
       ),

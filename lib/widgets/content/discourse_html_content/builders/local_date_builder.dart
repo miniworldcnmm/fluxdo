@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:intl/intl.dart';
 import 'package:app_icons/app_icons.dart';
@@ -9,11 +8,13 @@ import 'package:popover/popover.dart';
 
 import '../../../../utils/time_utils.dart';
 
-/// 构建 `discourse-local-date` 本地日期 Widget
+/// 构建 `discourse-local-date` 本地日期 chip。
 ///
 /// 对应 Discourse cooked HTML 中的 `<span class="discourse-local-date" ...>`，
-/// 使用设备本地时区显示，点击弹出多时区预览。
-Widget? buildLocalDate({
+/// 使用设备本地时区显示，点击弹出多时区预览。子包 FluxdoRender 的
+/// localDateBuilder 直接当普通 Widget 用(自行包 WidgetSpan 行内排版)。
+/// 返回 null 时(date 缺失/解析失败)由调用方兜底。
+Widget? buildLocalDateChip({
   required BuildContext context,
   required ThemeData theme,
   required dynamic element,
@@ -22,10 +23,7 @@ Widget? buildLocalDate({
   final dom.Element el = element as dom.Element;
   final opts = _LocalDateOptions.fromElement(el);
   if (opts == null) return null;
-
-  return InlineCustomWidget(
-    child: _LocalDateChip(opts: opts, baseFontSize: baseFontSize),
-  );
+  return _LocalDateChip(opts: opts, baseFontSize: baseFontSize);
 }
 
 class _LocalDateOptions {

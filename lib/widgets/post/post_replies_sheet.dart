@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:app_icons/app_icons.dart';
-import 'package:flutter/rendering.dart' show SelectedContent;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../l10n/s.dart';
 import '../../utils/dialog_utils.dart';
@@ -10,13 +9,14 @@ import '../../providers/discourse_providers.dart';
 import '../../services/app_error_handler.dart';
 import '../../services/discourse/discourse_service.dart';
 import '../../services/screen_track.dart';
+import '../../services/toast_service.dart';
 import '../../utils/code_selection_context.dart';
 import '../../utils/html_text_mapper.dart';
 import '../../utils/html_to_markdown.dart';
 import '../../utils/quote_builder.dart';
 import '../common/app_bottom_sheet.dart';
 import '../common/loading_spinner.dart';
-import '../content/discourse_html_content/discourse_html_content.dart';
+import '../../utils/fluxdo_render_callbacks.dart';
 import 'post_item/quote_selection_helper.dart';
 import 'post_item/widgets/post_footer_section/post_footer_section.dart';
 import 'post_item/widgets/post_header_section.dart';
@@ -79,10 +79,6 @@ class _PostRepliesSheetContentState
   bool _isLoading = true;
   bool _isLoadingMore = false;
   String? _error;
-
-  // 引用回复相关
-  SelectedContent? _lastSelectedContent;
-  CodeSelectionContext? _lastCodeSelectionContext;
 
   // 弹框内跳转高亮
   final Map<int, GlobalKey> _postKeys = {};
@@ -475,35 +471,28 @@ class _PostRepliesSheetContentState
         ),
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: DiscourseHtmlContent(
-            html: post.cooked,
-            textStyle: Theme.of(
+          child: FluxdoRenderCallbacks.forPost(
+            post: post,
+            topicId: widget.topicId,
+          ).render(
+            cookedHtml: post.cooked,
+            baseTextStyle: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(fontSize: 14, height: 1.5),
             compact: true,
-            onSelectionChanged: (content) {
-              _lastSelectedContent = content;
-              _lastCodeSelectionContext = content == null
-                  ? null
-                  : CodeSelectionContextTracker.instance.current;
-            },
-            contextMenuBuilder: _isLoggedIn
-                ? (context, state) {
-                    final items = QuoteSelectionHelper.buildMenuItems(
-                      baseItems: state.contextMenuButtonItems,
-                      plainText: _lastSelectedContent?.plainText,
-                      post: post,
-                      hideToolbar: state.hideToolbar,
-                      topicId: widget.topicId,
-                      onQuoteSelection: _handleQuoteSelection,
-                      codeContext: _lastCodeSelectionContext,
-                    );
-                    return AdaptiveTextSelectionToolbar.buttonItems(
-                      anchors: state.contextMenuAnchors,
-                      buttonItems: items,
-                    );
-                  }
+            selectionEnabled: _isLoggedIn,
+            onQuoteRequest: _isLoggedIn
+                ? (plainText) => _handleQuoteSelection(plainText, post)
                 : null,
+            onCopyQuoteRequest: (plainText) =>
+                QuoteSelectionHelper.copyQuoteToClipboard(
+              selectedText: plainText,
+              post: post,
+              topicId: widget.topicId,
+            ),
+            onCopyToast: () => ToastService.showSuccess(
+              S.current.common_copiedToClipboard,
+            ),
           ),
         ),
         SelectionContainer.disabled(
